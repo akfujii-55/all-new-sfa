@@ -1,0 +1,143 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Building2, User, KanbanSquare, MessageSquareText } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { markEmailRead } from "@/actions/emails";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { EmailBody } from "@/components/inbox/email-body";
+import { ReplyForm } from "@/components/inbox/reply-form";
+import { LinkDealSelect } from "@/components/inbox/link-deal-select";
+import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+import { fmtDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import type { Email } from "@/lib/types";
+
+export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: root } = await supabase.from("emails").select("thread_key").eq("id", id).maybeSingle();
+  if (!root) notFound();
+
+  const { data } = await supabase
+    .from("emails")
+    .select("*, company:companies(id,name), contact:contacts(id,name), deal:deals(id,title)")
+    .eq("thread_key", root.thread_key)
+    .order("received_at", { ascending: true });
+  const emails = (data ?? []) as unknown as Email[];
+  if (emails.length === 0) notFound();
+
+  const latest = emails[emails.length - 1];
+  const latestInbound = [...emails].reverse().find((e) => e.direction === "inbound") ?? latest;
+  const linked = emails.find((e) => e.company_id || e.contact_id || e.deal_id) ?? latest;
+  const self = (process.env.GMAIL_USER ?? "").toLowerCase();
+
+  await Promise.all(emails.filter((e) => !e.is_read).map((e) => markEmailRead(e.id)));
+
+  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }] = await Promise.all([
+    linked.company_id
+      ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
+      : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
+    supabase.from("companies").select("id, name").order("name"),
+    supabase.from("contacts").select("id, name, company_id").order("name"),
+    linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+
+  const replyTo = latestInbound.direction === "inbound" ? latestInbound.from_address : latestInbound.to_addresses.join(", ");
+  const replyCc = latestInbound.cc_addresses.filter((a) => a !== self).join(", ");
+  const quote = `${fmtDateTime(latestInbound.received_at)} ${latestInbound.from_name || latestInbound.from_address}:\n${(latestInbound.text_body ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`;
+
+  return (
+    <div>
+      <Button asChild variant="ghost" size="sm" className="mb-3 -ml-2">
+        <Link href="/inbox"><ArrowLeft className="size-4" /> 受信トレイ</Link>
+      </Button>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-4 min-w-0">
+          <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
+          {emails.map((e) => (
+            <Card key={e.id} className={cn(e.direction === "outbound" && "border-emerald-200 dark:border-emerald-900")}>
+              <CardHeader className="pb-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="text-sm">
+                    <span className="font-medium">{e.from_name || e.from_address}</span>
+                    {e.from_name && <span className="text-muted-foreground"> &lt;{e.from_address}&gt;</span>}
+                    <Badge variant={e.direction === "inbound" ? "secondary" : "outline"} className="ml-2">
+                      {e.direction === "inbound" ? "受信" : "送信"}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{fmtDateTime(e.received_at)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">To: {e.to_addresses.join(", ")}{e.cc_addresses.length ? ` / CC: ${e.cc_addresses.join(", ")}` : ""}</p>
+              </CardHeader>
+              <CardContent>
+                <EmailBody text={e.text_body} />
+              </CardContent>
+            </Card>
+          ))}
+
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} />
+        </div>
+
+        <aside className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">関連情報</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-start gap-2">
+                <Building2 className="size-4 mt-0.5 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">顧客</p>
+                  {linked.company ? <Link href={`/companies/${linked.company.id}`} className="font-medium hover:underline">{linked.company.name}</Link> : <span className="text-muted-foreground">未登録</span>}
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <User className="size-4 mt-0.5 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">担当者</p>
+                  {linked.contact ? <span className="font-medium">{linked.contact.name}</span> : <span className="text-muted-foreground">未登録</span>}
+                </div>
+              </div>
+              {inquiry && (
+                <div className="flex items-start gap-2">
+                  <MessageSquareText className="size-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">問い合わせ</p>
+                    <Link href="/inquiries" className="font-medium hover:underline">{inquiry.category ?? "問い合わせ"}</Link>
+                  </div>
+                </div>
+              )}
+              <Separator />
+              <div className="flex items-start gap-2">
+                <KanbanSquare className="size-4 mt-0.5 text-muted-foreground" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-xs text-muted-foreground">案件</p>
+                  {linked.deal && (
+                    <Link href={`/deals/${linked.deal.id}`} className="block font-medium hover:underline">{linked.deal.title}</Link>
+                  )}
+                  <LinkDealSelect emailId={latest.id} dealId={linked.deal_id} deals={deals ?? []} />
+                  {!linked.deal_id && (
+                    <NewDealDialog
+                      companies={companies ?? []}
+                      contacts={contacts ?? []}
+                      defaults={{
+                        company_id: linked.company_id ?? undefined,
+                        contact_id: linked.contact_id ?? undefined,
+                        title: latest.subject ?? "",
+                        inquiry_id: linked.inquiry_id ?? undefined,
+                        email_id: latest.id,
+                      }}
+                      trigger={<Button size="sm" variant="secondary" className="w-full">このスレッドから案件を作成</Button>}
+                    />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+    </div>
+  );
+}

@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SFA アプリ
 
-## Getting Started
+Gmail の問い合わせメールを起点に、顧客・担当者・問い合わせ・案件(カンバン)・商談メモ・月次売上をひとつの流れで管理する、中小企業向けのシンプルな SFA です。
 
-First, run the development server:
+## 技術スタック
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Next.js 16(App Router, Server Actions, Proxy)
+- Supabase(Postgres / Auth / RLS)
+- Tailwind CSS v4 + shadcn/ui
+- Gmail IMAP(imapflow + mailparser)/ SMTP(nodemailer)
+- 任意: Claude API によるメール情報抽出
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 機能
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 機能 | 内容 |
+| --- | --- |
+| メール受信 | Gmail の受信トレイ・送信済みを IMAP で取り込み。送信者からドメインや署名を解析して顧客・担当者を自動登録 |
+| 問い合わせ管理 | 新規スレッドの受信メールを問い合わせとして登録。要約・分類・ステータス管理 |
+| メール送信 | Gmail SMTP で送信。返信はスレッドを維持し、案件・顧客の履歴に残る |
+| 案件 | アポ取得時に問い合わせから案件化。カンバン(リード / アポ取得 / 提案 / 交渉 / 成約 / 失注) |
+| 商談メモ | 案件ごとの時系列メモ |
+| 売上計上 | 成約時に計上月と金額(複数月分割可)を必須入力。月次売上ダッシュボード |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## セットアップ
 
-## Learn More
+1. 依存関係をインストール
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. `.env.example` を `.env.local` にコピーし、値を設定
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+   - `GMAIL_USER`, `GMAIL_APP_PASSWORD`(Google アカウントで 2 段階認証を有効にしてアプリパスワードを発行。Gmail 設定で IMAP を有効化)
+   - `CRON_SECRET`(定期同期用)
+   - 任意: `ANTHROPIC_API_KEY`(メールからの会社名・担当者・要約の抽出精度が上がります)
 
-## Deploy on Vercel
+3. Supabase にスキーマを適用
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=xxxx node scripts/apply-migrations.mjs
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Supabase ダッシュボードの SQL Editor に `supabase/migrations/0001_init.sql` を貼り付けて実行しても構いません。
+
+4. 起動
+
+   ```bash
+   npm run dev
+   ```
+
+   http://localhost:3000/login でアカウントを作成してログインします(Supabase Auth の「Confirm email」を無効にすると即ログインできます)。
+
+## メール同期
+
+- 画面右上の「メール同期」で手動同期。
+- 定期同期は `GET /api/mail/sync` を `Authorization: Bearer <CRON_SECRET>` 付きで呼び出します。Vercel では `vercel.json` の cron 設定で 5 分ごとに実行されます。
+- Gmail 以外のメールを扱う場合は、そのアドレスから Gmail へ自動転送してください。
