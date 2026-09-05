@@ -1,7 +1,15 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+/** 確認メールのリンク先(このアプリ自身の /auth/callback) */
+async function callbackUrl() {
+  const h = await headers();
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+  return `${origin}/auth/callback`;
+}
 
 export type AuthState = { error?: string; message?: string } | undefined;
 
@@ -23,7 +31,7 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName } },
+    options: { data: { full_name: fullName }, emailRedirectTo: await callbackUrl() },
   });
   if (error) return { error: error.message };
   if (data.session) redirect("/");
