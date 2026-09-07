@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { InquiryStatusSelect } from "@/components/inquiries/inquiry-status-select";
-import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABEL, type Inquiry, type InquiryStatus } from "@/lib/types";
@@ -23,16 +22,17 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
 
   let query = supabase
     .from("inquiries")
-    .select("*, company:companies(id,name), contact:contacts(id,name,email), deal:deals(id,title)")
+    .select("*, company:companies(id,name), contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title)")
     .order("received_at", { ascending: false })
     .limit(200);
   if (status === "open") query = query.in("status", ["new", "in_progress"]);
   else if (status !== "all") query = query.eq("status", status);
 
-  const [{ data }, { data: companies }, { data: contacts }] = await Promise.all([
+  const [{ data }, { data: companies }, { data: contacts }, { data: members }] = await Promise.all([
     query,
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id").order("name"),
+    supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
   const rows = (data ?? []) as unknown as Inquiry[];
 
@@ -46,8 +46,8 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
     <div>
       <PageHeader
         title="問い合わせ"
-        description="受信メールから自動抽出された問い合わせ。アポイントが取れたら案件化します。"
-        actions={<MailSyncButton />}
+        description="メール画面で選択して登録した問い合わせ。アポイントが取れたら案件化します。"
+        actions={<Button asChild size="sm" variant="outline"><Link href="/inbox?filter=no_inquiry"><Mail className="size-4" /> メールから登録</Link></Button>}
       />
       <div className="mb-4 flex flex-wrap gap-2">
         {tabs.map((t) => (
@@ -58,7 +58,12 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState icon={MessageSquareText} title="問い合わせがありません" description="メールを同期すると、新規スレッドの受信メールが問い合わせとして登録されます。" />
+        <EmptyState
+          icon={MessageSquareText}
+          title="問い合わせがありません"
+          description="メール画面で対応が必要なメールにチェックを付け、「問い合わせに登録」を押すとここに表示されます。"
+          action={<Button asChild size="sm"><Link href="/inbox?filter=no_inquiry"><Mail className="size-4" /> メールから登録</Link></Button>}
+        />
       ) : (
         <div className="space-y-3">
           {rows.map((q) => (
@@ -88,6 +93,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                       <NewDealDialog
                         companies={companies ?? []}
                         contacts={contacts ?? []}
+                        members={members ?? []}
                         defaults={{ company_id: q.company_id ?? undefined, contact_id: q.contact_id ?? undefined, title: q.subject, inquiry_id: q.id, email_id: q.email_id ?? undefined }}
                         trigger={<Button size="sm"><KanbanSquare className="size-4" /> 案件化</Button>}
                       />

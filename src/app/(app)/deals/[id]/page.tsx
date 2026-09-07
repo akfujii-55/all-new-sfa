@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, User, CalendarClock, Mail, PenSquare } from "lucide-react";
+import { ArrowLeft, Building2, User, UserCog, CalendarClock, Mail, PenSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,18 +21,20 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   const supabase = await createClient();
   const { data } = await supabase
     .from("deals")
-    .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:profiles(id,full_name)")
+    .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name)")
     .eq("id", id)
     .maybeSingle();
   if (!data) notFound();
   const deal = data as unknown as Deal;
 
-  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }] = await Promise.all([
+  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }] = await Promise.all([
     supabase.from("emails").select("*").eq("deal_id", id).order("received_at", { ascending: false }),
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
+    supabase.from("members").select("id, name, is_active").order("sort_order").order("created_at"),
   ]);
+  const memberOptions = (members ?? []).filter((m) => m.is_active || m.id === deal.owner_id);
 
   const revTotal = (revenues ?? []).reduce((a, r) => a + Number(r.amount), 0);
 
@@ -49,12 +51,12 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
             <Link href={`/companies/${deal.company_id}`} className="flex items-center gap-1 hover:underline"><Building2 className="size-4" /> {deal.company?.name}</Link>
             {deal.contact && <span className="flex items-center gap-1"><User className="size-4" /> {deal.contact.name}</span>}
             {deal.appointment_at && <span className="flex items-center gap-1"><CalendarClock className="size-4" /> アポ {fmtDateTime(deal.appointment_at)}</span>}
-            {deal.owner?.full_name && <span>担当: {deal.owner.full_name}</span>}
+            <span className="flex items-center gap-1"><UserCog className="size-4" /> {deal.owner?.name ?? "担当未設定"}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <StageSelect deal={{ id: deal.id, title: deal.title, amount: Number(deal.amount), stage: deal.stage }} />
-          <DealEditDialog deal={deal} contacts={contacts ?? []} />
+          <DealEditDialog deal={deal} contacts={contacts ?? []} members={memberOptions} />
         </div>
       </div>
 

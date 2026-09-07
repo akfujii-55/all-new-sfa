@@ -18,17 +18,20 @@ export interface NewDealDefaults {
   inquiry_id?: string;
   email_id?: string;
   stage?: DealStage;
+  owner_id?: string;
 }
 
 export function NewDealDialog({
   trigger,
   companies,
   contacts,
+  members = [],
   defaults,
 }: {
   trigger: ReactNode;
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string; company_id: string | null }[];
+  members?: { id: string; name: string }[];
   defaults?: NewDealDefaults;
 }) {
   const [open, setOpen] = useState(false);
@@ -36,6 +39,7 @@ export function NewDealDialog({
   const [companyId, setCompanyId] = useState(defaults?.company_id ?? "");
   const [contactId, setContactId] = useState(defaults?.contact_id ?? "");
   const [stage, setStage] = useState<DealStage>(defaults?.stage ?? "appointment");
+  const [ownerId, setOwnerId] = useState(defaults?.owner_id ?? "");
   const [filter, setFilter] = useState("");
 
   const filteredCompanies = useMemo(
@@ -46,7 +50,10 @@ export function NewDealDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {/* trigger はサーバーページで作られた要素が lazy 参照で届くことがあり、Slot が直接 clone できないため span で包む */}
+      <DialogTrigger asChild>
+        <span className="contents">{trigger}</span>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>案件を作成</DialogTitle>
@@ -60,6 +67,7 @@ export function NewDealDialog({
                 fd.set("company_id", companyId);
                 fd.set("contact_id", contactId);
                 fd.set("stage", stage);
+                fd.set("owner_id", ownerId);
                 if (defaults?.inquiry_id) fd.set("inquiry_id", defaults.inquiry_id);
                 if (defaults?.email_id) fd.set("email_id", defaults.email_id);
                 await createDeal(fd);
@@ -85,17 +93,31 @@ export function NewDealDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
-            <Label>担当者</Label>
-            <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="担当者を選択" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">未選択</SelectItem>
-                {companyContacts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label>顧客担当者</Label>
+              <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="顧客担当者を選択" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未選択</SelectItem>
+                  {companyContacts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>営業担当</Label>
+              <Select value={ownerId || "none"} onValueChange={(v) => setOwnerId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="営業担当を選択" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="title">案件名 *</Label>

@@ -20,13 +20,14 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
   const { data: company } = await supabase.from("companies").select("*").eq("id", id).maybeSingle();
   if (!company) notFound();
 
-  const [{ data: contacts }, { data: deals }, { data: inquiries }, { data: emails }, { data: companies }, { data: allContacts }] = await Promise.all([
+  const [{ data: contacts }, { data: deals }, { data: inquiries }, { data: emails }, { data: companies }, { data: allContacts }, { data: members }] = await Promise.all([
     supabase.from("contacts").select("*").eq("company_id", id).order("name"),
     supabase.from("deals").select("*, contact:contacts(id,name,email)").eq("company_id", id).order("updated_at", { ascending: false }),
-    supabase.from("inquiries").select("*, contact:contacts(id,name,email), deal:deals(id,title)").eq("company_id", id).order("received_at", { ascending: false }),
+    supabase.from("inquiries").select("*, contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title)").eq("company_id", id).order("received_at", { ascending: false }),
     supabase.from("emails").select("id, thread_key, direction, from_name, from_address, subject, snippet, received_at, is_read, deal:deals(id,title)").eq("company_id", id).order("received_at", { ascending: false }).limit(100),
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id").order("name"),
+    supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
   const c = company as Company;
   const wonTotal = (deals ?? []).filter((d) => d.stage === "won").reduce((a, d) => a + Number(d.amount), 0);
@@ -49,7 +50,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
           </div>
         </div>
         <div className="flex gap-2">
-          <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />
+          <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />
           <CompanyDialog company={c} trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
         </div>
       </div>

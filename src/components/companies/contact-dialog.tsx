@@ -27,7 +27,10 @@ export function ContactDialog({
   const [companyId, setCompanyId] = useState(contact?.company_id ?? defaultCompanyId ?? "");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {/* trigger はサーバーページで作られた要素が lazy 参照で届くことがあり、Slot が直接 clone できないため span で包む */}
+      <DialogTrigger asChild>
+        <span className="contents">{trigger}</span>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader><DialogTitle>{contact ? "担当者を編集" : "担当者を登録"}</DialogTitle></DialogHeader>
         <form

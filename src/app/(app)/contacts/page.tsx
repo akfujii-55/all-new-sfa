@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Plus, Pencil, Mail } from "lucide-react";
+import { Users, Plus, Pencil, Mail, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ContactDialog } from "@/components/companies/contact-dialog";
+import { CompanyDialog } from "@/components/companies/company-dialog";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import type { Contact } from "@/lib/types";
 
-export const metadata = { title: "担当者" };
+export const metadata = { title: "顧客担当者" };
 
 export default async function ContactsPage({ searchParams }: PageProps<"/contacts">) {
   const sp = await searchParams;
@@ -24,15 +25,20 @@ export default async function ContactsPage({ searchParams }: PageProps<"/contact
   return (
     <div>
       <PageHeader
-        title="担当者"
-        description="顧客企業の担当者一覧"
-        actions={<ContactDialog companies={companies ?? []} trigger={<Button size="sm"><Plus className="size-4" /> 担当者を登録</Button>} />}
+        title="顧客担当者"
+        description="顧客企業側の担当者一覧。メール同期で送信者が自動登録されます。自社の営業担当は「営業担当」メニューで管理します。"
+        actions={
+          <>
+            <CompanyDialog trigger={<Button size="sm" variant="outline"><Building2 className="size-4" /> 会社を登録</Button>} />
+            <ContactDialog companies={companies ?? []} trigger={<Button size="sm"><Plus className="size-4" /> 担当者を登録</Button>} />
+          </>
+        }
       />
       <form className="mb-4" action="/contacts">
         <Input name="q" defaultValue={q} placeholder="氏名・メール・役職で検索" className="w-72" />
       </form>
       {rows.length === 0 ? (
-        <EmptyState icon={Users} title="担当者がいません" description="メールを同期すると送信者が自動登録されます。" />
+        <EmptyState icon={Users} title="顧客担当者がいません" description="メールを同期すると送信者が自動登録されます。" />
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
           <Table>

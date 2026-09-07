@@ -29,6 +29,19 @@ export interface Profile {
   created_at: string;
 }
 
+/** 社内の営業担当(自社側)。顧客側の担当者は Contact */
+export interface Member {
+  id: string;
+  profile_id: string | null;
+  name: string;
+  email: string | null;
+  is_active: boolean;
+  sort_order: number;
+  memo: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -75,7 +88,7 @@ export interface Deal {
   updated_at: string;
   company?: Pick<Company, "id" | "name"> | null;
   contact?: Pick<Contact, "id" | "name" | "email"> | null;
-  owner?: Pick<Profile, "id" | "full_name"> | null;
+  owner?: Pick<Member, "id" | "name"> | null;
 }
 
 export interface Email {

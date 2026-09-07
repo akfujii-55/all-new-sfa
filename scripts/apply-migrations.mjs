@@ -1,5 +1,6 @@
 // Supabase Management API 経由でマイグレーションを適用する
-// 使い方: SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=xxxx node scripts/apply-migrations.mjs
+// 使い方: SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=xxxx node scripts/apply-migrations.mjs [ファイル名...]
+//   ファイル名を指定するとそのマイグレーションだけを適用する(例: node scripts/apply-migrations.mjs 0002_members.sql)
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -11,7 +12,15 @@ if (!token || !ref) {
 }
 
 const dir = join(process.cwd(), "supabase", "migrations");
-const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+const only = process.argv.slice(2);
+const files = readdirSync(dir)
+  .filter((f) => f.endsWith(".sql"))
+  .filter((f) => only.length === 0 || only.includes(f))
+  .sort();
+if (only.length > 0 && files.length !== only.length) {
+  console.error("指定されたファイルが見つかりません:", only.filter((f) => !files.includes(f)).join(", "));
+  process.exit(1);
+}
 
 for (const file of files) {
   const sql = readFileSync(join(dir, file), "utf8");

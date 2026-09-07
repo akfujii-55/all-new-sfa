@@ -19,10 +19,19 @@ function toLocalInput(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function DealEditDialog({ deal, contacts }: { deal: Deal; contacts: { id: string; name: string }[] }) {
+export function DealEditDialog({
+  deal,
+  contacts,
+  members = [],
+}: {
+  deal: Deal;
+  contacts: { id: string; name: string }[];
+  members?: { id: string; name: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [contactId, setContactId] = useState(deal.contact_id ?? "");
+  const [ownerId, setOwnerId] = useState(deal.owner_id ?? "");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -36,6 +45,7 @@ export function DealEditDialog({ deal, contacts }: { deal: Deal; contacts: { id:
             start(async () => {
               try {
                 fd.set("contact_id", contactId);
+                fd.set("owner_id", ownerId);
                 await updateDeal(deal.id, fd);
                 toast.success("保存しました");
                 setOpen(false);
@@ -49,15 +59,27 @@ export function DealEditDialog({ deal, contacts }: { deal: Deal; contacts: { id:
             <Label htmlFor="title">案件名</Label>
             <Input id="title" name="title" defaultValue={deal.title} required />
           </div>
-          <div className="grid gap-1.5">
-            <Label>担当者</Label>
-            <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">未選択</SelectItem>
-                {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label>顧客担当者</Label>
+              <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未選択</SelectItem>
+                  {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>営業担当</Label>
+              <Select value={ownerId || "none"} onValueChange={(v) => setOwnerId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">

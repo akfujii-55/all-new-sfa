@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, KanbanSquare, JapaneseYen, Settings,
+  LayoutDashboard, Inbox, MessageSquareText, Users, UserCog, KanbanSquare, JapaneseYen, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,8 @@ const NAV = [
   { href: "/inbox", label: "メール", icon: Inbox, badgeKey: "unread" as const },
   { href: "/inquiries", label: "問い合わせ", icon: MessageSquareText, badgeKey: "inquiries" as const },
   { href: "/deals", label: "案件", icon: KanbanSquare },
-  { href: "/companies", label: "顧客", icon: Building2 },
-  { href: "/contacts", label: "担当者", icon: Users },
+  { href: "/contacts", label: "顧客担当者", icon: Users },
+  { href: "/members", label: "営業担当", icon: UserCog },
   { href: "/revenue", label: "売上", icon: JapaneseYen },
   { href: "/settings", label: "設定", icon: Settings },
 ];

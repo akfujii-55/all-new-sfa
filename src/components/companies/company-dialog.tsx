@@ -15,7 +15,10 @@ export function CompanyDialog({ trigger, company }: { trigger: ReactNode; compan
   const [pending, start] = useTransition();
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {/* trigger はサーバーページで作られた要素が lazy 参照で届くことがあり、Slot が直接 clone できないため span で包む */}
+      <DialogTrigger asChild>
+        <span className="contents">{trigger}</span>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader><DialogTitle>{company ? "顧客を編集" : "顧客を登録"}</DialogTitle></DialogHeader>
         <form

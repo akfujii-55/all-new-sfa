@@ -30,6 +30,13 @@ export async function createDeal(formData: FormData) {
   const inquiryId = s(formData.get("inquiry_id"));
   const stage = (s(formData.get("stage")) ?? "appointment") as DealStage;
 
+  // 営業担当: 指定がなければログインユーザーに対応する営業担当
+  let ownerId = s(formData.get("owner_id"));
+  if (!ownerId && auth.user) {
+    const { data: me } = await supabase.from("members").select("id").eq("profile_id", auth.user.id).maybeSingle();
+    ownerId = me?.id ?? null;
+  }
+
   const { data, error } = await supabase
     .from("deals")
     .insert({
@@ -42,7 +49,7 @@ export async function createDeal(formData: FormData) {
       probability: stage === "appointment" ? 30 : stage === "lead" ? 10 : 50,
       appointment_at: s(formData.get("appointment_at")) ? new Date(String(formData.get("appointment_at"))).toISOString() : null,
       expected_close_date: s(formData.get("expected_close_date")),
-      owner_id: auth.user?.id ?? null,
+      owner_id: ownerId,
       memo: s(formData.get("memo")),
     })
     .select("id")
@@ -81,6 +88,7 @@ export async function updateDeal(id: string, formData: FormData) {
     .update({
       title: s(formData.get("title")) ?? "名称未設定",
       contact_id: s(formData.get("contact_id")),
+      owner_id: s(formData.get("owner_id")),
       amount: n(formData.get("amount")),
       probability: Math.min(100, Math.max(0, n(formData.get("probability")))),
       appointment_at: s(formData.get("appointment_at")) ? new Date(String(formData.get("appointment_at"))).toISOString() : null,

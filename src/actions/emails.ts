@@ -137,3 +137,26 @@ export async function runMailSync() {
   revalidatePath("/");
   return results;
 }
+
+/** 選択されたメールをスレッド単位で削除する。紐付いた問い合わせ・案件は残る。 */
+export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted: number }> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("ログインが必要です");
+
+  const ids = Array.from(new Set(emailIds.filter(Boolean)));
+  if (ids.length === 0) return { deleted: 0 };
+
+  const { data: seeds, error: seedErr } = await supabase.from("emails").select("thread_key").in("id", ids);
+  if (seedErr) throw new Error(seedErr.message);
+  const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key)));
+  if (threadKeys.length === 0) return { deleted: 0 };
+
+  const { count, error } = await supabase.from("emails").delete({ count: "exact" }).in("thread_key", threadKeys);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/inbox");
+  revalidatePath("/inquiries");
+  revalidatePath("/");
+  return { deleted: count ?? 0 };
+}

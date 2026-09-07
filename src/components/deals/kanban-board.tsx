@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { Building2, CalendarClock, GripVertical } from "lucide-react";
+import { Building2, CalendarClock, GripVertical, UserCog } from "lucide-react";
 import { moveDealStage } from "@/actions/deals";
 import { DEAL_STAGES, type Deal, type DealStage } from "@/lib/types";
 import { fmtDate, yen } from "@/lib/format";
@@ -127,6 +127,11 @@ function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
           <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground truncate">
             <Building2 className="size-3" /> {deal.company?.name ?? "-"}
           </p>
+          {deal.owner?.name && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground truncate">
+              <UserCog className="size-3" /> {deal.owner.name}
+            </p>
+          )}
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm font-semibold tabular-nums">{yen(deal.amount)}</span>
             <Badge variant="secondary" className="text-[10px]">{deal.probability}%</Badge>

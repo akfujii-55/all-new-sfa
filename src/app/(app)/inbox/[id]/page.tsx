@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { EmailBody } from "@/components/inbox/email-body";
 import { ReplyForm } from "@/components/inbox/reply-form";
 import { LinkDealSelect } from "@/components/inbox/link-deal-select";
+import { ThreadActions } from "@/components/inbox/thread-actions";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -36,13 +37,14 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   await Promise.all(emails.filter((e) => !e.is_read).map((e) => markEmailRead(e.id)));
 
-  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }] = await Promise.all([
+  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }] = await Promise.all([
     linked.company_id
       ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
       : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id").order("name"),
     linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
 
   const replyTo = latestInbound.direction === "inbound" ? latestInbound.from_address : latestInbound.to_addresses.join(", ");
@@ -51,9 +53,12 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   return (
     <div>
-      <Button asChild variant="ghost" size="sm" className="mb-3 -ml-2">
-        <Link href="/inbox"><ArrowLeft className="size-4" /> 受信トレイ</Link>
-      </Button>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
+          <Link href="/inbox"><ArrowLeft className="size-4" /> 受信トレイ</Link>
+        </Button>
+        <ThreadActions emailId={latest.id} hasInquiry={Boolean(linked.inquiry_id)} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
@@ -122,6 +127,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
                     <NewDealDialog
                       companies={companies ?? []}
                       contacts={contacts ?? []}
+                      members={members ?? []}
                       defaults={{
                         company_id: linked.company_id ?? undefined,
                         contact_id: linked.contact_id ?? undefined,
