@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings,
@@ -24,10 +25,13 @@ export function Sidebar({ counts }: { counts: { unread: number; inquiries: numbe
   const pathname = usePathname();
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2 px-5 font-semibold border-b">
-        <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">S</span>
-        SFA
-      </div>
+      <Link href="/" className="flex h-14 items-center gap-2 px-4 font-semibold border-b">
+        {/* ロゴは黒文字のため、ダークモードでは白い下地を敷く */}
+        <span className="inline-flex items-center rounded-sm dark:bg-white dark:px-1.5 dark:py-1">
+          <Image src="/art-logo.png" alt="ART TRADING" width={132} height={21} priority className="h-[21px] w-auto" />
+        </span>
+        <span className="text-sm tracking-wide">SFA</span>
+      </Link>
       <nav className="flex-1 p-3 space-y-1">
         {NAV.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
