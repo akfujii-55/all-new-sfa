@@ -80,9 +80,9 @@ export function NewDealDialog({
           }
         >
           <div className="grid gap-1.5">
-            <Label>顧客 *</Label>
+            <Label>取引先 *</Label>
             <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContactId(""); }}>
-              <SelectTrigger><SelectValue placeholder="顧客を選択" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="取引先を選択" /></SelectTrigger>
               <SelectContent>
                 <div className="p-2">
                   <Input placeholder="検索..." value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />

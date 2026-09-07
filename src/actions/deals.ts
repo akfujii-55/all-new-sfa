@@ -26,7 +26,7 @@ export async function createDeal(formData: FormData) {
   const { data: auth } = await supabase.auth.getUser();
   const companyId = s(formData.get("company_id"));
   const title = s(formData.get("title"));
-  if (!companyId || !title) throw new Error("顧客と案件名は必須です");
+  if (!companyId || !title) throw new Error("取引先と案件名は必須です");
   const inquiryId = s(formData.get("inquiry_id"));
   const stage = (s(formData.get("stage")) ?? "appointment") as DealStage;
 

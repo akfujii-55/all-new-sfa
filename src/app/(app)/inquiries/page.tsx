@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { MessageSquareText, Mail, KanbanSquare } from "lucide-react";
+import { MessageSquareText, Mail, KanbanSquare, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmailBody } from "@/components/inbox/email-body";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { InquiryStatusSelect } from "@/components/inquiries/inquiry-status-select";
 import { fmtDateTime } from "@/lib/format";
@@ -22,7 +23,9 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
 
   let query = supabase
     .from("inquiries")
-    .select("*, company:companies(id,name), contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title)")
+    .select(
+      "*, company:companies(id,name), contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title), emails:emails!emails_inquiry_fk(id,direction,from_address,from_name,subject,text_body,received_at)",
+    )
     .order("received_at", { ascending: false })
     .limit(200);
   if (status === "open") query = query.in("status", ["new", "in_progress"]);
@@ -66,13 +69,20 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
         />
       ) : (
         <div className="space-y-3">
-          {rows.map((q) => (
+          {rows.map((q) => {
+            // 新しいものが上
+            const thread = [...(q.emails ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at));
+            const threadId = q.email_id ?? thread[0]?.id ?? null;
+            const latestInbound = thread.find((e) => e.direction === "inbound") ?? thread[0] ?? null;
+            return (
             <Card key={q.id} id={q.id} className={cn(focus === q.id && "ring-2 ring-primary")}>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium">{q.subject}</h3>
+                      <h3 className="font-medium">
+                        {threadId ? <Link href={`/inbox/${threadId}`} className="hover:underline">{q.subject}</Link> : q.subject}
+                      </h3>
                       {q.category && <Badge variant="secondary">{q.category}</Badge>}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{q.summary}</p>
@@ -84,8 +94,8 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <InquiryStatusSelect id={q.id} status={q.status} />
-                    {q.email_id && (
-                      <Button asChild size="sm" variant="outline"><Link href={`/inbox/${q.email_id}`}><Mail className="size-4" /> メール</Link></Button>
+                    {threadId && (
+                      <Button asChild size="sm" variant="outline"><Link href={`/inbox/${threadId}`}><Mail className="size-4" /> メールを開く</Link></Button>
                     )}
                     {q.deal ? (
                       <Button asChild size="sm" variant="secondary"><Link href={`/deals/${q.deal.id}`}><KanbanSquare className="size-4" /> {q.deal.title}</Link></Button>
@@ -100,9 +110,33 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                     )}
                   </div>
                 </div>
+
+                {latestInbound && (
+                  <details className="mt-3 rounded-md border bg-muted/30 open:bg-muted/40">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-sm text-muted-foreground hover:text-foreground">
+                      メール本文を表示{thread.length > 1 ? `(スレッド ${thread.length} 件)` : ""}
+                    </summary>
+                    <div className="space-y-4 border-t px-3 py-3">
+                      {thread.map((e) => (
+                        <div key={e.id}>
+                          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              {e.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
+                              <span className="font-medium text-foreground">{e.from_name || e.from_address}</span>
+                              {e.from_name && <span>&lt;{e.from_address}&gt;</span>}
+                            </span>
+                            <span>{fmtDateTime(e.received_at)}</span>
+                          </div>
+                          <EmailBody text={e.text_body} />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

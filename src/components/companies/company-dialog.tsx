@@ -20,7 +20,7 @@ export function CompanyDialog({ trigger, company }: { trigger: ReactNode; compan
         <span className="contents">{trigger}</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{company ? "顧客を編集" : "顧客を登録"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{company ? "取引先を編集" : "取引先を登録"}</DialogTitle></DialogHeader>
         <form
           className="space-y-3"
           action={(fd) =>

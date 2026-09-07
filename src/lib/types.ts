@@ -134,6 +134,8 @@ export interface Inquiry {
   company?: Pick<Company, "id" | "name"> | null;
   contact?: Pick<Contact, "id" | "name" | "email"> | null;
   deal?: Pick<Deal, "id" | "title"> | null;
+  /** このスレッドのメール(emails.inquiry_id で紐付け) */
+  emails?: Pick<Email, "id" | "direction" | "from_address" | "from_name" | "subject" | "text_body" | "received_at">[];
 }
 
 export interface DealNote {

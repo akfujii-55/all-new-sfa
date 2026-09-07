@@ -63,7 +63,9 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
-          {emails.map((e) => (
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} />
+          {/* 履歴は新しいものが上 */}
+          {[...emails].reverse().map((e) => (
             <Card key={e.id} className={cn(e.direction === "outbound" && "border-emerald-200 dark:border-emerald-900")}>
               <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -83,8 +85,6 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
               </CardContent>
             </Card>
           ))}
-
-          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} />
         </div>
 
         <aside className="space-y-4">
@@ -94,7 +94,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
               <div className="flex items-start gap-2">
                 <Building2 className="size-4 mt-0.5 text-muted-foreground" />
                 <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">顧客</p>
+                  <p className="text-xs text-muted-foreground">取引先</p>
                   {linked.company ? <Link href={`/companies/${linked.company.id}`} className="font-medium hover:underline">{linked.company.name}</Link> : <span className="text-muted-foreground">未登録</span>}
                 </div>
               </div>

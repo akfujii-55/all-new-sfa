@@ -69,7 +69,7 @@ export default async function RevenuePage({ searchParams }: PageProps<"/revenue"
             <TableRow>
               <TableHead>計上月</TableHead>
               <TableHead>案件</TableHead>
-              <TableHead>顧客</TableHead>
+              <TableHead>取引先</TableHead>
               <TableHead className="hidden md:table-cell">メモ</TableHead>
               <TableHead className="text-right">金額</TableHead>
             </TableRow>

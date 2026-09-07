@@ -1,7 +1,8 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { extractFromEmail, isFreeMail, stripQuotes } from "./extract";
+import { stripQuotes } from "./extract";
+import { findOrCreateContact, isExternalAddress, resolveCounterpart } from "./link";
 import { mailAccount } from "./smtp";
 
 type Db = SupabaseClient;
@@ -153,13 +154,10 @@ export async function ingestParsedMail(
   const cc = addrList(parsed.cc);
   const self = selfAddress.toLowerCase();
 
-  // 相手(顧客側)のアドレスを決める
-  const counterpart =
-    direction === "inbound"
-      ? from
-      : (to.find((t) => t.address && t.address !== self) ?? cc.find((c) => c.address !== self) ?? null);
-
   const text = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
+  // 相手(顧客側)を決める。自社サイトのフォーム通知なら本文の問い合わせ者本人
+  const { counterpart } = resolveCounterpart({ direction, from, to, cc, self, text });
+
   const references = refs(parsed);
   const inReplyTo = parsed.inReplyTo?.trim() || undefined;
   const threadKey = threadKeyOf(messageId, inReplyTo, references);
@@ -180,45 +178,11 @@ export async function ingestParsedMail(
   const effectiveThreadKey = sibling?.thread_key ?? threadKey;
 
   // 相手が社内アドレス/自分自身なら顧客紐付けはしない
-  const isExternal = counterpart && counterpart.address && counterpart.address !== self && !counterpart.address.endsWith(`@${self.split("@")[1]}`);
-
-  let extracted: Awaited<ReturnType<typeof extractFromEmail>> | null = null;
-  if (isExternal && counterpart) {
+  if (counterpart && isExternalAddress(counterpart.address, self)) {
     if (!contactId) {
-      const { data: existing } = await db
-        .from("contacts")
-        .select("id, company_id")
-        .eq("email", counterpart.address)
-        .maybeSingle();
-      if (existing) {
-        contactId = existing.id;
-        companyId = companyId ?? existing.company_id;
-      } else {
-        if (direction === "inbound") {
-          extracted = await extractFromEmail({
-            fromName: from.name || null,
-            fromAddress: from.address,
-            subject: parsed.subject ?? null,
-            text,
-          });
-        }
-        const domain = counterpart.address.split("@")[1] ?? "";
-        if (!companyId) {
-          companyId = await findOrCreateCompany(db, domain, extracted?.company_name ?? null, counterpart.name || extracted?.person_name || null);
-        }
-        const { data: created } = await db
-          .from("contacts")
-          .insert({
-            company_id: companyId,
-            name: extracted?.person_name || counterpart.name || counterpart.address.split("@")[0],
-            email: counterpart.address,
-            title: extracted?.person_title ?? null,
-            phone: extracted?.phone ?? null,
-          })
-          .select("id")
-          .single();
-        contactId = created?.id ?? null;
-      }
+      const linked = await findOrCreateContact(db, { counterpart, direction, subject: parsed.subject ?? null, text, companyId });
+      contactId = linked.contactId;
+      companyId = linked.companyId;
     }
     if (!companyId && contactId) {
       const { data: c } = await db.from("contacts").select("company_id").eq("id", contactId).maybeSingle();
@@ -274,33 +238,6 @@ export async function ingestParsedMail(
   // createInquiriesFromEmails(src/actions/inquiries.ts)で登録する。
   // 既存スレッドに問い合わせが付いていれば sibling から inquiry_id を引き継ぐ。
   return true;
-}
-
-async function findOrCreateCompany(db: Db, domain: string, extractedName: string | null, personName: string | null) {
-  const free = !domain || isFreeMail(domain);
-  if (!free) {
-    const { data: byDomain } = await db.from("companies").select("id").eq("domain", domain).maybeSingle();
-    if (byDomain) return byDomain.id;
-  }
-  if (extractedName) {
-    const { data: byName } = await db.from("companies").select("id").eq("name", extractedName).maybeSingle();
-    if (byName) {
-      if (!free) await db.from("companies").update({ domain }).eq("id", byName.id).is("domain", null);
-      return byName.id;
-    }
-  }
-  const name = extractedName || (free ? `${personName ?? domain}(個人)` : domainToName(domain));
-  const { data: created } = await db
-    .from("companies")
-    .insert({ name, domain: free ? null : domain, website: free ? null : `https://${domain}` })
-    .select("id")
-    .single();
-  return created?.id ?? null;
-}
-
-function domainToName(domain: string) {
-  const base = domain.split(".")[0] ?? domain;
-  return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
 function escapeOr(v: string) {

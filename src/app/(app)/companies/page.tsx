@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CompanyDialog } from "@/components/companies/company-dialog";
 import { fmtDate, yen } from "@/lib/format";
 
-export const metadata = { title: "顧客" };
+export const metadata = { title: "取引先" };
 
 export default async function CompaniesPage({ searchParams }: PageProps<"/companies">) {
   const sp = await searchParams;
@@ -28,16 +28,16 @@ export default async function CompaniesPage({ searchParams }: PageProps<"/compan
   return (
     <div>
       <PageHeader
-        title="顧客"
-        description="取引先企業の一覧。メール受信時に自動登録されます。"
-        actions={<CompanyDialog trigger={<Button size="sm"><Plus className="size-4" /> 顧客を登録</Button>} />}
+        title="取引先"
+        description="取引先企業の一覧。メール受信時に自動登録されます。担当者は「顧客担当者」メニューで管理します。"
+        actions={<CompanyDialog trigger={<Button size="sm"><Plus className="size-4" /> 取引先を登録</Button>} />}
       />
       <form className="mb-4" action="/companies">
         <Input name="q" defaultValue={q} placeholder="会社名・ドメイン・業種で検索" className="w-72" />
       </form>
 
       {rows.length === 0 ? (
-        <EmptyState icon={Building2} title="顧客がありません" description="メールを同期するか、手動で登録してください。" />
+        <EmptyState icon={Building2} title="取引先がありません" description="メールを同期するか、手動で登録してください。" />
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
           <Table>

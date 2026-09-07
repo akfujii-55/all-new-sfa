@@ -35,7 +35,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
   return (
     <div>
       <Button asChild variant="ghost" size="sm" className="mb-3 -ml-2">
-        <Link href="/companies"><ArrowLeft className="size-4" /> 顧客一覧</Link>
+        <Link href="/companies"><ArrowLeft className="size-4" /> 取引先一覧</Link>
       </Button>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

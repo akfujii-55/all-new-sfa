@@ -75,7 +75,10 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
     if (emails.some((e) => e.inquiry_id)) { skipped++; continue; }
 
     const base = emails.find((e) => e.direction === "inbound") ?? emails[0];
+    // 担当者・取引先は問い合わせ元の受信メール自身の紐付けを優先し、無ければスレッド内の他のメールから引き継ぐ
     const linked = emails.find((e) => e.company_id || e.contact_id || e.deal_id) ?? base;
+    const contactId = base.contact_id ?? linked.contact_id;
+    const companyId = base.company_id ?? linked.company_id;
 
     const extracted = await extractFromEmail({
       fromName: base.from_name,
@@ -87,8 +90,8 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
     const { data: inq, error } = await supabase
       .from("inquiries")
       .insert({
-        company_id: linked.company_id,
-        contact_id: linked.contact_id,
+        company_id: companyId,
+        contact_id: contactId,
         email_id: base.id,
         deal_id: linked.deal_id,
         subject: base.subject || "(件名なし)",
@@ -102,7 +105,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
     if (error) throw new Error(error.message);
 
     await supabase.from("emails").update({ inquiry_id: inq.id }).eq("thread_key", threadKey);
-    if (linked.company_id) companyIds.add(linked.company_id);
+    if (companyId) companyIds.add(companyId);
     created++;
   }
 
