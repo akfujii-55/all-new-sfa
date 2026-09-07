@@ -14,8 +14,8 @@ const NAV = [
   { href: "/inquiries", label: "問い合わせ", icon: MessageSquareText, badgeKey: "inquiries" as const },
   { href: "/deals", label: "案件", icon: KanbanSquare },
   { href: "/companies", label: "取引先", icon: Building2 },
-  { href: "/contacts", label: "顧客担当者", icon: Users },
-  { href: "/members", label: "営業担当", icon: UserCog },
+  { href: "/contacts", label: "担当者", icon: Users },
+  { href: "/members", label: "営業担当者", icon: UserCog },
   { href: "/revenue", label: "売上", icon: JapaneseYen },
   { href: "/settings", label: "設定", icon: Settings },
 ];

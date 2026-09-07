@@ -25,8 +25,8 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{member ? "営業担当を編集" : "営業担当を登録"}</DialogTitle>
-          <DialogDescription>自社の営業担当です。案件の担当として設定できます。</DialogDescription>
+          <DialogTitle>{member ? "営業担当者を編集" : "営業担当者を登録"}</DialogTitle>
+          <DialogDescription>自社の営業担当者です。案件の担当として設定できます。</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"

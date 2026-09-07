@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MemberDialog } from "@/components/members/member-dialog";
 import type { Member } from "@/lib/types";
 
-export const metadata = { title: "営業担当" };
+export const metadata = { title: "営業担当者" };
 
 export default async function MembersPage() {
   const supabase = await createClient();
@@ -25,16 +25,16 @@ export default async function MembersPage() {
   return (
     <div>
       <PageHeader
-        title="営業担当"
-        description="自社の営業担当。案件の担当として設定し、案件一覧を担当ごとに切り替えられます。"
-        actions={<MemberDialog trigger={<Button size="sm"><Plus className="size-4" /> 営業担当を登録</Button>} />}
+        title="営業担当者"
+        description="自社の営業担当者。案件の担当として設定し、案件一覧を担当ごとに切り替えられます。"
+        actions={<MemberDialog trigger={<Button size="sm"><Plus className="size-4" /> 営業担当者を登録</Button>} />}
       />
       {rows.length === 0 ? (
         <EmptyState
           icon={UserCog}
-          title="営業担当がいません"
+          title="営業担当者がいません"
           description="ログインユーザーは自動的に登録されます。ログインしないメンバーもここから追加できます。"
-          action={<MemberDialog trigger={<Button size="sm"><Plus className="size-4" /> 営業担当を登録</Button>} />}
+          action={<MemberDialog trigger={<Button size="sm"><Plus className="size-4" /> 営業担当者を登録</Button>} />}
         />
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">

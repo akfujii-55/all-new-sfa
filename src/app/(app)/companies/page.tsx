@@ -29,7 +29,7 @@ export default async function CompaniesPage({ searchParams }: PageProps<"/compan
     <div>
       <PageHeader
         title="取引先"
-        description="取引先企業の一覧。メール受信時に自動登録されます。担当者は「顧客担当者」メニューで管理します。"
+        description="取引先企業の一覧。メール受信時に自動登録されます。取引先側の担当者は「担当者」メニューで管理します。"
         actions={<CompanyDialog trigger={<Button size="sm"><Plus className="size-4" /> 取引先を登録</Button>} />}
       />
       <form className="mb-4" action="/companies">

@@ -11,7 +11,7 @@ import { CompanyDialog } from "@/components/companies/company-dialog";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import type { Contact } from "@/lib/types";
 
-export const metadata = { title: "顧客担当者" };
+export const metadata = { title: "担当者" };
 
 export default async function ContactsPage({ searchParams }: PageProps<"/contacts">) {
   const sp = await searchParams;
@@ -25,8 +25,8 @@ export default async function ContactsPage({ searchParams }: PageProps<"/contact
   return (
     <div>
       <PageHeader
-        title="顧客担当者"
-        description="顧客企業側の担当者一覧。メール同期で送信者が自動登録されます。自社の営業担当は「営業担当」メニューで管理します。"
+        title="担当者"
+        description="取引先側の担当者一覧。メール同期で送信者が自動登録されます。自社の営業担当者は「営業担当者」メニューで管理します。"
         actions={
           <>
             <CompanyDialog trigger={<Button size="sm" variant="outline"><Building2 className="size-4" /> 会社を登録</Button>} />
@@ -38,7 +38,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/contact
         <Input name="q" defaultValue={q} placeholder="氏名・メール・役職で検索" className="w-72" />
       </form>
       {rows.length === 0 ? (
-        <EmptyState icon={Users} title="顧客担当者がいません" description="メールを同期すると送信者が自動登録されます。" />
+        <EmptyState icon={Users} title="担当者がいません" description="メールを同期すると送信者が自動登録されます。" />
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
           <Table>

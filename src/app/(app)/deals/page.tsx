@@ -65,7 +65,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
           </Button>
         ))}
         {members.length === 0 && (
-          <Button asChild size="sm" variant="ghost"><Link href="/members">営業担当を登録</Link></Button>
+          <Button asChild size="sm" variant="ghost"><Link href="/members">営業担当者を登録</Link></Button>
         )}
       </div>
 

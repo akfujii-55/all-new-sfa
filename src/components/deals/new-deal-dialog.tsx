@@ -95,9 +95,9 @@ export function NewDealDialog({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label>顧客担当者</Label>
+              <Label>担当者</Label>
               <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="顧客担当者を選択" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="担当者を選択" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">未選択</SelectItem>
                   {companyContacts.map((c) => (
@@ -107,9 +107,9 @@ export function NewDealDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>営業担当</Label>
+              <Label>営業担当者</Label>
               <Select value={ownerId || "none"} onValueChange={(v) => setOwnerId(v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="営業担当を選択" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="営業担当者を選択" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">未設定</SelectItem>
                   {members.map((m) => (
