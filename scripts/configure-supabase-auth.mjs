@@ -15,7 +15,7 @@ if (!token || !ref || !siteUrl) {
 const url = `https://api.supabase.com/v1/projects/${ref}/config/auth`;
 const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 const before = await (await fetch(url, { headers })).json();
-console.log("現在:", { site_url: before.site_url, disable_signup: before.disable_signup, uri_allow_list: before.uri_allow_list });
+console.log("現在:", { site_url: before.site_url, disable_signup: before.disable_signup, mailer_otp_exp: before.mailer_otp_exp, uri_allow_list: before.uri_allow_list });
 const allow = new Set((before.uri_allow_list ?? "").split(",").filter(Boolean));
 allow.add(`${siteUrl}/auth/confirm`);
 allow.add(`${siteUrl}/auth/callback`);
@@ -24,11 +24,12 @@ allow.add("http://localhost:3000/auth/callback");
 const res = await fetch(url, {
   method: "PATCH",
   headers,
-  body: JSON.stringify({ site_url: siteUrl, disable_signup: true, uri_allow_list: [...allow].join(",") }),
+  // mailer_otp_exp: 招待リンクの有効期限(秒)。上限の 24 時間にする
+  body: JSON.stringify({ site_url: siteUrl, disable_signup: true, uri_allow_list: [...allow].join(","), mailer_otp_exp: 86400 }),
 });
 if (!res.ok) {
   console.error("FAILED", res.status, await res.text());
   process.exit(1);
 }
 const after = await res.json();
-console.log("更新後:", { site_url: after.site_url, disable_signup: after.disable_signup, uri_allow_list: after.uri_allow_list });
+console.log("更新後:", { site_url: after.site_url, disable_signup: after.disable_signup, mailer_otp_exp: after.mailer_otp_exp, uri_allow_list: after.uri_allow_list });
