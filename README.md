@@ -34,7 +34,6 @@ Gmail の問い合わせメールを起点に、顧客・担当者・問い合�
 
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    - `GMAIL_USER`, `GMAIL_APP_PASSWORD`(Google アカウントで 2 段階認証を有効にしてアプリパスワードを発行。Gmail 設定で IMAP を有効化)
-   - `CRON_SECRET`(定期同期用)
    - 任意: `ANTHROPIC_API_KEY`(メールからの会社名・担当者・要約の抽出精度が上がります)
 
 3. Supabase にスキーマを適用
@@ -55,6 +54,5 @@ Gmail の問い合わせメールを起点に、顧客・担当者・問い合�
 
 ## メール同期
 
-- 画面右上の「メール同期」で手動同期。
-- 定期同期は `GET /api/mail/sync` を `Authorization: Bearer <CRON_SECRET>` 付きで呼び出します。Vercel では `vercel.json` の cron 設定で 5 分ごとに実行されます。
+- メールの取り込みは手動です。画面右上、受信トレイ、設定画面の「メール同期」ボタンを押したときだけ Gmail から取得します(自動の定期取得は行いません)。
 - Gmail 以外のメールを扱う場合は、そのアドレスから Gmail へ自動転送してください。

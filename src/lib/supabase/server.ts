@@ -27,7 +27,7 @@ export async function createClient() {
   );
 }
 
-/** RLS をバイパスする管理クライアント(cron のメール同期など、サーバー内部処理専用) */
+/** RLS をバイパスする管理クライアント(手動メール同期など、サーバー内部処理専用) */
 export function createAdminClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
