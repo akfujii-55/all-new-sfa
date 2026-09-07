@@ -2,6 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  // 環境変数が未設定だと createServerClient が例外を投げて全ページが 500 になるため、原因が分かるメッセージを返す
+  const missing = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"].filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    return new NextResponse(
+      `環境変数が設定されていません: ${missing.join(", ")}\n` +
+        "Vercel の場合は Project Settings → Environment Variables に .env.local と同じ値を登録し、再デプロイしてください。",
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
