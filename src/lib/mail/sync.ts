@@ -6,10 +6,28 @@ import { mailAccount } from "./smtp";
 
 type Db = SupabaseClient;
 
-const MAILBOXES: { name: string; direction: "inbound" | "outbound" }[] = [
-  { name: "INBOX", direction: "inbound" },
-  { name: "[Gmail]/Sent Mail", direction: "outbound" },
-];
+type Mailbox = { key: string; path: string; direction: "inbound" | "outbound" };
+
+/**
+ * 同期対象のメールボックスを解決する。
+ * 送信済みフォルダは Gmail の表示言語でパスが変わる(例: "[Gmail]/Sent Mail" / "[Gmail]/送信済みメール")ため、
+ * 名前を固定せず SPECIAL-USE の \Sent フラグから探す。
+ * key は mail_sync_state の主キーとして使う安定した識別子。
+ */
+async function resolveMailboxes(client: ImapFlow): Promise<{ mailboxes: Mailbox[]; sentError?: string }> {
+  const mailboxes: Mailbox[] = [{ key: "INBOX", path: "INBOX", direction: "inbound" }];
+  try {
+    const list = await client.list();
+    const sent = list.find((m) => m.specialUse === "\\Sent");
+    if (sent) {
+      mailboxes.push({ key: "SENT", path: sent.path, direction: "outbound" });
+      return { mailboxes };
+    }
+    return { mailboxes, sentError: "送信済みメールのフォルダが見つかりません(Gmail の設定で IMAP に表示されているか確認してください)" };
+  } catch (e) {
+    return { mailboxes, sentError: `フォルダ一覧の取得に失敗しました: ${(e as Error).message}` };
+  }
+}
 
 function addrList(a: AddressObject | AddressObject[] | undefined): { address: string; name: string }[] {
   if (!a) return [];
@@ -46,20 +64,34 @@ export async function syncMail(db: Db, opts: { initialDays?: number } = {}): Pro
   });
 
   const results: SyncResult[] = [];
-  await client.connect();
   try {
-    for (const mb of MAILBOXES) {
-      const res: SyncResult = { mailbox: mb.name, fetched: 0, inserted: 0 };
+    await client.connect();
+  } catch (e) {
+    const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
+    if (err.authenticationFailed) {
+      throw new Error(
+        `Gmail へのログインに失敗しました(${err.responseText ?? err.message})。` +
+          "GMAIL_USER とアプリパスワードを確認してください。Google Workspace の場合は管理者が IMAP / アプリパスワードを許可している必要があります。",
+      );
+    }
+    throw new Error(`Gmail(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
+  }
+  try {
+    const { mailboxes, sentError } = await resolveMailboxes(client);
+    if (sentError) results.push({ mailbox: "SENT", fetched: 0, inserted: 0, error: sentError });
+
+    for (const mb of mailboxes) {
+      const res: SyncResult = { mailbox: mb.path, fetched: 0, inserted: 0 };
       results.push(res);
       let lock;
       try {
-        lock = await client.getMailboxLock(mb.name);
+        lock = await client.getMailboxLock(mb.path);
       } catch (e) {
-        res.error = `mailbox open failed: ${(e as Error).message}`;
+        res.error = `フォルダを開けませんでした: ${(e as Error).message}`;
         continue;
       }
       try {
-        const { data: state } = await db.from("mail_sync_state").select("*").eq("mailbox", mb.name).maybeSingle();
+        const { data: state } = await db.from("mail_sync_state").select("*").eq("mailbox", mb.key).maybeSingle();
         const lastUid = Number(state?.last_uid ?? 0);
 
         let uids: number[];
@@ -84,14 +116,14 @@ export async function syncMail(db: Db, opts: { initialDays?: number } = {}): Pro
         }
 
         await db.from("mail_sync_state").upsert({
-          mailbox: mb.name,
+          mailbox: mb.key,
           last_uid: maxUid,
           last_synced_at: new Date().toISOString(),
           last_error: null,
         });
       } catch (e) {
         res.error = (e as Error).message;
-        await db.from("mail_sync_state").upsert({ mailbox: mb.name, last_error: res.error, last_synced_at: new Date().toISOString() });
+        await db.from("mail_sync_state").upsert({ mailbox: mb.key, last_error: res.error, last_synced_at: new Date().toISOString() });
       } finally {
         lock.release();
       }
@@ -210,7 +242,7 @@ export async function ingestParsedMail(
   const snippet = stripQuotes(text).replace(/\s+/g, " ").slice(0, 160);
   const receivedAt = (parsed.date ?? new Date()).toISOString();
 
-  const { data: email, error } = await db
+  const { error } = await db
     .from("emails")
     .insert({
       message_id: messageId ?? null,
@@ -232,43 +264,15 @@ export async function ingestParsedMail(
       inquiry_id: inquiryId,
       is_read: direction === "outbound",
       imap_uid: imapUid ?? null,
-    })
-    .select("id")
-    .single();
+    });
   if (error) {
     if (error.code === "23505") return false; // 重複
     throw error;
   }
 
-  // 新規スレッドの受信メールは問い合わせとして登録
-  if (direction === "inbound" && isExternal && !inquiryId && !sibling && email) {
-    if (!extracted) {
-      extracted = await extractFromEmail({
-        fromName: from.name || null,
-        fromAddress: from.address,
-        subject: parsed.subject ?? null,
-        text,
-      });
-    }
-    const { data: inq } = await db
-      .from("inquiries")
-      .insert({
-        company_id: companyId,
-        contact_id: contactId,
-        email_id: email.id,
-        deal_id: dealId,
-        subject: parsed.subject || "(件名なし)",
-        summary: extracted.summary,
-        category: extracted.category,
-        status: dealId ? "converted" : "new",
-        received_at: receivedAt,
-      })
-      .select("id")
-      .single();
-    if (inq) {
-      await db.from("emails").update({ inquiry_id: inq.id }).eq("id", email.id);
-    }
-  }
+  // 問い合わせは自動登録しない。メール画面でユーザーが選択したものだけを
+  // createInquiriesFromEmails(src/actions/inquiries.ts)で登録する。
+  // 既存スレッドに問い合わせが付いていれば sibling から inquiry_id を引き継ぐ。
   return true;
 }
 
