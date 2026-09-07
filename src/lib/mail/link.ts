@@ -18,13 +18,14 @@ export function resolveCounterpart(opts: {
   from: Counterpart;
   to: Counterpart[];
   cc: Counterpart[];
-  self: string;
+  /** 自社のメールアドレス(登録済みアカウント全部) */
+  self: string | string[];
   text: string;
 }): { counterpart: Counterpart | null; isForm: boolean } {
-  const self = opts.self.toLowerCase();
+  const selves = new Set((Array.isArray(opts.self) ? opts.self : [opts.self]).map((a) => a.toLowerCase()));
   if (opts.direction === "outbound") {
     return {
-      counterpart: opts.to.find((t) => t.address && t.address !== self) ?? opts.cc.find((c) => c.address !== self) ?? null,
+      counterpart: opts.to.find((t) => t.address && !selves.has(t.address)) ?? opts.cc.find((c) => !selves.has(c.address)) ?? null,
       isForm: false,
     };
   }
@@ -35,13 +36,15 @@ export function resolveCounterpart(opts: {
   return { counterpart: opts.from, isForm: false };
 }
 
-/** 自社アドレス・自社ドメイン以外なら true */
-export function isExternalAddress(address: string | null | undefined, self: string): boolean {
+/** 自社アドレス・自社ドメイン以外なら true。self には登録済みアカウントのアドレスを全部渡す */
+export function isExternalAddress(address: string | null | undefined, self: string | string[]): boolean {
   if (!address) return false;
-  const me = self.toLowerCase();
-  const domain = me.split("@")[1];
   const a = address.toLowerCase();
-  return a !== me && !(domain && a.endsWith(`@${domain}`));
+  const selves = (Array.isArray(self) ? self : [self]).map((x) => x.toLowerCase()).filter(Boolean);
+  if (selves.includes(a)) return false;
+  // フリーメールのドメインは「自社ドメイン」扱いにしない(gmail.com の顧客を除外しないため)
+  const domains = selves.map((x) => x.split("@")[1]).filter((d) => d && !isFreeMail(d));
+  return !domains.some((d) => a.endsWith(`@${d}`));
 }
 
 /**

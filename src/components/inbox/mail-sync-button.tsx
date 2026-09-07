@@ -19,7 +19,7 @@ export function MailSyncButton({ label = "メール同期" }: { label?: string }
             const results = await runMailSync();
             const inserted = results.reduce((a, r) => a + r.inserted, 0);
             const errors = results.filter((r) => r.error);
-            if (errors.length) toast.error(`同期エラー: ${errors.map((e) => `${e.mailbox}: ${e.error}`).join(" / ")}`);
+            if (errors.length) toast.error(`同期エラー: ${errors.map((e) => `${e.account} ${e.mailbox}: ${e.error}`).join(" / ")}`);
             else toast.success(`同期完了: ${inserted}件の新着メールを取り込みました`);
           } catch (e) {
             toast.error((e as Error).message);

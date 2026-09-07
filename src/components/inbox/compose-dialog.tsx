@@ -9,16 +9,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MailAccountSelect } from "@/components/inbox/mail-account-select";
+import type { MailAccountOption } from "@/lib/types";
 
 export function ComposeDialog({
   trigger,
   defaults,
+  accounts = [],
 }: {
   trigger: ReactNode;
-  defaults?: { to?: string; cc?: string; subject?: string; body?: string; dealId?: string | null; contactId?: string | null; companyId?: string | null };
+  defaults?: { to?: string; cc?: string; subject?: string; body?: string; dealId?: string | null; contactId?: string | null; companyId?: string | null; accountId?: string | null };
+  /** 差出人に選べるメールアカウント。2件以上のとき選択欄を出す */
+  accounts?: MailAccountOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [accountId, setAccountId] = useState(defaults?.accountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
   const [form, setForm] = useState({
     to: defaults?.to ?? "",
     cc: defaults?.cc ?? "",
@@ -29,7 +35,7 @@ export function ComposeDialog({
   function submit() {
     start(async () => {
       try {
-        await sendEmail({ ...form, dealId: defaults?.dealId, contactId: defaults?.contactId, companyId: defaults?.companyId });
+        await sendEmail({ ...form, dealId: defaults?.dealId, contactId: defaults?.contactId, companyId: defaults?.companyId, accountId: accountId || null });
         toast.success("メールを送信しました");
         setOpen(false);
         setForm({ to: defaults?.to ?? "", cc: "", subject: "", body: "" });
@@ -48,9 +54,10 @@ export function ComposeDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>メールを作成</DialogTitle>
-          <DialogDescription>Gmail の SMTP 経由で送信し、履歴に保存します。</DialogDescription>
+          <DialogDescription>登録したメールアカウントから送信し、履歴に保存します。</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <MailAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
           <div className="grid gap-1.5">
             <Label>宛先</Label>
             <Input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="taro@example.co.jp, hanako@example.co.jp" />

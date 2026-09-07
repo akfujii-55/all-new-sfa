@@ -3,7 +3,7 @@ import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { stripQuotes } from "./extract";
 import { findOrCreateContact, isExternalAddress, resolveCounterpart } from "./link";
-import { mailAccount } from "./smtp";
+import { listMailAccounts, type MailAccountConfig } from "./accounts";
 
 type Db = SupabaseClient;
 
@@ -47,42 +47,82 @@ export function threadKeyOf(messageId: string | undefined, inReplyTo: string | u
 }
 
 export interface SyncResult {
+  /** アカウントのメールアドレス */
+  account: string;
   mailbox: string;
   fetched: number;
   inserted: number;
   error?: string;
 }
 
-/** Gmail の受信トレイ・送信済みを IMAP で取り込み、顧客/担当者/問い合わせ/案件に紐付ける */
-export async function syncMail(db: Db, opts: { initialDays?: number } = {}): Promise<SyncResult[]> {
-  const { user, pass } = mailAccount();
-  const client = new ImapFlow({
-    host: "imap.gmail.com",
-    port: 993,
-    secure: true,
-    auth: { user, pass },
-    logger: false,
-  });
+/** 登録済みの全アカウントを IMAP で取り込み、顧客/担当者/問い合わせ/案件に紐付ける */
+export async function syncMail(db: Db, opts: { initialDays?: number; accountId?: string } = {}): Promise<SyncResult[]> {
+  let accounts = await listMailAccounts(db);
+  if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
+  if (accounts.length === 0) throw new Error("メールアカウントが設定されていません。設定画面から追加してください。");
+  const selves = accounts.map((a) => a.email);
 
   const results: SyncResult[] = [];
+  for (const account of accounts) {
+    try {
+      results.push(...(await syncAccount(db, account, selves, opts)));
+      await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
+    } catch (e) {
+      const message = (e as Error).message;
+      results.push({ account: account.email, mailbox: "-", fetched: 0, inserted: 0, error: message });
+      await db.from("mail_accounts").update({ last_error: message }).eq("id", account.id);
+    }
+  }
+  return results;
+}
+
+/** IMAP にログインできるか確認する(設定画面の接続テスト用) */
+export async function verifyImap(account: MailAccountConfig) {
+  const client = imapClient(account);
+  await connectOrThrow(client);
+  await client.logout().catch(() => {});
+}
+
+function imapClient(account: MailAccountConfig) {
+  return new ImapFlow({
+    host: account.imapHost,
+    port: account.imapPort,
+    secure: account.imapPort === 993,
+    auth: { user: account.email, pass: account.password },
+    logger: false,
+  });
+}
+
+async function connectOrThrow(client: ImapFlow) {
   try {
     await client.connect();
   } catch (e) {
     const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
     if (err.authenticationFailed) {
       throw new Error(
-        `Gmail へのログインに失敗しました(${err.responseText ?? err.message})。` +
-          "GMAIL_USER とアプリパスワードを確認してください。Google Workspace の場合は管理者が IMAP / アプリパスワードを許可している必要があります。",
+        `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
+          "メールアドレスとアプリパスワードを確認してください。Google Workspace の場合は管理者が IMAP / アプリパスワードを許可している必要があります。",
       );
     }
-    throw new Error(`Gmail(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
+    throw new Error(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
   }
+}
+
+async function syncAccount(
+  db: Db,
+  account: MailAccountConfig,
+  selves: string[],
+  opts: { initialDays?: number },
+): Promise<SyncResult[]> {
+  const client = imapClient(account);
+  const results: SyncResult[] = [];
+  await connectOrThrow(client);
   try {
     const { mailboxes, sentError } = await resolveMailboxes(client);
-    if (sentError) results.push({ mailbox: "SENT", fetched: 0, inserted: 0, error: sentError });
+    if (sentError) results.push({ account: account.email, mailbox: "SENT", fetched: 0, inserted: 0, error: sentError });
 
     for (const mb of mailboxes) {
-      const res: SyncResult = { mailbox: mb.path, fetched: 0, inserted: 0 };
+      const res: SyncResult = { account: account.email, mailbox: mb.path, fetched: 0, inserted: 0 };
       results.push(res);
       let lock;
       try {
@@ -92,7 +132,12 @@ export async function syncMail(db: Db, opts: { initialDays?: number } = {}): Pro
         continue;
       }
       try {
-        const { data: state } = await db.from("mail_sync_state").select("*").eq("mailbox", mb.key).maybeSingle();
+        const { data: state } = await db
+          .from("mail_sync_state")
+          .select("*")
+          .eq("account_id", account.id)
+          .eq("mailbox", mb.key)
+          .maybeSingle();
         const lastUid = Number(state?.last_uid ?? 0);
 
         let uids: number[];
@@ -111,20 +156,21 @@ export async function syncMail(db: Db, opts: { initialDays?: number } = {}): Pro
           if (!msg || !msg.source) continue;
           res.fetched++;
           const parsed = await simpleParser(msg.source);
-          const inserted = await ingestParsedMail(db, parsed, mb.direction, user, uid);
+          const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id);
           if (inserted) res.inserted++;
           maxUid = Math.max(maxUid, uid);
         }
 
-        await db.from("mail_sync_state").upsert({
-          mailbox: mb.key,
-          last_uid: maxUid,
-          last_synced_at: new Date().toISOString(),
-          last_error: null,
-        });
+        await db.from("mail_sync_state").upsert(
+          { account_id: account.id, mailbox: mb.key, last_uid: maxUid, last_synced_at: new Date().toISOString(), last_error: null },
+          { onConflict: "account_id,mailbox" },
+        );
       } catch (e) {
         res.error = (e as Error).message;
-        await db.from("mail_sync_state").upsert({ mailbox: mb.key, last_error: res.error, last_synced_at: new Date().toISOString() });
+        await db.from("mail_sync_state").upsert(
+          { account_id: account.id, mailbox: mb.key, last_error: res.error, last_synced_at: new Date().toISOString() },
+          { onConflict: "account_id,mailbox" },
+        );
       } finally {
         lock.release();
       }
@@ -140,8 +186,10 @@ export async function ingestParsedMail(
   db: Db,
   parsed: ParsedMail,
   direction: "inbound" | "outbound",
-  selfAddress: string,
+  /** 自社のメールアドレス(登録済みアカウント全部) */
+  selfAddresses: string | string[],
   imapUid?: number,
+  accountId?: string | null,
 ): Promise<boolean> {
   const messageId = parsed.messageId?.trim();
   if (messageId) {
@@ -152,7 +200,7 @@ export async function ingestParsedMail(
   const from = addrList(parsed.from)[0] ?? { address: "unknown", name: "" };
   const to = addrList(parsed.to);
   const cc = addrList(parsed.cc);
-  const self = selfAddress.toLowerCase();
+  const self = (Array.isArray(selfAddresses) ? selfAddresses : [selfAddresses]).map((a) => a.toLowerCase());
 
   const text = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
   // 相手(顧客側)を決める。自社サイトのフォーム通知なら本文の問い合わせ者本人
@@ -228,6 +276,7 @@ export async function ingestParsedMail(
       inquiry_id: inquiryId,
       is_read: direction === "outbound",
       imap_uid: imapUid ?? null,
+      account_id: accountId ?? null,
     });
   if (error) {
     if (error.code === "23505") return false; // 重複

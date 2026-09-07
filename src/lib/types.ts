@@ -38,9 +38,32 @@ export interface Member {
   is_active: boolean;
   sort_order: number;
   memo: string | null;
+  /** 招待メールを送った日時(ログイン登録が済むと profile_id が入る) */
+  invited_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+/** 受信・送信に使うメールアカウント(Gmail など)。password_enc はサーバー側で暗号化済み */
+export interface MailAccount {
+  id: string;
+  label: string;
+  email: string;
+  from_name: string | null;
+  imap_host: string;
+  imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
+  password_enc: string;
+  is_active: boolean;
+  is_default: boolean;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** クライアントに渡す用のアカウント情報(認証情報を含まない) */
+export type MailAccountOption = Pick<MailAccount, "id" | "label" | "email" | "is_default">;
 
 export interface Company {
   id: string;
@@ -110,6 +133,7 @@ export interface Email {
   contact_id: string | null;
   deal_id: string | null;
   inquiry_id: string | null;
+  account_id: string | null;
   is_read: boolean;
   imap_uid: number | null;
   created_at: string;

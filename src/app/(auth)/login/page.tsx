@@ -5,6 +5,7 @@ export const metadata = { title: "ログイン" };
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
   const next = typeof sp.next === "string" ? sp.next : "/";
+  const error = typeof sp.error === "string" ? sp.error : null;
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between bg-zinc-950 text-white p-12">
@@ -21,7 +22,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <p className="text-xs text-zinc-500">© {new Date().getFullYear()} SFA</p>
       </div>
       <div className="flex items-center justify-center p-6">
-        <LoginForm next={next} />
+        <LoginForm next={next} error={error} />
       </div>
     </div>
   );

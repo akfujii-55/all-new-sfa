@@ -13,6 +13,7 @@ import { RevenueEditor } from "@/components/deals/revenue-editor";
 import { EmailBody } from "@/components/inbox/email-body";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { fmtDate, fmtDateTime, fmtMonth, yen } from "@/lib/format";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import type { Deal, DealNote, Email, Revenue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -27,12 +28,13 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   if (!data) notFound();
   const deal = data as unknown as Deal;
 
-  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }] = await Promise.all([
+  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts] = await Promise.all([
     supabase.from("emails").select("*").eq("deal_id", id).order("received_at", { ascending: false }),
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
     supabase.from("members").select("id, name, is_active").order("sort_order").order("created_at"),
+    getMailAccountOptions(supabase),
   ]);
   const memberOptions = (members ?? []).filter((m) => m.is_active || m.id === deal.owner_id);
 
@@ -81,6 +83,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
         <TabsContent value="emails" className="mt-4 space-y-3">
           <div className="flex justify-end">
             <ComposeDialog
+              accounts={accounts}
               defaults={{ to: deal.contact?.email ?? "", subject: `${deal.title}について`, dealId: deal.id, contactId: deal.contact_id, companyId: deal.company_id }}
               trigger={<Button size="sm"><PenSquare className="size-4" /> メールを送る</Button>}
             />

@@ -1,15 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-
-/** 確認メールのリンク先(このアプリ自身の /auth/callback) */
-async function callbackUrl() {
-  const h = await headers();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
-  return `${origin}/auth/callback`;
-}
 
 export type AuthState = { error?: string; message?: string } | undefined;
 
@@ -23,19 +15,18 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
   redirect(next.startsWith("/") ? next : "/");
 }
 
-export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "");
+/** 招待リンクから入ったユーザーがパスワードを決める */
+export async function setPassword(_: AuthState, formData: FormData): Promise<AuthState> {
   const password = String(formData.get("password") ?? "");
-  const fullName = String(formData.get("full_name") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < 8) return { error: "パスワードは8文字以上にしてください" };
+  if (password !== confirm) return { error: "確認用のパスワードが一致しません" };
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName }, emailRedirectTo: await callbackUrl() },
-  });
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return { error: "招待リンクの有効期限が切れています。招待をもう一度送ってもらってください。" };
+  const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
-  if (data.session) redirect("/");
-  return { message: "確認メールを送信しました。メール内のリンクからログインしてください。" };
+  redirect("/");
 }
 
 export async function signOut() {

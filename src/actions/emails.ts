@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { sendViaGmail } from "@/lib/mail/smtp";
+import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
+import { resolveSendAccount } from "@/lib/mail/accounts";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export interface SendEmailInput {
@@ -15,6 +16,8 @@ export interface SendEmailInput {
   dealId?: string | null;
   contactId?: string | null;
   companyId?: string | null;
+  /** 差出人にするメールアカウント。未指定なら返信元を受信したアカウント → 既定アカウント */
+  accountId?: string | null;
 }
 
 function splitAddrs(v?: string) {
@@ -41,14 +44,16 @@ export async function sendEmail(input: SendEmailInput) {
   let contactId = input.contactId ?? null;
   let companyId = input.companyId ?? null;
   let inquiryId: string | null = null;
+  let replyToAccountId: string | null = null;
 
   if (input.replyToEmailId) {
     const { data: parent } = await supabase
       .from("emails")
-      .select("message_id, thread_key, deal_id, contact_id, company_id, inquiry_id")
+      .select("message_id, thread_key, deal_id, contact_id, company_id, inquiry_id, account_id")
       .eq("id", input.replyToEmailId)
       .maybeSingle();
     if (parent) {
+      replyToAccountId = parent.account_id;
       inReplyTo = parent.message_id;
       threadKey = parent.thread_key;
       const { data: chain } = await supabase
@@ -72,7 +77,8 @@ export async function sendEmail(input: SendEmailInput) {
     }
   }
 
-  const { messageId, from } = await sendViaGmail({
+  const account = await resolveSendAccount(createAdminClient(), { accountId: input.accountId, replyToAccountId });
+  const { messageId, from } = await sendMail(account, {
     to,
     cc,
     subject: input.subject,
@@ -87,7 +93,8 @@ export async function sendEmail(input: SendEmailInput) {
     in_reply_to: inReplyTo,
     direction: "outbound",
     from_address: from.toLowerCase(),
-    from_name: process.env.GMAIL_FROM_NAME || null,
+    from_name: account.fromName,
+    account_id: account.id,
     to_addresses: to,
     cc_addresses: cc,
     subject: input.subject,

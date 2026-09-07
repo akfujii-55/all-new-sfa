@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { InboxList, type InboxThread } from "@/components/inbox/inbox-list";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import type { Email } from "@/lib/types";
 
 export const metadata = { title: "メール" };
@@ -38,7 +39,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   if (filter === "unlinked") query = query.is("deal_id", null).eq("direction", "inbound");
   if (q) query = query.or(`subject.ilike.%${q}%,from_address.ilike.%${q}%,from_name.ilike.%${q}%,snippet.ilike.%${q}%`);
 
-  const { data } = await query;
+  const [{ data }, accounts] = await Promise.all([query, getMailAccountOptions(supabase)]);
   const emails = (data ?? []) as unknown as Email[];
 
   // スレッド単位で最新1件にまとめる
@@ -78,7 +79,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         actions={
           <>
             <MailSyncButton />
-            <ComposeDialog trigger={<Button size="sm"><PenSquare className="size-4" /> 新規作成</Button>} />
+            <ComposeDialog accounts={accounts} trigger={<Button size="sm"><PenSquare className="size-4" /> 新規作成</Button>} />
           </>
         }
       />

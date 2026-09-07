@@ -16,6 +16,8 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
   const [active, setActive] = useState(member?.is_active ?? true);
+  const [invite, setInvite] = useState(true);
+  const [email, setEmail] = useState(member?.email ?? "");
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmDelete(false); }}>
@@ -34,9 +36,14 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
             start(async () => {
               try {
                 fd.set("is_active", String(active));
-                if (member) await updateMember(member.id, fd);
-                else await createMember(fd);
-                toast.success("保存しました");
+                if (member) {
+                  await updateMember(member.id, fd);
+                  toast.success("保存しました");
+                } else {
+                  fd.set("invite", String(invite && Boolean(email.trim())));
+                  const r = await createMember(fd);
+                  toast.success(r.message ?? "登録しました");
+                }
                 setOpen(false);
               } catch (e) {
                 toast.error((e as Error).message);
@@ -50,8 +57,14 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="email">メール</Label>
-            <Input id="email" name="email" type="email" defaultValue={member?.email ?? ""} />
+            <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
+          {!member && (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={invite} disabled={!email.trim()} onCheckedChange={(v) => setInvite(v === true)} />
+              招待メールを送る(このアプリにログインできるようにする)
+            </label>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>
             <Textarea id="memo" name="memo" rows={2} defaultValue={member?.memo ?? ""} />

@@ -12,6 +12,7 @@ import { ReplyForm } from "@/components/inbox/reply-form";
 import { LinkDealSelect } from "@/components/inbox/link-deal-select";
 import { ThreadActions } from "@/components/inbox/thread-actions";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Email } from "@/lib/types";
@@ -33,11 +34,10 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
   const latest = emails[emails.length - 1];
   const latestInbound = [...emails].reverse().find((e) => e.direction === "inbound") ?? latest;
   const linked = emails.find((e) => e.company_id || e.contact_id || e.deal_id) ?? latest;
-  const self = (process.env.GMAIL_USER ?? "").toLowerCase();
 
   await Promise.all(emails.filter((e) => !e.is_read).map((e) => markEmailRead(e.id)));
 
-  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }] = await Promise.all([
+  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }, accounts] = await Promise.all([
     linked.company_id
       ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
       : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
@@ -45,10 +45,14 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
     supabase.from("contacts").select("id, name, company_id").order("name"),
     linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
+    getMailAccountOptions(supabase),
   ]);
+  const selves = new Set(accounts.map((a) => a.email.toLowerCase()));
+  // 返信の差出人は、このスレッドを受信したアカウント
+  const threadAccountId = [...emails].reverse().find((e) => e.account_id)?.account_id ?? null;
 
   const replyTo = latestInbound.direction === "inbound" ? latestInbound.from_address : latestInbound.to_addresses.join(", ");
-  const replyCc = latestInbound.cc_addresses.filter((a) => a !== self).join(", ");
+  const replyCc = latestInbound.cc_addresses.filter((a) => !selves.has(a.toLowerCase())).join(", ");
   const quote = `${fmtDateTime(latestInbound.received_at)} ${latestInbound.from_name || latestInbound.from_address}:\n${(latestInbound.text_body ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`;
 
   return (
@@ -63,7 +67,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
-          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} />
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} />
           {/* 履歴は新しいものが上 */}
           {[...emails].reverse().map((e) => (
             <Card key={e.id} className={cn(e.direction === "outbound" && "border-emerald-200 dark:border-emerald-900")}>
