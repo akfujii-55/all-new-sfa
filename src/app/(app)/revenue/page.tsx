@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
-import { fmtMonth, yen } from "@/lib/format";
+import { fmtMonth, nowInTz, yen } from "@/lib/format";
 import type { Revenue } from "@/lib/types";
 
 export const metadata = { title: "売上" };
 
 export default async function RevenuePage({ searchParams }: PageProps<"/revenue">) {
   const sp = await searchParams;
-  const year = Number(typeof sp.year === "string" ? sp.year : new Date().getFullYear());
+  const year = Number(typeof sp.year === "string" ? sp.year : nowInTz().getFullYear());
   const supabase = await createClient();
   const { data } = await supabase
     .from("revenues")

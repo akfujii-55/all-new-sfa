@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { DealStage } from "@/lib/types";
+import { parseLocalInput } from "@/lib/format";
 
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
@@ -47,7 +48,7 @@ export async function createDeal(formData: FormData) {
       stage,
       amount: n(formData.get("amount")),
       probability: stage === "appointment" ? 30 : stage === "lead" ? 10 : 50,
-      appointment_at: s(formData.get("appointment_at")) ? new Date(String(formData.get("appointment_at"))).toISOString() : null,
+      appointment_at: parseLocalInput(s(formData.get("appointment_at"))),
       expected_close_date: s(formData.get("expected_close_date")),
       owner_id: ownerId,
       memo: s(formData.get("memo")),
@@ -91,7 +92,7 @@ export async function updateDeal(id: string, formData: FormData) {
       owner_id: s(formData.get("owner_id")),
       amount: n(formData.get("amount")),
       probability: Math.min(100, Math.max(0, n(formData.get("probability")))),
-      appointment_at: s(formData.get("appointment_at")) ? new Date(String(formData.get("appointment_at"))).toISOString() : null,
+      appointment_at: parseLocalInput(s(formData.get("appointment_at"))),
       expected_close_date: s(formData.get("expected_close_date")),
       memo: s(formData.get("memo")),
     })
