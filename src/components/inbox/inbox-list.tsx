@@ -109,8 +109,19 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
       <div className="divide-y">
         {threads.map((t) => {
           const checked = selected.has(t.id);
+          const unread = t.unread > 0;
           return (
-            <div key={t.id} className={cn("flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/50", checked && "bg-accent/40")}>
+            // 未読: 薄い青の背景 + 左端のアクセント線 + 太字。既読: 白背景で文字を少し落として、どちらからでも見分けられるようにする
+            <div
+              key={t.id}
+              className={cn(
+                "relative flex items-start gap-3 px-4 py-3 transition-colors",
+                unread
+                  ? "bg-sky-50/70 hover:bg-sky-100/70 dark:bg-sky-950/30 dark:hover:bg-sky-950/50 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-sky-500"
+                  : "hover:bg-accent/50",
+                checked && "bg-accent/60 dark:bg-accent/40",
+              )}
+            >
               <Checkbox className="mt-3" checked={checked} onCheckedChange={(v) => toggle(t.id, v === true)} aria-label="選択" />
               <Link href={`/inbox/${t.id}`} className="flex min-w-0 flex-1 items-start gap-3">
                 <div className={cn("mt-1 flex size-8 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}>
@@ -118,7 +129,7 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className={cn("truncate text-sm", t.unread > 0 ? "font-semibold" : "font-medium")}>
+                    <span className={cn("truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground/75")}>
                       {t.direction === "inbound" ? t.from_name || t.from_address : `To: ${t.to_addresses.join(", ")}`}
                     </span>
                     {t.count > 1 && <span className="text-xs text-muted-foreground">({t.count})</span>}
@@ -126,12 +137,12 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
                     {t.company && <Badge variant="secondary" className="hidden sm:inline-flex">{t.company.name}</Badge>}
                     {t.deal && <Badge variant="outline" className="hidden md:inline-flex">{t.deal.title}</Badge>}
                   </div>
-                  <p className={cn("truncate text-sm", t.unread > 0 ? "font-medium" : "text-foreground/90")}>{t.subject || "(件名なし)"}</p>
+                  <p className={cn("truncate text-sm", unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.subject || "(件名なし)"}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.snippet}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className="whitespace-nowrap text-xs text-muted-foreground">{fmtRelative(t.received_at)}</span>
-                  {t.unread > 0 && <span className="size-2 rounded-full bg-sky-500" />}
+                  {unread && <span className="size-2 rounded-full bg-sky-500" aria-label="未読" />}
                 </div>
               </Link>
             </div>
