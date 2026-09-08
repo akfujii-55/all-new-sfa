@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Reply, Send } from "lucide-react";
 import { sendEmail } from "@/actions/emails";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { MailAccountSelect } from "@/components/inbox/mail-account-select";
+import { useSignature } from "@/components/mail/signature-provider";
+import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import type { MailAccountOption } from "@/lib/types";
 
 /** 返信メールの件名(固定。送信前にフォームで変更は可能) */
@@ -34,7 +36,10 @@ export function ReplyForm({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(defaultAccountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
-  const [form, setForm] = useState({ to, cc: cc ?? "", subject: REPLY_SUBJECT, body: "" });
+  const signature = useSignature();
+  const [form, setForm] = useState({ to, cc: cc ?? "", subject: REPLY_SUBJECT, body: initialBodyWithSignature(signature) });
+  // 本文には署名が入っているので、フォーカス時はカーソルを先頭(署名の上)に置く
+  const caretPlaced = useRef(false);
 
   if (!open) {
     return (
@@ -64,20 +69,31 @@ export function ReplyForm({
         </div>
         <div className="grid gap-1.5">
           <Label>本文</Label>
-          <Textarea rows={8} autoFocus value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+          <Textarea
+            rows={10}
+            autoFocus
+            value={form.body}
+            onChange={(e) => setForm({ ...form, body: e.target.value })}
+            onFocus={(e) => {
+              if (caretPlaced.current) return;
+              caretPlaced.current = true;
+              e.currentTarget.setSelectionRange(0, 0);
+            }}
+          />
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)}>キャンセル</Button>
           <Button
-            disabled={pending || !form.body.trim()}
+            disabled={pending || isBodyEmpty(form.body, signature)}
             onClick={() =>
               start(async () => {
                 try {
-                  const body = quote ? `${form.body}\n\n${quote}` : form.body;
+                  const body = quote ? `${form.body.trim()}\n\n${quote}` : form.body.trim();
                   await sendEmail({ ...form, body, replyToEmailId, accountId: accountId || null });
                   toast.success("返信を送信しました");
                   setOpen(false);
-                  setForm({ ...form, body: "" });
+                  setForm({ ...form, body: initialBodyWithSignature(signature) });
+                  caretPlaced.current = false;
                 } catch (e) {
                   toast.error((e as Error).message);
                 }
