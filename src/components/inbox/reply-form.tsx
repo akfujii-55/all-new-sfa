@@ -12,11 +12,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MailAccountSelect } from "@/components/inbox/mail-account-select";
 import type { MailAccountOption } from "@/lib/types";
 
+/** 返信メールの件名(固定。送信前にフォームで変更は可能) */
+export const REPLY_SUBJECT = "お問い合わせありがとうございます／アートトレーディング";
+
 export function ReplyForm({
   replyToEmailId,
   to,
   cc,
-  subject,
   quote,
   accounts = [],
   defaultAccountId,
@@ -24,7 +26,6 @@ export function ReplyForm({
   replyToEmailId: string;
   to: string;
   cc?: string;
-  subject: string;
   quote?: string;
   accounts?: MailAccountOption[];
   /** 既定の差出人(このスレッドを受信したアカウント) */
@@ -33,7 +34,7 @@ export function ReplyForm({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(defaultAccountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
-  const [form, setForm] = useState({ to, cc: cc ?? "", subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`, body: "" });
+  const [form, setForm] = useState({ to, cc: cc ?? "", subject: REPLY_SUBJECT, body: "" });
 
   if (!open) {
     return (

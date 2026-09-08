@@ -13,6 +13,7 @@ import { LinkDealSelect } from "@/components/inbox/link-deal-select";
 import { ThreadActions } from "@/components/inbox/thread-actions";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { getMailAccountOptions } from "@/lib/mail/options";
+import { resolveCounterpart } from "@/lib/mail/link";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Email } from "@/lib/types";
@@ -51,8 +52,23 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
   // 返信の差出人は、このスレッドを受信したアカウント
   const threadAccountId = [...emails].reverse().find((e) => e.account_id)?.account_id ?? null;
 
-  const replyTo = latestInbound.direction === "inbound" ? latestInbound.from_address : latestInbound.to_addresses.join(", ");
-  const replyCc = latestInbound.cc_addresses.filter((a) => !selves.has(a.toLowerCase())).join(", ");
+  // 返信先。自社サイトのフォーム通知は差出人が通知システム(例: contact@mylogi.jp のグループ)なので、
+  // 本文に書かれた問い合わせ者本人に返信する。通知の CC(CRM やチャットツールへの転送先)も引き継がない。
+  const { counterpart, isForm } = resolveCounterpart({
+    direction: latestInbound.direction,
+    from: { address: latestInbound.from_address, name: latestInbound.from_name ?? "" },
+    to: latestInbound.to_addresses.map((address) => ({ address, name: "" })),
+    cc: latestInbound.cc_addresses.map((address) => ({ address, name: "" })),
+    self: [...selves],
+    text: latestInbound.text_body ?? "",
+  });
+  const replyTo =
+    isForm && counterpart
+      ? counterpart.address
+      : latestInbound.direction === "inbound"
+        ? latestInbound.from_address
+        : latestInbound.to_addresses.join(", ");
+  const replyCc = isForm ? "" : latestInbound.cc_addresses.filter((a) => !selves.has(a.toLowerCase())).join(", ");
   const quote = `${fmtDateTime(latestInbound.received_at)} ${latestInbound.from_name || latestInbound.from_address}:\n${(latestInbound.text_body ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`;
 
   return (
@@ -67,7 +83,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
-          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} subject={latest.subject ?? ""} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} />
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} />
           {/* 履歴は新しいものが上 */}
           {[...emails].reverse().map((e) => (
             <Card key={e.id} className={cn(e.direction === "outbound" && "border-emerald-200 dark:border-emerald-900")}>
