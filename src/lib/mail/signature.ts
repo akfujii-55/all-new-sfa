@@ -1,14 +1,19 @@
+import type { MailSettings } from "@/lib/settings";
+
 /**
- * 送信メールの署名。会社名とメールアドレスは固定、担当者名はログイン中の営業担当者(members)の名前。
+ * 送信メールの署名。会社名・メールアドレス・追加行は設定画面(app_settings)の値、
+ * 担当者名はログイン中の営業担当者(members)の名前。
  * 返信フォーム・新規作成ダイアログの本文に初期表示し、送信前に編集できる。
  */
-export const SIGNATURE_COMPANY = "アートトレーディング株式会社";
-export const SIGNATURE_EMAIL = "support@art-trading.co.jp";
-
-export function buildSignature(memberName: string | null | undefined) {
-  const lines = ["────────────────────", SIGNATURE_COMPANY];
+export function buildSignature(
+  settings: Pick<MailSettings, "signature_company" | "signature_email" | "signature_extra">,
+  memberName: string | null | undefined,
+) {
+  const lines = ["────────────────────"];
+  if (settings.signature_company.trim()) lines.push(settings.signature_company.trim());
   if (memberName?.trim()) lines.push(memberName.trim());
-  lines.push(`メールアドレス: ${SIGNATURE_EMAIL}`);
+  if (settings.signature_email.trim()) lines.push(`メールアドレス: ${settings.signature_email.trim()}`);
+  for (const l of settings.signature_extra.split("\n")) if (l.trim()) lines.push(l.trim());
   return lines.join("\n");
 }
 

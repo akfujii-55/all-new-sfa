@@ -10,12 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { MailAccountSelect } from "@/components/inbox/mail-account-select";
-import { useSignature } from "@/components/mail/signature-provider";
+import { useReplySubject, useSignature } from "@/components/mail/signature-provider";
 import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import type { MailAccountOption } from "@/lib/types";
-
-/** 返信メールの件名(固定。送信前にフォームで変更は可能) */
-export const REPLY_SUBJECT = "お問い合わせありがとうございます／アートトレーディング";
 
 export function ReplyForm({
   replyToEmailId,
@@ -37,7 +34,9 @@ export function ReplyForm({
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(defaultAccountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
   const signature = useSignature();
-  const [form, setForm] = useState({ to, cc: cc ?? "", subject: REPLY_SUBJECT, body: initialBodyWithSignature(signature) });
+  // 件名は設定画面の「返信メールの件名」。送信前にフォームで変更できる
+  const replySubject = useReplySubject();
+  const [form, setForm] = useState({ to, cc: cc ?? "", subject: replySubject, body: initialBodyWithSignature(signature) });
   // 本文には署名が入っているので、フォーカス時はカーソルを先頭(署名の上)に置く
   const caretPlaced = useRef(false);
 

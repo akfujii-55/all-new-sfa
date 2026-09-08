@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { MailAccountDialog } from "@/components/settings/mail-account-dialog";
 import { MailAccountActions } from "@/components/settings/mail-account-actions";
+import { MailSettingsForm } from "@/components/settings/mail-settings-form";
+import { getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import type { MailAccount } from "@/lib/types";
 
@@ -20,13 +22,16 @@ export default async function SettingsPage() {
   await bootstrapEnvAccount(createAdminClient());
 
   const supabase = await createClient();
-  const [{ data: accountRows }, { data: states }] = await Promise.all([
+  const { data: auth } = await supabase.auth.getUser();
+  const [{ data: accountRows }, { data: states }, mailSettings, { data: member }] = await Promise.all([
     supabase
       .from("mail_accounts")
       .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, is_active, is_default, last_error, created_at, updated_at")
       .order("is_default", { ascending: false })
       .order("created_at"),
     supabase.from("mail_sync_state").select("*"),
+    getMailSettings(supabase),
+    supabase.from("members").select("name").eq("profile_id", auth.user?.id ?? "").maybeSingle(),
   ]);
   const accounts = (accountRows ?? []) as AccountRow[];
   const aiConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
@@ -36,7 +41,7 @@ export default async function SettingsPage() {
     <div className="max-w-3xl">
       <PageHeader
         title="設定"
-        description="メールアカウントと連携の状態"
+        description="メールアカウント、署名、連携の状態"
         actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />}
       />
 
@@ -89,6 +94,16 @@ export default async function SettingsPage() {
               </div>
             )}
             <div className="pt-3"><MailSyncButton label="今すぐ同期" /></div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">メール署名・返信件名</CardTitle>
+            <CardDescription>返信や新規作成の本文に入る署名と、返信メールの件名の初期値です。担当者名は営業担当者ページの名前が使われます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MailSettingsForm settings={mailSettings} memberName={member?.name ?? "(担当者名)"} />
           </CardContent>
         </Card>
 
