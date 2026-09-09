@@ -36,6 +36,16 @@ export function resolveCounterpart(opts: {
   return { counterpart: opts.from, isForm: false };
 }
 
+/**
+ * 配送エラー通知や自動送信専用のアドレスなら true。
+ * これらは顧客ではないので、担当者・取引先の自動登録や案件の紐付けをしない(メール自体はスレッドに残す)。
+ */
+export function isSystemAddress(address: string | null | undefined): boolean {
+  if (!address) return false;
+  const local = address.toLowerCase().split("@")[0] ?? "";
+  return /^(mailer-daemon|postmaster|no-?reply|do-?not-?reply|noreply-|bounce|bounces|notifications?)(\b|[-_.+@]|$)/.test(local);
+}
+
 /** 自社アドレス・自社ドメイン以外なら true。self には登録済みアカウントのアドレスを全部渡す */
 export function isExternalAddress(address: string | null | undefined, self: string | string[]): boolean {
   if (!address) return false;

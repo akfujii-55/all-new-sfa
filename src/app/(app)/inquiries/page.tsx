@@ -75,7 +75,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
             const threadId = q.email_id ?? thread[0]?.id ?? null;
             const latestInbound = thread.find((e) => e.direction === "inbound") ?? thread[0] ?? null;
             return (
-            <Card key={q.id} id={q.id} className={cn(focus === q.id && "ring-2 ring-primary")}>
+            <Card key={q.id} id={q.id} className={cn("scroll-mt-4", focus === q.id && "ring-2 ring-primary")}>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -114,11 +114,13 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                 {latestInbound && (
                   <details className="mt-3 rounded-md border bg-muted/30 open:bg-muted/40">
                     <summary className="cursor-pointer select-none px-3 py-2 text-sm text-muted-foreground hover:text-foreground">
-                      メール本文を表示{thread.length > 1 ? `(スレッド ${thread.length} 件)` : ""}
+                      メール本文を表示
+                      {thread.length > 1 ? `(${q.contact?.name ?? latestInbound.from_name ?? latestInbound.from_address} とのやり取り ${thread.length} 件)` : ""}
                     </summary>
-                    <div className="space-y-4 border-t px-3 py-3">
+                    {/* 本文は高さを固定してスクロールさせ、下に続く別の問い合わせカードと混ざって見えないようにする */}
+                    <div className="max-h-[28rem] space-y-3 overflow-y-auto border-t px-3 py-3">
                       {thread.map((e) => (
-                        <div key={e.id}>
+                        <div key={e.id} className="rounded-md border bg-card px-3 py-2">
                           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               {e.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
@@ -131,6 +133,13 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                         </div>
                       ))}
                     </div>
+                    {threadId && (
+                      <div className="border-t px-3 py-2 text-xs">
+                        <Link href={`/inbox/${threadId}`} className="text-muted-foreground hover:text-foreground hover:underline">
+                          この問い合わせのメールをメール画面で開く →
+                        </Link>
+                      </div>
+                    )}
                   </details>
                 )}
               </CardContent>

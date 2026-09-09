@@ -140,6 +140,19 @@ export interface Email {
   company?: Pick<Company, "id" | "name"> | null;
   contact?: Pick<Contact, "id" | "name"> | null;
   deal?: Pick<Deal, "id" | "title"> | null;
+  attachments?: EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  id: string;
+  email_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  storage_path: string;
+  content_id: string | null;
+  is_inline: boolean;
+  created_at: string;
 }
 
 export interface Inquiry {

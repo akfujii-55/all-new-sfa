@@ -4,18 +4,18 @@ import { ArrowLeft, Building2, User, KanbanSquare, MessageSquareText } from "luc
 import { createClient } from "@/lib/supabase/server";
 import { markEmailRead } from "@/actions/emails";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { EmailBody } from "@/components/inbox/email-body";
+import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ReplyForm } from "@/components/inbox/reply-form";
 import { LinkDealSelect } from "@/components/inbox/link-deal-select";
 import { ThreadActions } from "@/components/inbox/thread-actions";
+import { ThreadMessage } from "@/components/inbox/thread-message";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { getMailAccountOptions } from "@/lib/mail/options";
 import { resolveCounterpart } from "@/lib/mail/link";
 import { fmtDateTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import type { Email } from "@/lib/types";
 
 export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
@@ -26,7 +26,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   const { data } = await supabase
     .from("emails")
-    .select("*, company:companies(id,name), contact:contacts(id,name), deal:deals(id,title)")
+    .select("*, company:companies(id,name), contact:contacts(id,name), deal:deals(id,title), attachments:email_attachments(*)")
     .eq("thread_key", root.thread_key)
     .order("received_at", { ascending: true });
   const emails = (data ?? []) as unknown as Email[];
@@ -84,26 +84,22 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
           <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} />
-          {/* 履歴は新しいものが上 */}
+          {/* 履歴は新しいものが上。各メールはヘッダーをクリックして開閉できる */}
           {[...emails].reverse().map((e) => (
-            <Card key={e.id} className={cn(e.direction === "outbound" && "border-emerald-200 dark:border-emerald-900")}>
-              <CardHeader className="pb-2">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="text-sm">
-                    <span className="font-medium">{e.from_name || e.from_address}</span>
-                    {e.from_name && <span className="text-muted-foreground"> &lt;{e.from_address}&gt;</span>}
-                    <Badge variant={e.direction === "inbound" ? "secondary" : "outline"} className="ml-2">
-                      {e.direction === "inbound" ? "受信" : "送信"}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{fmtDateTime(e.received_at)}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">To: {e.to_addresses.join(", ")}{e.cc_addresses.length ? ` / CC: ${e.cc_addresses.join(", ")}` : ""}</p>
-              </CardHeader>
-              <CardContent>
-                <EmailBody text={e.text_body} />
-              </CardContent>
-            </Card>
+            <ThreadMessage
+              key={e.id}
+              direction={e.direction}
+              fromName={e.from_name}
+              fromAddress={e.from_address}
+              to={e.to_addresses}
+              cc={e.cc_addresses}
+              receivedAt={fmtDateTime(e.received_at)}
+              snippet={e.snippet}
+              attachmentCount={e.attachments?.length ?? 0}
+            >
+              <EmailBody text={e.text_body} />
+              <AttachmentList attachments={e.attachments ?? []} />
+            </ThreadMessage>
           ))}
         </div>
 
@@ -130,7 +126,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
                   <MessageSquareText className="size-4 mt-0.5 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">問い合わせ</p>
-                    <Link href="/inquiries" className="font-medium hover:underline">{inquiry.category ?? "問い合わせ"}</Link>
+                    <Link href={`/inquiries?status=all&focus=${inquiry.id}#${inquiry.id}`} className="font-medium hover:underline">{inquiry.category ?? "問い合わせ"}</Link>
                   </div>
                 </div>
               )}

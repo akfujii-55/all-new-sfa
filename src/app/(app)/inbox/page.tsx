@@ -30,7 +30,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const supabase = await createClient();
   let query = supabase
     .from("emails")
-    .select("id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, company:companies(id,name), deal:deals(id,title)")
+    .select("id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, company:companies(id,name), deal:deals(id,title), attachments:email_attachments(count)")
     .order("received_at", { ascending: false })
     .limit(300);
   if (filter === "unread") query = query.eq("is_read", false).eq("direction", "inbound");
@@ -45,10 +45,11 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   // スレッド単位で最新1件にまとめる
   const seen = new Set<string>();
   const threads: InboxThread[] = [];
-  const counts = new Map<string, { count: number; unread: number }>();
+  const counts = new Map<string, { count: number; unread: number; attachments: number }>();
   for (const e of emails) {
-    const c = counts.get(e.thread_key) ?? { count: 0, unread: 0 };
+    const c = counts.get(e.thread_key) ?? { count: 0, unread: 0, attachments: 0 };
     c.count++;
+    c.attachments += (e as unknown as { attachments?: { count: number }[] }).attachments?.[0]?.count ?? 0;
     if (!e.is_read && e.direction === "inbound") c.unread++;
     counts.set(e.thread_key, c);
   }

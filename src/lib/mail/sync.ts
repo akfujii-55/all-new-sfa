@@ -2,8 +2,9 @@ import { ImapFlow } from "imapflow";
 import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { stripQuotes } from "./extract";
-import { findOrCreateContact, isExternalAddress, resolveCounterpart } from "./link";
+import { findOrCreateContact, isExternalAddress, isSystemAddress, resolveCounterpart } from "./link";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
+import { saveAttachments } from "./attachments";
 
 type Db = SupabaseClient;
 
@@ -181,6 +182,99 @@ async function syncAccount(
   return results;
 }
 
+export interface BackfillResult {
+  account: string;
+  mailbox: string;
+  /** 添付なしで登録済みだったため IMAP から再取得したメール数 */
+  checked: number;
+  /** 添付ファイルを保存できたメール数 */
+  saved: number;
+  error?: string;
+}
+
+/**
+ * 添付ファイル対応より前に取り込んだメールについて、IMAP から本文を再取得して添付だけを保存する。
+ * DB に登録済み(message_id が一致)かつ添付が1件もないメールが対象。
+ */
+export async function backfillAttachments(db: Db, opts: { days?: number; accountId?: string } = {}): Promise<BackfillResult[]> {
+  let accounts = await listMailAccounts(db);
+  if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
+  const results: BackfillResult[] = [];
+  const since = new Date();
+  since.setDate(since.getDate() - (opts.days ?? 90));
+
+  for (const account of accounts) {
+    const client = imapClient(account);
+    try {
+      await connectOrThrow(client);
+    } catch (e) {
+      results.push({ account: account.email, mailbox: "-", checked: 0, saved: 0, error: (e as Error).message });
+      continue;
+    }
+    try {
+      const { mailboxes } = await resolveMailboxes(client);
+      for (const mb of mailboxes) {
+        const res: BackfillResult = { account: account.email, mailbox: mb.path, checked: 0, saved: 0 };
+        results.push(res);
+        let lock;
+        try {
+          lock = await client.getMailboxLock(mb.path);
+        } catch (e) {
+          res.error = `フォルダを開けませんでした: ${(e as Error).message}`;
+          continue;
+        }
+        try {
+          const uids = (await client.search({ since }, { uid: true })) || [];
+          if (uids.length === 0) continue;
+
+          // まずヘッダだけ取って message_id → uid の対応を作る
+          const byMessageId = new Map<string, number>();
+          for await (const msg of client.fetch(uids, { envelope: true, uid: true }, { uid: true })) {
+            const mid = msg.envelope?.messageId?.trim();
+            if (mid) byMessageId.set(mid, msg.uid);
+          }
+          if (byMessageId.size === 0) continue;
+
+          // DB にあって添付が未保存のものだけ本文を再取得する
+          const targets: { id: string; uid: number }[] = [];
+          const ids = [...byMessageId.keys()];
+          for (let i = 0; i < ids.length; i += 200) {
+            const { data } = await db
+              .from("emails")
+              .select("id, message_id, attachments:email_attachments(count)")
+              .in("message_id", ids.slice(i, i + 200));
+            for (const row of (data ?? []) as unknown as { id: string; message_id: string; attachments: { count: number }[] }[]) {
+              if ((row.attachments?.[0]?.count ?? 0) > 0) continue;
+              const uid = byMessageId.get(row.message_id);
+              if (uid) targets.push({ id: row.id, uid });
+            }
+          }
+
+          for (const t of targets) {
+            const msg = await client.fetchOne(String(t.uid), { source: true, uid: true }, { uid: true });
+            if (!msg || !msg.source) continue;
+            res.checked++;
+            const parsed = await simpleParser(msg.source);
+            if (!parsed.attachments?.length) continue;
+            try {
+              if ((await saveAttachments(db, t.id, parsed.attachments)) > 0) res.saved++;
+            } catch (e) {
+              console.error("[mail/backfill] attachments", (e as Error).message);
+            }
+          }
+        } catch (e) {
+          res.error = (e as Error).message;
+        } finally {
+          lock.release();
+        }
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+  return results;
+}
+
 /** 1通のメールを DB に登録し、顧客・担当者・問い合わせ・案件へ紐付ける。既存なら false */
 export async function ingestParsedMail(
   db: Db,
@@ -225,8 +319,8 @@ export async function ingestParsedMail(
   const inquiryId: string | null = sibling?.inquiry_id ?? null;
   const effectiveThreadKey = sibling?.thread_key ?? threadKey;
 
-  // 相手が社内アドレス/自分自身なら顧客紐付けはしない
-  if (counterpart && isExternalAddress(counterpart.address, self)) {
+  // 相手が社内アドレス/自分自身、または配送エラー通知・no-reply などのシステム送信元なら顧客紐付けはしない
+  if (counterpart && isExternalAddress(counterpart.address, self) && !isSystemAddress(counterpart.address)) {
     if (!contactId) {
       const linked = await findOrCreateContact(db, { counterpart, direction, subject: parsed.subject ?? null, text, companyId });
       contactId = linked.contactId;
@@ -254,7 +348,7 @@ export async function ingestParsedMail(
   const snippet = stripQuotes(text).replace(/\s+/g, " ").slice(0, 160);
   const receivedAt = (parsed.date ?? new Date()).toISOString();
 
-  const { error } = await db
+  const { data: row, error } = await db
     .from("emails")
     .insert({
       message_id: messageId ?? null,
@@ -277,10 +371,21 @@ export async function ingestParsedMail(
       is_read: direction === "outbound",
       imap_uid: imapUid ?? null,
       account_id: accountId ?? null,
-    });
+    })
+    .select("id")
+    .single();
   if (error) {
     if (error.code === "23505") return false; // 重複
     throw error;
+  }
+
+  // 添付ファイルは Storage に保存。失敗してもメール本体の登録は成立させ、同期全体を止めない
+  if (parsed.attachments?.length) {
+    try {
+      await saveAttachments(db, row.id, parsed.attachments);
+    } catch (e) {
+      console.error("[mail/sync] attachments", (e as Error).message);
+    }
   }
 
   // 問い合わせは自動登録しない。メール画面でユーザーが選択したものだけを

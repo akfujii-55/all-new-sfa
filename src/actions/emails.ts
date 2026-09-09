@@ -6,6 +6,7 @@ import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { createAdminClient } from "@/lib/supabase/server";
+import { removeAttachmentObjects } from "@/lib/mail/attachments";
 
 export interface SendEmailInput {
   to: string;
@@ -158,6 +159,10 @@ export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted:
   if (seedErr) throw new Error(seedErr.message);
   const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key)));
   if (threadKeys.length === 0) return { deleted: 0 };
+
+  // 添付ファイルの実体を先に消す(行は emails の削除で cascade)
+  const { data: members } = await supabase.from("emails").select("id").in("thread_key", threadKeys);
+  await removeAttachmentObjects(createAdminClient(), (members ?? []).map((m) => m.id));
 
   const { count, error } = await supabase.from("emails").delete({ count: "exact" }).in("thread_key", threadKeys);
   if (error) throw new Error(error.message);

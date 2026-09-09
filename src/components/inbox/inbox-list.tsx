@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, MessageSquareText, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, MessageSquareText, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ export interface InboxThread {
   inquiry_id: string | null;
   count: number;
   unread: number;
+  /** スレッド内の添付ファイル数 */
+  attachments: number;
   company: { id: string; name: string } | null;
   deal: { id: string; title: string } | null;
 }
@@ -141,7 +143,10 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
                   <p className="truncate text-xs text-muted-foreground">{t.snippet}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="whitespace-nowrap text-xs text-muted-foreground">{fmtRelative(t.received_at)}</span>
+                  <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                    {t.attachments > 0 && <Paperclip className="size-3.5" aria-label={`添付ファイル ${t.attachments}件`} />}
+                    {fmtRelative(t.received_at)}
+                  </span>
                   {unread && <span className="size-2 rounded-full bg-sky-500" aria-label="未読" />}
                 </div>
               </Link>

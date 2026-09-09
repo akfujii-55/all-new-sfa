@@ -11,6 +11,7 @@ import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
 import { DealNotes } from "@/components/deals/notes";
 import { RevenueEditor } from "@/components/deals/revenue-editor";
 import { EmailBody } from "@/components/inbox/email-body";
+import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { fmtDate, fmtDateTime, fmtMonth, yen } from "@/lib/format";
 import { getMailAccountOptions } from "@/lib/mail/options";
@@ -29,7 +30,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   const deal = data as unknown as Deal;
 
   const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts] = await Promise.all([
-    supabase.from("emails").select("*").eq("deal_id", id).order("received_at", { ascending: false }),
+    supabase.from("emails").select("*, attachments:email_attachments(*)").eq("deal_id", id).order("received_at", { ascending: false }),
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
@@ -102,7 +103,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
                   </div>
                   <Link href={`/inbox/${e.id}`} className="text-sm font-medium hover:underline">{e.subject || "(件名なし)"}</Link>
                 </CardHeader>
-                <CardContent><EmailBody text={e.text_body} /></CardContent>
+                <CardContent><EmailBody text={e.text_body} /><AttachmentList attachments={e.attachments ?? []} /></CardContent>
               </Card>
             ))
           ) : (
