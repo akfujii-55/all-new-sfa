@@ -195,3 +195,18 @@ export interface Revenue {
   deal?: Pick<Deal, "id" | "title"> | null;
   company?: Pick<Company, "id" | "name"> | null;
 }
+
+export type SystemLogLevel = "info" | "warn" | "error";
+
+/** サーバー側のエラー・警告・定期処理の記録(system_logs) */
+export interface SystemLog {
+  id: string;
+  level: SystemLogLevel;
+  source: string;
+  message: string;
+  detail: Record<string, unknown> | null;
+  request_path: string | null;
+  user_email: string | null;
+  notified: boolean;
+  created_at: string;
+}

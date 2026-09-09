@@ -29,3 +29,26 @@ export async function getMailSettings(db: SupabaseClient): Promise<MailSettings>
   }
   return settings;
 }
+
+/** エラー通知の設定(app_settings テーブル) */
+export interface AlertSettings {
+  /** 通知先メールアドレス(カンマ区切り)。空なら通知メールを送らない */
+  alert_emails: string;
+}
+
+export const DEFAULT_ALERT_SETTINGS: AlertSettings = { alert_emails: "" };
+export const ALERT_SETTING_KEYS = Object.keys(DEFAULT_ALERT_SETTINGS) as (keyof AlertSettings)[];
+
+export async function getAlertSettings(db: SupabaseClient): Promise<AlertSettings> {
+  const { data } = await db.from("app_settings").select("key, value").in("key", ALERT_SETTING_KEYS);
+  const settings = { ...DEFAULT_ALERT_SETTINGS };
+  for (const row of data ?? []) {
+    if ((ALERT_SETTING_KEYS as string[]).includes(row.key)) settings[row.key as keyof AlertSettings] = String(row.value ?? "");
+  }
+  return settings;
+}
+
+/** カンマ・改行区切りの通知先を配列にする */
+export function splitAlertEmails(v: string): string[] {
+  return Array.from(new Set(v.split(/[,;\s]+/).map((a) => a.trim().toLowerCase()).filter((a) => a.includes("@"))));
+}

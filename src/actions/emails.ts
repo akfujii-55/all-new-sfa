@@ -7,6 +7,7 @@ import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { createAdminClient } from "@/lib/supabase/server";
 import { removeAttachmentObjects } from "@/lib/mail/attachments";
+import { LoggedError, errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export interface SendEmailInput {
   to: string;
@@ -78,15 +79,32 @@ export async function sendEmail(input: SendEmailInput) {
     }
   }
 
-  const account = await resolveSendAccount(createAdminClient(), { accountId: input.accountId, replyToAccountId });
-  const { messageId, from } = await sendMail(account, {
-    to,
-    cc,
-    subject: input.subject,
-    text: input.body,
-    inReplyTo,
-    references,
-  });
+  const admin = createAdminClient();
+  const account = await resolveSendAccount(admin, { accountId: input.accountId, replyToAccountId });
+  let sent: Awaited<ReturnType<typeof sendMail>>;
+  try {
+    sent = await sendMail(account, {
+      to,
+      cc,
+      subject: input.subject,
+      text: input.body,
+      inReplyTo,
+      references,
+    });
+  } catch (e) {
+    // SMTP の失敗は受信(IMAP)が動いていても起こる。後から追えるように記録して通知する
+    await logSystem(
+      {
+        source: "mail.send",
+        message: `メール送信に失敗(${account.email} → ${to.join(", ")}): ${errorMessage(e)}`,
+        detail: { ...errorDetail(e), account: account.email, to, cc, subject: input.subject },
+        userEmail: auth.user.email ?? null,
+      },
+      admin,
+    );
+    throw new LoggedError(`メールを送信できませんでした(${account.email}): ${errorMessage(e)}。このメールは送信されていません。`, e);
+  }
+  const { messageId, from } = sent;
 
   const { error } = await supabase.from("emails").insert({
     message_id: messageId,
@@ -108,7 +126,19 @@ export async function sendEmail(input: SendEmailInput) {
     inquiry_id: inquiryId,
     is_read: true,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // 相手には届いているのに一覧に残らない状態。次回の送信済みフォルダ同期で取り込まれるが、念のため記録する
+    await logSystem(
+      {
+        source: "mail.send",
+        message: `送信は完了しましたが記録に失敗しました(${messageId}): ${error.message}`,
+        detail: { messageId, to, subject: input.subject, code: error.code },
+        userEmail: auth.user.email ?? null,
+      },
+      admin,
+    );
+    throw new LoggedError(`メールは送信されましたが、一覧への記録に失敗しました: ${error.message}`);
+  }
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "in_progress" }).eq("id", inquiryId).eq("status", "new");

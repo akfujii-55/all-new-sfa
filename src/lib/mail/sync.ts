@@ -5,6 +5,7 @@ import { stripQuotes } from "./extract";
 import { findOrCreateContact, isExternalAddress, isSystemAddress, resolveCounterpart } from "./link";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
 import { saveAttachments } from "./attachments";
+import { errorDetail, logSystem } from "@/lib/log";
 
 type Db = SupabaseClient;
 
@@ -72,6 +73,16 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
       const message = (e as Error).message;
       results.push({ account: account.email, mailbox: "-", fetched: 0, inserted: 0, error: message });
       await db.from("mail_accounts").update({ last_error: message }).eq("id", account.id);
+      await logSystem(
+        { source: "mail.sync", message: `メール同期に失敗(${account.email}): ${message}`, detail: { ...errorDetail(e), account: account.email } },
+        db,
+      );
+    }
+  }
+  // フォルダ単位の失敗(アカウント自体には接続できたもの)も記録する
+  for (const r of results) {
+    if (r.error && r.mailbox !== "-") {
+      await logSystem({ source: "mail.sync", message: `メール同期でエラー(${r.account} ${r.mailbox}): ${r.error}`, detail: { ...r } }, db);
     }
   }
   return results;
