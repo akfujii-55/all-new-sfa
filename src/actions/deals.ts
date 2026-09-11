@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { DealStage } from "@/lib/types";
+import { STAGE_PROBABILITY, type DealStage } from "@/lib/types";
 import { parseLocalInput } from "@/lib/format";
 
 function s(v: FormDataEntryValue | null) {
@@ -47,7 +47,7 @@ export async function createDeal(formData: FormData) {
       title,
       stage,
       amount: n(formData.get("amount")),
-      probability: stage === "appointment" ? 30 : stage === "lead" ? 10 : 50,
+      probability: STAGE_PROBABILITY[stage] ?? 30,
       appointment_at: parseLocalInput(s(formData.get("appointment_at"))),
       expected_close_date: s(formData.get("expected_close_date")),
       owner_id: ownerId,
@@ -135,7 +135,7 @@ export async function moveDealStage(
     } else if (deal.stage === "won" || deal.stage === "lost") {
       patch.won_at = null;
       patch.lost_reason = null;
-      patch.probability = stage === "negotiation" ? 70 : stage === "proposal" ? 50 : 30;
+      patch.probability = STAGE_PROBABILITY[stage] ?? 30;
     }
     if (deal.stage === "won") {
       await supabase.from("revenues").delete().eq("deal_id", id);

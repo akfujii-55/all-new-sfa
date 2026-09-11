@@ -1,15 +1,21 @@
-export type DealStage = "lead" | "appointment" | "proposal" | "negotiation" | "won" | "lost";
+export type DealStage = "appointment" | "proposal_draft" | "proposal" | "considering" | "on_hold" | "won" | "lost";
 export type InquiryStatus = "new" | "in_progress" | "converted" | "closed";
 export type EmailDirection = "inbound" | "outbound";
 
-export const DEAL_STAGES: { key: DealStage; label: string; color: string }[] = [
-  { key: "lead", label: "リード", color: "bg-slate-400" },
-  { key: "appointment", label: "アポ取得", color: "bg-sky-500" },
-  { key: "proposal", label: "提案", color: "bg-violet-500" },
-  { key: "negotiation", label: "交渉", color: "bg-amber-500" },
-  { key: "won", label: "成約", color: "bg-emerald-500" },
-  { key: "lost", label: "失注", color: "bg-rose-400" },
+/** 案件のステージ(カンバンの列順)。probability は新規作成・ステージ変更時の既定の確度 */
+export const DEAL_STAGES: { key: DealStage; label: string; color: string; probability: number }[] = [
+  { key: "appointment", label: "アポ取得", color: "bg-sky-500", probability: 30 },
+  { key: "proposal_draft", label: "提案書作成中", color: "bg-violet-400", probability: 40 },
+  { key: "proposal", label: "提案済み", color: "bg-violet-600", probability: 50 },
+  { key: "considering", label: "検討中", color: "bg-amber-500", probability: 60 },
+  { key: "on_hold", label: "保留", color: "bg-slate-400", probability: 20 },
+  { key: "won", label: "成約", color: "bg-emerald-500", probability: 100 },
+  { key: "lost", label: "失注", color: "bg-rose-400", probability: 0 },
 ];
+
+export const STAGE_PROBABILITY: Record<DealStage, number> = Object.fromEntries(
+  DEAL_STAGES.map((s) => [s.key, s.probability]),
+) as Record<DealStage, number>;
 
 export const STAGE_LABEL: Record<DealStage, string> = Object.fromEntries(
   DEAL_STAGES.map((s) => [s.key, s.label]),
