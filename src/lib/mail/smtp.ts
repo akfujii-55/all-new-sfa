@@ -18,6 +18,7 @@ export interface SendMailInput {
   html?: string;
   inReplyTo?: string | null;
   references?: string[];
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }
 
 /** 指定アカウントの SMTP で送信する */
@@ -32,6 +33,7 @@ export async function sendMail(account: MailAccountConfig, input: SendMailInput)
     html: input.html,
     inReplyTo: input.inReplyTo ?? undefined,
     references: input.references && input.references.length ? input.references : undefined,
+    attachments: input.attachments && input.attachments.length ? input.attachments : undefined,
   });
   return { messageId: info.messageId as string, from: account.email };
 }

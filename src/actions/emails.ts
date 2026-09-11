@@ -6,7 +6,14 @@ import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { createAdminClient } from "@/lib/supabase/server";
-import { removeAttachmentObjects } from "@/lib/mail/attachments";
+import {
+  attachOutgoing,
+  discardOutgoing,
+  loadOutgoingAttachments,
+  removeAttachmentObjects,
+  validateOutgoingRefs,
+  type OutgoingAttachmentRef,
+} from "@/lib/mail/attachments";
 import { LoggedError, errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export interface SendEmailInput {
@@ -20,6 +27,8 @@ export interface SendEmailInput {
   companyId?: string | null;
   /** 差出人にするメールアカウント。未指定なら返信元を受信したアカウント → 既定アカウント */
   accountId?: string | null;
+  /** ブラウザから Storage の outbox にアップロード済みの添付ファイル */
+  attachments?: OutgoingAttachmentRef[];
 }
 
 function splitAddrs(v?: string) {
@@ -38,6 +47,7 @@ export async function sendEmail(input: SendEmailInput) {
   const cc = splitAddrs(input.cc);
   if (to.length === 0) throw new Error("宛先を入力してください");
   if (!input.subject.trim()) throw new Error("件名を入力してください");
+  const attachmentRefs = validateOutgoingRefs(input.attachments);
 
   let inReplyTo: string | null = null;
   let references: string[] = [];
@@ -83,6 +93,7 @@ export async function sendEmail(input: SendEmailInput) {
   const account = await resolveSendAccount(admin, { accountId: input.accountId, replyToAccountId });
   let sent: Awaited<ReturnType<typeof sendMail>>;
   try {
+    const attachments = await loadOutgoingAttachments(admin, attachmentRefs);
     sent = await sendMail(account, {
       to,
       cc,
@@ -90,14 +101,17 @@ export async function sendEmail(input: SendEmailInput) {
       text: input.body,
       inReplyTo,
       references,
+      attachments,
     });
   } catch (e) {
+    // 送信していないので、アップロード済みの添付は残さない
+    await discardOutgoing(admin, attachmentRefs);
     // SMTP の失敗は受信(IMAP)が動いていても起こる。後から追えるように記録して通知する
     await logSystem(
       {
         source: "mail.send",
         message: `メール送信に失敗(${account.email} → ${to.join(", ")}): ${errorMessage(e)}`,
-        detail: { ...errorDetail(e), account: account.email, to, cc, subject: input.subject },
+        detail: { ...errorDetail(e), account: account.email, to, cc, subject: input.subject, attachments: attachmentRefs.map((a) => a.filename) },
         userEmail: auth.user.email ?? null,
       },
       admin,
@@ -106,7 +120,7 @@ export async function sendEmail(input: SendEmailInput) {
   }
   const { messageId, from } = sent;
 
-  const { error } = await supabase.from("emails").insert({
+  const { data: inserted, error } = await supabase.from("emails").insert({
     message_id: messageId,
     thread_key: threadKey ?? messageId,
     in_reply_to: inReplyTo,
@@ -125,7 +139,7 @@ export async function sendEmail(input: SendEmailInput) {
     deal_id: dealId,
     inquiry_id: inquiryId,
     is_read: true,
-  });
+  }).select("id").single();
   if (error) {
     // 相手には届いているのに一覧に残らない状態。次回の送信済みフォルダ同期で取り込まれるが、念のため記録する
     await logSystem(
@@ -138,6 +152,23 @@ export async function sendEmail(input: SendEmailInput) {
       admin,
     );
     throw new LoggedError(`メールは送信されましたが、一覧への記録に失敗しました: ${error.message}`);
+  }
+
+  if (attachmentRefs.length > 0) {
+    // 相手には添付付きで届いている。ここで失敗しても送信済みフォルダの同期で添付は補完されるので、記録だけ残す
+    const failed = await attachOutgoing(admin, inserted.id, attachmentRefs);
+    if (failed.length > 0) {
+      await logSystem(
+        {
+          level: "warn",
+          source: "mail.send",
+          message: `送信は完了しましたが添付ファイルの記録に失敗しました(${messageId}): ${failed.join(" / ")}`,
+          detail: { messageId, emailId: inserted.id, failed },
+          userEmail: auth.user.email ?? null,
+        },
+        admin,
+      );
+    }
   }
 
   if (inquiryId) {

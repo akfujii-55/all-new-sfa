@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MailAccountSelect } from "@/components/inbox/mail-account-select";
+import { AttachmentPicker } from "@/components/inbox/attachment-picker";
+import { checkAttachmentLimits, discardUploads, uploadAttachments } from "@/lib/mail/upload-client";
 import { useSignature } from "@/components/mail/signature-provider";
 import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import type { MailAccountOption } from "@/lib/types";
@@ -35,18 +37,33 @@ export function ComposeDialog({
     subject: defaults?.subject ?? "",
     body: initialBody,
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   // 本文には署名が入っているので、最初のフォーカス時はカーソルを先頭(署名の上)に置く
   const caretPlaced = useRef(false);
 
   function submit() {
+    const limit = checkAttachmentLimits(files);
+    if (limit) {
+      toast.error(limit);
+      return;
+    }
     start(async () => {
+      let attachments: Awaited<ReturnType<typeof uploadAttachments>> = [];
       try {
-        await sendEmail({ ...form, body: form.body.trim(), dealId: defaults?.dealId, contactId: defaults?.contactId, companyId: defaults?.companyId, accountId: accountId || null });
+        // ファイル本体はブラウザから Storage へ直接上げ、Server Action には参照だけ渡す
+        setUploading(true);
+        attachments = await uploadAttachments(files);
+        setUploading(false);
+        await sendEmail({ ...form, body: form.body.trim(), dealId: defaults?.dealId, contactId: defaults?.contactId, companyId: defaults?.companyId, accountId: accountId || null, attachments });
         toast.success("メールを送信しました");
         setOpen(false);
         setForm({ to: defaults?.to ?? "", cc: "", subject: "", body: initialBody });
+        setFiles([]);
         caretPlaced.current = false;
       } catch (e) {
+        setUploading(false);
+        await discardUploads(attachments);
         toast.error((e as Error).message);
       }
     });
@@ -90,11 +107,12 @@ export function ComposeDialog({
               }}
             />
           </div>
+          <AttachmentPicker files={files} onChange={setFiles} disabled={pending} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
           <Button onClick={submit} disabled={pending || isBodyEmpty(form.body, signature)}>
-            <Send className="size-4" /> {pending ? "送信中..." : "送信"}
+            <Send className="size-4" /> {uploading ? "アップロード中..." : pending ? "送信中..." : "送信"}
           </Button>
         </DialogFooter>
       </DialogContent>

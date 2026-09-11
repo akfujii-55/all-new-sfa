@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { stripQuotes } from "./extract";
 import { findOrCreateContact, isExternalAddress, isSystemAddress, resolveCounterpart } from "./link";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
-import { saveAttachments } from "./attachments";
+import { cleanupOutbox, saveAttachments } from "./attachments";
 import { errorDetail, logSystem } from "@/lib/log";
 
 type Db = SupabaseClient;
@@ -85,6 +85,8 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
       await logSystem({ source: "mail.sync", message: `メール同期でエラー(${r.account} ${r.mailbox}): ${r.error}`, detail: { ...r } }, db);
     }
   }
+  // 送信に至らずに残った添付ファイル(outbox)の掃除。失敗しても同期結果には影響させない
+  await cleanupOutbox(db).catch((e) => console.error("[mail/sync] outbox cleanup", (e as Error).message));
   return results;
 }
 
