@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmailBody } from "@/components/inbox/email-body";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { InquiryStatusSelect } from "@/components/inquiries/inquiry-status-select";
+import { DeleteInquiryButton } from "@/components/inquiries/delete-inquiry-button";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABEL, type Inquiry, type InquiryStatus } from "@/lib/types";
@@ -108,6 +109,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                         trigger={<Button size="sm"><KanbanSquare className="size-4" /> 案件化</Button>}
                       />
                     )}
+                    <DeleteInquiryButton id={q.id} subject={q.subject} hasDeal={Boolean(q.deal)} />
                   </div>
                 </div>
 

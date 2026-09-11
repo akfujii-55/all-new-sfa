@@ -31,10 +31,26 @@ export async function createInquiry(formData: FormData) {
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }
 
+/**
+ * 問い合わせを削除する。紐付いていたメールと案件は残り、メールは「問い合わせ未登録」に戻る
+ * (emails.inquiry_id / deals.inquiry_id は外部キーの on delete set null で外れる)。
+ */
 export async function deleteInquiry(id: string) {
   const supabase = await createClient();
-  await supabase.from("inquiries").delete().eq("id", id);
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("ログインが必要です");
+
+  const { data: inq } = await supabase.from("inquiries").select("id, company_id, deal_id").eq("id", id).maybeSingle();
+  if (!inq) throw new Error("問い合わせが見つかりません(すでに削除されている可能性があります)");
+
+  const { error } = await supabase.from("inquiries").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
   revalidatePath("/inquiries");
+  revalidatePath("/inbox");
+  revalidatePath("/");
+  if (inq.company_id) revalidatePath(`/companies/${inq.company_id}`);
+  if (inq.deal_id) revalidatePath(`/deals/${inq.deal_id}`);
 }
 
 export interface CreateInquiriesResult {
