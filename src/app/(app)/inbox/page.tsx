@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, PenSquare } from "lucide-react";
+import { Inbox, PenSquare, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -22,10 +22,35 @@ const FILTERS = [
   { key: "unlinked", label: "案件未紐付け" },
 ];
 
+/** 検索対象。all は下記すべてを OR で検索する */
+const SEARCH_TARGETS = [
+  { key: "all", label: "すべて", columns: ["subject", "from_name", "from_address", "text_body"] },
+  { key: "from", label: "送信者", columns: ["from_name", "from_address"] },
+  { key: "subject", label: "件名", columns: ["subject"] },
+  { key: "body", label: "本文", columns: ["text_body"] },
+] as const;
+type SearchTarget = (typeof SEARCH_TARGETS)[number]["key"];
+
+/**
+ * PostgREST の or フィルタ用に ilike のパターンを組み立てる。
+ * カンマ・括弧・ダブルクォートを含む語でも壊れないよう値全体を引用符で囲み、
+ * LIKE のワイルドカード(% _ \)は文字どおりに検索する。
+ * 引用符内では PostgREST がバックスラッシュをエスケープ文字として扱うため、
+ * LIKE 用のエスケープを施したあとにバックスラッシュ自体を二重にする。
+ */
+function buildSearchFilter(q: string, target: SearchTarget) {
+  const likeEscaped = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const quoted = likeEscaped.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const pattern = `"%${quoted}%"`;
+  const columns = SEARCH_TARGETS.find((t) => t.key === target)?.columns ?? SEARCH_TARGETS[0].columns;
+  return columns.map((c) => `${c}.ilike.${pattern}`).join(",");
+}
+
 export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const sp = await searchParams;
   const filter = typeof sp.filter === "string" ? sp.filter : "all";
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const target: SearchTarget = SEARCH_TARGETS.some((t) => t.key === sp.in) ? (sp.in as SearchTarget) : "all";
 
   const supabase = await createClient();
   let query = supabase
@@ -37,7 +62,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   if (filter === "inbound" || filter === "outbound") query = query.eq("direction", filter);
   if (filter === "no_inquiry") query = query.is("inquiry_id", null).eq("direction", "inbound");
   if (filter === "unlinked") query = query.is("deal_id", null).eq("direction", "inbound");
-  if (q) query = query.or(`subject.ilike.%${q}%,from_address.ilike.%${q}%,from_name.ilike.%${q}%,snippet.ilike.%${q}%`);
+  if (q) query = query.or(buildSearchFilter(q, target));
 
   const [{ data }, accounts] = await Promise.all([query, getMailAccountOptions(supabase)]);
   const emails = (data ?? []) as unknown as Email[];
@@ -72,6 +97,8 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
     });
   }
 
+  const searchQuery = q ? `&q=${encodeURIComponent(q)}&in=${target}` : "";
+
   return (
     <div>
       <PageHeader
@@ -88,16 +115,42 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {FILTERS.map((f) => (
           <Button key={f.key} asChild size="sm" variant={filter === f.key ? "default" : "outline"}>
-            <Link href={`/inbox?filter=${f.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{f.label}</Link>
+            <Link href={`/inbox?filter=${f.key}${searchQuery}`}>{f.label}</Link>
           </Button>
         ))}
-        <form className="ml-auto flex gap-2" action="/inbox">
+        <form className="ml-auto flex items-center gap-2" action="/inbox">
           <input type="hidden" name="filter" value={filter} />
-          <Input name="q" defaultValue={q} placeholder="件名・送信者を検索" className="w-56" />
+          <select
+            name="in"
+            defaultValue={target}
+            aria-label="検索対象"
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+          >
+            {SEARCH_TARGETS.map((t) => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+          <Input name="q" defaultValue={q} placeholder="検索する語句" className="w-56" />
+          <Button type="submit" size="sm" variant="outline" aria-label="検索">
+            <Search className="size-4" /> 検索
+          </Button>
+          {q && (
+            <Button asChild size="sm" variant="ghost" aria-label="検索を解除">
+              <Link href={`/inbox?filter=${filter}`}><X className="size-4" /> 解除</Link>
+            </Button>
+          )}
         </form>
       </div>
 
-      {threads.length === 0 ? (
+      {q && (
+        <p className="mb-3 text-sm text-muted-foreground">
+          「{q}」を{SEARCH_TARGETS.find((t) => t.key === target)?.label}から検索: {threads.length} 件のスレッド
+        </p>
+      )}
+
+      {threads.length === 0 && q ? (
+        <EmptyState icon={Search} title="該当するメールがありません" description="語句や検索対象を変えて再度お試しください。" />
+      ) : threads.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="メールがありません"
