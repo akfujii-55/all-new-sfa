@@ -28,7 +28,7 @@ const BILLING_VARIANT: Record<BillingStatus, "default" | "secondary" | "outline"
 
 export default async function AdminTenantsPage() {
   const [tenants, pricing] = await Promise.all([listTenantsWithUsage(), getPricingSettings()]);
-  const totalMonthly = tenants.filter((t) => !t.is_self && t.billing_status === "active").reduce((a, t) => a + monthlyFee(t, pricing).total, 0);
+  const totalMonthly = tenants.filter((t) => !t.is_self && t.billing_status === "active").reduce((a, t) => a + monthlyFee(t.usage, pricing).total, 0);
 
   return (
     <div>
@@ -52,14 +52,14 @@ export default async function AdminTenantsPage() {
                 <TableHead className="text-right">メールアカウント</TableHead>
                 <TableHead className="text-right">容量</TableHead>
                 <TableHead className="text-right">メール件数</TableHead>
-                <TableHead className="text-right">月額</TableHead>
+                <TableHead className="text-right">月額(利用数ベース)</TableHead>
                 <TableHead>お試し期限</TableHead>
                 <TableHead>作成日</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tenants.map((t) => {
-                const fee = monthlyFee(t, pricing).total;
+                const fee = monthlyFee(t.usage, pricing).total;
                 const over = (n: number, max: number) => (n >= max ? "text-destructive font-medium" : "");
                 return (
                   <TableRow key={t.id}>

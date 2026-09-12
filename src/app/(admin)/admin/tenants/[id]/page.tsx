@@ -21,7 +21,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   const [tenant, pricing] = await Promise.all([getTenantWithUsage(id), getPricingSettings()]);
   if (!tenant) notFound();
   const members = await listTenantMembers(id);
-  const fee = monthlyFee(tenant, pricing);
+  const fee = monthlyFee(tenant.usage, pricing);
   const u = tenant.usage;
 
   return (
@@ -65,7 +65,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         <Card>
           <CardHeader>
             <CardTitle className="text-base">月額(税抜)</CardTitle>
-            <CardDescription>上限の設定から計算した金額です。単価は「料金・既定値」で変更できます。</CardDescription>
+            <CardDescription>現在の利用数(ログインユーザー数・連携メールアカウント数・使用容量の GB 切り上げ)から計算した金額です。上限は利用できる枠で、料金には影響しません。単価は「料金・既定値」で変更できます。</CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             <table className="w-full">

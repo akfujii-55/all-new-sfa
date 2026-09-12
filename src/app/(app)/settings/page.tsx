@@ -49,8 +49,8 @@ export default async function SettingsPage() {
     <div className="max-w-3xl">
       <PageHeader
         title="設定"
-        description="メールアカウント、署名、連携の状態"
-        actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />}
+        description="Gmail 連携、署名、通知の設定"
+        actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> Gmail アカウントを追加</Button>} />}
       />
 
       <div className="space-y-4">
@@ -79,14 +79,18 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">メールアカウント</CardTitle>
-            <CardDescription>登録した各アカウントの受信トレイ・送信済みを IMAP で取り込み、SMTP で送信します。返信は受信したアカウントから送られます。</CardDescription>
+            <CardTitle className="text-base">Gmail 連携設定</CardTitle>
+            <CardDescription>
+              営業で使う Gmail アカウントを連携すると、受信トレイと送信済みメールを取り込み、このアプリから返信・送信できます(返信は受信したアカウントから送られます)。
+              連携には Google の「アプリパスワード」を使います。
+              <a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">https://myaccount.google.com/apppasswords</a> に連携する Gmail アカウントでログインしてパスワードを発行し、そのパスワードで連携してください。
+            </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             {accounts.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 <Mail className="mx-auto mb-2 size-6" />
-                まだメールアカウントがありません。右上の「メールアカウントを追加」から登録してください。
+                まだ Gmail アカウントが連携されていません。右上の「Gmail アカウントを追加」から連携してください。
               </div>
             ) : (
               <div className="divide-y">
@@ -178,16 +182,24 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Gmail アカウントの追加手順</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Gmail 連携の設定手順</CardTitle>
+            <CardDescription>Google のアプリパスワードを発行し、そのパスワードでアカウントを連携します。</CardDescription>
+          </CardHeader>
           <CardContent className="text-sm space-y-4">
             <ol className="list-decimal pl-5 space-y-2">
-              <li>追加したい Google アカウントで 2 段階認証を有効にし、<a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">アプリパスワード</a>を発行します。</li>
-              <li>Gmail の設定 → 「メール転送と POP/IMAP」で IMAP を有効にします。</li>
-              <li>「メールアカウントを追加」でメールアドレスとアプリパスワードを登録し、「接続テスト」で確認します。</li>
-              <li>「今すぐ同期」を押すと、そのアカウントの直近 30 日分のメールを取り込みます。</li>
+              <li>連携する Gmail アカウントで 2 段階認証(2 段階認証プロセス)を有効にします。アプリパスワードは 2 段階認証が有効なアカウントでのみ発行できます。</li>
+              <li>
+                <a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">https://myaccount.google.com/apppasswords</a>
+                {" "}に、連携する Gmail アカウントでログインします。アプリ名(例: SFA)を入力して「作成」を押すと、16 桁のアプリパスワードが表示されます。この画面を閉じると再表示できないので控えてください。
+              </li>
+              <li>Gmail の設定 → 「メール転送と POP/IMAP」で IMAP が有効になっていることを確認します。</li>
+              <li>右上の「Gmail アカウントを追加」で、メールアドレスと発行したアプリパスワードを入力して保存し、「接続テスト」で確認します。パスワードは暗号化して保存されます。</li>
+              <li>「今すぐ同期」を押すと、そのアカウントの直近 30 日分のメールを取り込みます。以後は毎日自動で同期されます。</li>
             </ol>
             <p className="text-muted-foreground">
-              定期同期は <code className="rounded bg-muted px-1">GET /api/mail/sync</code> を <code className="rounded bg-muted px-1">Authorization: Bearer &lt;CRON_SECRET&gt;</code> 付きで呼び出します。登録済みの全アカウントがまとめて同期されます。
+              Google Workspace のアカウントでは、管理者が IMAP とアプリパスワードの利用を許可している必要があります。
+              アプリパスワードは Google アカウントの「セキュリティ」からいつでも取り消せます。取り消した場合はこの画面で新しいパスワードに更新してください。
             </p>
           </CardContent>
         </Card>

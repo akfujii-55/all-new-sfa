@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
-import { errorMessage } from "@/lib/log";
+import { errorMessage, logSystem } from "@/lib/log";
+import { ADMIN_COOKIE, ADMIN_UNLOCK_HOURS, isAdminCodeConfigured, isAdminUnlocked, makeUnlockToken, verifyAdminCode } from "@/lib/admin-gate";
 import { PRICING_KEYS, pricingFromRows, type PricingSettings } from "@/lib/pricing";
 import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsage } from "@/lib/types";
 
@@ -16,14 +17,101 @@ import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsa
  * 業務データ(メール・案件など)には触らず、tenants / operator_settings / members(招待)だけを扱う。
  */
 
-/** ログインユーザーが運営者であることを確認し、service role クライアントを返す */
+/** ログインユーザーが運営者で、アクセスコードで解除済みであることを確認し、service role クライアントを返す */
 export async function requireOperator() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("ログインが必要です");
   const { data: ok } = await supabase.rpc("is_operator");
   if (!ok) throw new Error("運営者のみ操作できます");
+  if (!(await isAdminUnlocked(auth.user.id))) throw new Error("運営管理のアクセスコードを入力してください");
   return { admin: createAdminClient(), user: auth.user };
+}
+
+// ---------- アクセスコード(追加パスワード) ----------
+
+/** アクセスコードを確認し、解除クッキーを発行する */
+export async function unlockAdmin(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("ログインが必要です");
+  const { data: ok } = await supabase.rpc("is_operator");
+  if (!ok) throw new Error("運営者のみ操作できます");
+  if (!isAdminCodeConfigured()) throw new Error("ADMIN_ACCESS_CODE が設定されていないため、運営管理は利用できません");
+  const code = String(formData.get("code") ?? "");
+  if (!verifyAdminCode(code)) {
+    await logSystem(
+      { level: "warn", source: "admin.unlock", message: `運営管理のアクセスコードが一致しません(${auth.user.email ?? auth.user.id})`, userEmail: auth.user.email ?? null, notify: false },
+      supabase,
+    );
+    // 総当たりを遅らせる
+    await new Promise((r) => setTimeout(r, 1500));
+    throw new Error("アクセスコードが正しくありません");
+  }
+  const store = await cookies();
+  store.set(ADMIN_COOKIE, makeUnlockToken(auth.user.id), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/admin",
+    maxAge: ADMIN_UNLOCK_HOURS * 60 * 60,
+  });
+  await logSystem({ level: "info", source: "admin.unlock", message: `運営管理を解除(${auth.user.email ?? auth.user.id})`, userEmail: auth.user.email ?? null }, supabase);
+  revalidatePath("/admin", "layout");
+}
+
+/** 解除を取り消す(ロック) */
+export async function lockAdmin(): Promise<void> {
+  const store = await cookies();
+  store.set(ADMIN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/admin", maxAge: 0 });
+  revalidatePath("/admin", "layout");
+}
+
+// ---------- 運営者の管理 ----------
+
+export interface OperatorRow {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export async function listOperators(): Promise<OperatorRow[]> {
+  const { admin } = await requireOperator();
+  const { data } = await admin.from("operators").select("user_id, note, created_at").order("created_at");
+  const ids = (data ?? []).map((o) => o.user_id as string);
+  const { data: profiles } = ids.length ? await admin.from("profiles").select("id, email, full_name").in("id", ids) : { data: [] };
+  const byId = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+  return (data ?? []).map((o) => ({
+    user_id: o.user_id as string,
+    email: (byId.get(o.user_id as string)?.email as string | null) ?? null,
+    full_name: (byId.get(o.user_id as string)?.full_name as string | null) ?? null,
+    note: (o.note as string | null) ?? null,
+    created_at: o.created_at as string,
+  }));
+}
+
+/** 運営者を追加する。先にアプリの利用者(いずれかのテナントの営業担当者)としてログインできる必要がある */
+export async function addOperator(formData: FormData): Promise<void> {
+  const { admin } = await requireOperator();
+  const email = s(formData.get("email"))?.toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("メールアドレスを入力してください");
+  const { data: profile } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
+  if (!profile) throw new Error("このメールアドレスの利用者がいません。先にいずれかのテナントの営業担当者として招待し、ログインできる状態にしてください");
+  const { error } = await admin.from("operators").upsert({ user_id: profile.id, note: s(formData.get("note")) }, { onConflict: "user_id" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/settings");
+}
+
+export async function removeOperator(userId: string): Promise<void> {
+  const { admin, user } = await requireOperator();
+  if (userId === user.id) throw new Error("自分自身は外せません。他の運営者に外してもらってください");
+  const { count } = await admin.from("operators").select("user_id", { count: "exact", head: true });
+  if ((count ?? 0) <= 1) throw new Error("運営者が 0 人になるため外せません");
+  const { error } = await admin.from("operators").delete().eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/settings");
 }
 
 function s(v: FormDataEntryValue | null) {

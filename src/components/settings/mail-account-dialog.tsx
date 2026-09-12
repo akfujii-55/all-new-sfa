@@ -28,9 +28,10 @@ export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; ac
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{account ? "メールアカウントを編集" : "メールアカウントを追加"}</DialogTitle>
+          <DialogTitle>{account ? "Gmail 連携を編集" : "Gmail アカウントを追加"}</DialogTitle>
           <DialogDescription>
-            Gmail は 2 段階認証を有効にしたうえで「アプリパスワード」を発行して入力します。パスワードは暗号化して保存されます。
+            <a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">Google のアプリパスワード</a>
+            のページに連携する Gmail アカウントでログインしてパスワードを発行し、ここに入力してください(2 段階認証が必要です)。パスワードは暗号化して保存されます。
           </DialogDescription>
         </DialogHeader>
         <form
@@ -54,7 +55,7 @@ export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; ac
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="email">メールアドレス *</Label>
+              <Label htmlFor="email">Gmail アドレス *</Label>
               <Input id="email" name="email" type="email" defaultValue={account?.email ?? ""} required />
             </div>
             <div className="grid gap-1.5">
@@ -64,7 +65,7 @@ export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; ac
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="password">アプリパスワード{account ? "" : " *"}</Label>
+              <Label htmlFor="password">Google アプリパスワード{account ? "" : " *"}</Label>
               <Input id="password" name="password" type="password" autoComplete="off" placeholder={account ? "変更する場合のみ入力" : "xxxx xxxx xxxx xxxx"} required={!account} />
             </div>
             <div className="grid gap-1.5">

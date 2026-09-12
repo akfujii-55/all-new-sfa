@@ -1,4 +1,4 @@
-import { GIB, type Tenant } from "@/lib/types";
+import { GIB, type TenantUsage } from "@/lib/types";
 
 /** 運営側の料金・既定値(operator_settings)。値は円・日・件・GB */
 export interface PricingSettings {
@@ -41,11 +41,15 @@ export function pricingFromRows(rows: { key: string; value: string }[] | null | 
   return out;
 }
 
-/** 基本料金に含まれる分(メールアカウント 1・ユーザー 1・容量 1GB)を超えた分の内訳と月額合計 */
-export function monthlyFee(t: Pick<Tenant, "max_users" | "max_mail_accounts" | "max_storage_bytes">, p: PricingSettings) {
-  const extraMail = Math.max(0, t.max_mail_accounts - 1);
-  const extraUsers = Math.max(0, t.max_users - 1);
-  const extraGb = Math.max(0, Math.ceil(t.max_storage_bytes / GIB) - 1);
+/**
+ * 月額。実際の利用数(ログインユーザー数・連携メールアカウント数・使用容量)で計算する。
+ * 基本料金に含まれる分(メールアカウント 1・ユーザー 1・容量 1GB)を超えた分がオプション料金。
+ * 容量は使用量を GB 単位に切り上げて数える(1.2GB なら 2GB 扱い = 1GB 分の追加)。
+ */
+export function monthlyFee(u: Pick<TenantUsage, "users" | "mail_accounts" | "storage_bytes">, p: PricingSettings) {
+  const extraMail = Math.max(0, u.mail_accounts - 1);
+  const extraUsers = Math.max(0, u.users - 1);
+  const extraGb = Math.max(0, Math.ceil(u.storage_bytes / GIB) - 1);
   const items = [
     { label: "基本料金", qty: 1, unit: p.price_base_monthly, amount: p.price_base_monthly },
     { label: "メールアカウント追加", qty: extraMail, unit: p.price_per_extra_mail_account, amount: extraMail * p.price_per_extra_mail_account },
