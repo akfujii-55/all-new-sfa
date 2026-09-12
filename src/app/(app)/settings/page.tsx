@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
+import { getMyUsage } from "@/lib/tenant-quota";
+import { fmtGb } from "@/lib/pricing";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,8 +24,9 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
+  const [tenant, usage, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
     getCurrentTenant(supabase),
+    getMyUsage(supabase).catch(() => null),
     supabase
       .from("mail_accounts")
       .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, is_active, is_default, last_error, created_at, updated_at")
@@ -64,6 +67,12 @@ export default async function SettingsPage() {
                 <span className="text-muted-foreground">契約状態:</span> {TENANT_STATUS_LABEL[tenant.status]}
                 {tenant.status === "trial" && tenant.trial_ends_at && <span className="text-muted-foreground">(お試し期間は {fmtDateTime(tenant.trial_ends_at)} まで)</span>}
               </p>
+              {usage && (
+                <p className="pt-1 text-xs text-muted-foreground">
+                  ご利用状況: ログインユーザー {usage.users} / {tenant.max_users} 名(招待中を含む) · 連携メールアカウント {usage.mail_accounts} / {tenant.max_mail_accounts} 件 · 使用容量 {fmtGb(usage.storage_bytes)} / {fmtGb(tenant.max_storage_bytes)} · メール {usage.emails.toLocaleString("ja-JP")} 件。
+                  上限の変更は運営までお問い合わせください。
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

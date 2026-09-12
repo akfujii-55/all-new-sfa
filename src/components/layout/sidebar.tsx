@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings,
+  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ const NAV = [
   { href: "/settings", label: "設定", icon: Settings },
 ];
 
-export function Sidebar({ counts }: { counts: { unread: number; inquiries: number } }) {
+export function Sidebar({ counts, isOperator = false }: { counts: { unread: number; inquiries: number }; isOperator?: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -55,6 +55,14 @@ export function Sidebar({ counts }: { counts: { unread: number; inquiries: numbe
           );
         })}
       </nav>
+      {isOperator && (
+        <div className="border-t p-3">
+          <Link href="/admin" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground">
+            <ShieldCheck className="size-4" />
+            <span className="flex-1">運営管理</span>
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

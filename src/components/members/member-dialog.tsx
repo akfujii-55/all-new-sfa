@@ -83,7 +83,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
             )}
             {member && confirmDelete && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">担当中の案件は「未設定」になります。</span>
+                <span className="text-muted-foreground">{member.profile_id ? "ログインできなくなり、担当中の案件は「未設定」になります。" : "担当中の案件は「未設定」になります。"}</span>
                 <Button
                   type="button"
                   variant="destructive"

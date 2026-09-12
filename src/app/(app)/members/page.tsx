@@ -8,16 +8,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MemberDialog } from "@/components/members/member-dialog";
 import { InviteButton } from "@/components/members/invite-button";
 import { fmtDate } from "@/lib/format";
+import { getCurrentTenant } from "@/lib/supabase/tenant";
+import { getMyUsage } from "@/lib/tenant-quota";
 import type { Member } from "@/lib/types";
 
 export const metadata = { title: "営業担当者" };
 
 export default async function MembersPage() {
   const supabase = await createClient();
-  const [{ data }, { data: dealCounts }] = await Promise.all([
+  const [{ data }, { data: dealCounts }, tenant, usage] = await Promise.all([
     supabase.from("members").select("*").order("is_active", { ascending: false }).order("sort_order").order("created_at"),
     supabase.from("deals").select("owner_id").not("stage", "in", '("won","lost")').not("owner_id", "is", null),
+    getCurrentTenant(supabase),
+    getMyUsage(supabase).catch(() => null),
   ]);
+  const seatsUsed = usage?.users ?? 0;
+  const seatsMax = tenant?.max_users ?? 0;
+  const seatsFull = Boolean(tenant) && seatsUsed >= seatsMax;
   const rows = (data ?? []) as Member[];
   const openByOwner = new Map<string, number>();
   for (const d of dealCounts ?? []) {
@@ -31,6 +38,14 @@ export default async function MembersPage() {
         description="自社の営業担当者。メールアドレスを登録して「招待」を押すと、このアプリにログインできるようになります。"
         actions={<MemberDialog trigger={<Button size="sm"><Plus className="size-4" /> 営業担当者を登録</Button>} />}
       />
+      {tenant && usage && (
+        <div className={`mb-4 rounded-md border px-3 py-2 text-sm ${seatsFull ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" : "text-muted-foreground"}`}>
+          ログインユーザー: {seatsUsed} / {seatsMax} 名(招待中を含む)。
+          {seatsFull
+            ? " 上限に達しているため新しく招待できません。不要な営業担当者を削除するとログインが無効になり枠が空きます。ユーザー数の追加(月額オプション)は運営までお問い合わせください。"
+            : " 営業担当者を削除するとログインも無効になり、枠が空きます。"}
+        </div>
+      )}
       {rows.length === 0 ? (
         <EmptyState
           icon={UserCog}

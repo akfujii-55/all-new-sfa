@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Attachment } from "mailparser";
 import { createAdminClient } from "@/lib/supabase/server";
 import { tenantIdOf } from "@/lib/supabase/tenant";
+import { assertStorageAvailable } from "@/lib/tenant-quota";
 import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, OUTBOX_PREFIX, extOf, fmtBytes, type OutgoingAttachmentRef } from "./attachment-shared";
 
 export { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, OUTBOX_PREFIX, fmtBytes, outboxPath, type OutgoingAttachmentRef } from "./attachment-shared";
@@ -18,6 +19,9 @@ function storage() {
 /** 受信メールの添付ファイルを Storage に保存し、email_attachments にメタ情報を登録する */
 export async function saveAttachments(db: SupabaseClient, emailId: string, attachments: Attachment[]) {
   const tenantId = await tenantIdOf(db);
+  // 容量の上限(tenants.max_storage_bytes)。超える場合はメール本体だけ残し、添付は保存しない
+  const total = attachments.reduce((a, x) => a + (x.content?.length ?? 0), 0);
+  if (total > 0) await assertStorageAvailable(db, total);
   let saved = 0;
   for (const [i, a] of attachments.entries()) {
     if (!a.content || a.content.length === 0) continue;

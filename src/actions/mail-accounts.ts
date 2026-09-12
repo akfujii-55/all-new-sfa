@@ -6,6 +6,7 @@ import { encryptSecret } from "@/lib/mail/crypto";
 import { getMailAccount } from "@/lib/mail/accounts";
 import { verifySmtp } from "@/lib/mail/smtp";
 import { verifyImap } from "@/lib/mail/sync";
+import { assertCanAddMailAccount, assertTenantWritable } from "@/lib/tenant-quota";
 
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
@@ -32,6 +33,9 @@ function revalidate() {
 /** メールアカウントを追加・更新する。パスワード欄が空なら既存のものを維持する */
 export async function saveMailAccount(id: string | null, formData: FormData) {
   const db = await requireUser();
+  // 上限(tenants.max_mail_accounts)は新規追加のときだけ確認する
+  if (id) await assertTenantWritable(db);
+  else await assertCanAddMailAccount(db);
   const email = s(formData.get("email"))?.toLowerCase();
   const label = s(formData.get("label")) ?? email;
   const password = String(formData.get("password") ?? "").replace(/\s+/g, "");

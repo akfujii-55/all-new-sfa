@@ -78,7 +78,7 @@ export async function getCurrentTenant(db: SupabaseClient): Promise<Tenant | nul
   return (data as Tenant | null) ?? null;
 }
 
-/** 有効なテナント(お試し中・契約中)を作成順で返す。service role 専用 */
+/** 利用可能なテナント(契約中、または期限内のお試し)を作成順で返す。cron の対象。service role 専用 */
 export async function listActiveTenants(): Promise<Tenant[]> {
   const { data, error } = await createAdminClient()
     .from("tenants")
@@ -86,7 +86,8 @@ export async function listActiveTenants(): Promise<Tenant[]> {
     .in("status", ["trial", "active"])
     .order("created_at");
   if (error) throw new Error(`テナント一覧の取得に失敗しました: ${error.message}`);
-  return (data ?? []) as Tenant[];
+  const now = Date.now();
+  return ((data ?? []) as Tenant[]).filter((t) => t.status === "active" || !t.trial_ends_at || Date.parse(t.trial_ends_at) >= now);
 }
 
 /**

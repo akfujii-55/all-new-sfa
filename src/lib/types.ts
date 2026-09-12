@@ -36,6 +36,24 @@ export interface Tenant {
   name: string;
   status: TenantStatus;
   trial_ends_at: string | null;
+  /** 申し込み経路 */
+  source: "operator" | "signup";
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address: string | null;
+  /** 運営メモ(テナントの利用者には見せない) */
+  note: string | null;
+  /** 上限: ログインユーザー数(招待中を含む) */
+  max_users: number;
+  /** 上限: 連携メールアカウント数 */
+  max_mail_accounts: number;
+  /** 上限: 使用容量(バイト) */
+  max_storage_bytes: number;
+  billing_status: BillingStatus;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  current_period_end: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +66,28 @@ export const TENANT_STATUS_LABEL: Record<TenantStatus, string> = {
   suspended: "停止中",
   cancelled: "解約",
 };
+
+export type BillingStatus = "none" | "trialing" | "active" | "past_due" | "cancelled";
+
+export const BILLING_STATUS_LABEL: Record<BillingStatus, string> = {
+  none: "未設定",
+  trialing: "お試し中",
+  active: "課金中",
+  past_due: "支払い遅延",
+  cancelled: "解約済み",
+};
+
+/** テナントの利用量(tenant_usage_of / my_tenant_usage) */
+export interface TenantUsage {
+  /** ログインできる利用者 + 招待中 */
+  users: number;
+  pending_invites: number;
+  mail_accounts: number;
+  emails: number;
+  storage_bytes: number;
+}
+
+export const GIB = 1024 * 1024 * 1024;
 
 export interface Profile {
   id: string;

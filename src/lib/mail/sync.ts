@@ -397,7 +397,11 @@ export async function ingestParsedMail(
     try {
       await saveAttachments(db, row.id, parsed.attachments);
     } catch (e) {
-      console.error("[mail/sync] attachments", (e as Error).message);
+      // 容量上限などで保存できなかった添付は警告として残す(同期自体は続ける)
+      await logSystem(
+        { level: "warn", source: "mail.sync", message: `添付ファイルを保存できませんでした(${parsed.subject ?? "(件名なし)"}): ${(e as Error).message}`, detail: { emailId: row.id }, notify: false },
+        db,
+      );
     }
   }
 

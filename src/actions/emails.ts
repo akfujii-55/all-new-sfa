@@ -6,6 +6,7 @@ import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { tenantIdOf } from "@/lib/supabase/tenant";
+import { assertStorageAvailable, assertTenantWritable } from "@/lib/tenant-quota";
 import {
   attachOutgoing,
   discardOutgoing,
@@ -43,11 +44,20 @@ export async function sendEmail(input: SendEmailInput) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("ログインが必要です");
 
+  await assertTenantWritable(supabase);
   const to = splitAddrs(input.to);
   const cc = splitAddrs(input.cc);
   if (to.length === 0) throw new Error("宛先を入力してください");
   if (!input.subject.trim()) throw new Error("件名を入力してください");
   const attachmentRefs = validateOutgoingRefs(input.attachments, await tenantIdOf(supabase));
+  const bodyBytes = Buffer.byteLength(input.body, "utf8");
+  const attachmentBytes = attachmentRefs.reduce((a, r) => a + (Number(r.size) || 0), 0);
+  try {
+    await assertStorageAvailable(supabase, bodyBytes + attachmentBytes);
+  } catch (e) {
+    await discardOutgoing(attachmentRefs);
+    throw e;
+  }
 
   let inReplyTo: string | null = null;
   let references: string[] = [];
@@ -198,6 +208,7 @@ export async function runMailSync() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("ログインが必要です");
+  await assertTenantWritable(supabase);
   // ログインユーザーのセッションで実行する(RLS で自テナントに絞られる)
   const results = await syncMail(supabase);
   revalidatePath("/inbox");
