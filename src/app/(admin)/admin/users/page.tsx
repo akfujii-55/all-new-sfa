@@ -14,7 +14,8 @@ export default async function AdminUsersPage() {
         <CardHeader>
           <CardTitle className="text-base">運営者</CardTitle>
           <CardDescription>
-            招待した運営者は運営側の会社の営業担当者としても登録され、通常のアプリも使えます。運営者から外してもログイン自体は残ります(ログインも止めるには営業担当者ページで削除してください)。
+            運営者は運営専用のアカウントで、どのテナントにも所属せずテナント側の画面にはログインできません。削除するとログインもできなくなります。
+            テナントの利用者と同じメールアドレスは使えません。
           </CardDescription>
         </CardHeader>
         <CardContent><OperatorUsers operators={operators} currentUserId={user.id} isSuper={isSuper} /></CardContent>

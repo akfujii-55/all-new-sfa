@@ -5,6 +5,8 @@ import { headers } from "next/headers";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
+import { buildMail } from "@/lib/mail/templates";
+import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertCanAddUser, assertTenantWritable } from "@/lib/tenant-quota";
 
@@ -139,18 +141,9 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   const link = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent("/set-password")}`;
 
   const account = await resolveSendAccount(supabase, {});
-  const text = [
-    `${member.name} 様`,
-    "",
-    `${inviterName} さんから営業支援ツール「SFA」に招待されました。`,
-    "以下のリンクを開いてパスワードを設定すると、ログインできるようになります。",
-    "",
-    link,
-    "",
-    "※ リンクの有効期限は 24 時間です。期限が切れた場合は招待をもう一度送ってもらってください。",
-    "※ 心当たりがない場合はこのメールを破棄してください。",
-  ].join("\n");
-  await sendMail(account, { to: [email], subject: `【SFA】${inviterName} さんから招待が届いています`, text });
+  const tenant = await getCurrentTenant(supabase);
+  const mail = await buildMail("member_invite", { name: member.name, company: tenant?.name ?? "", inviter: inviterName, link });
+  await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
 
   await supabase.from("members").update({ invited_at: new Date().toISOString(), email }).eq("id", member.id);
   revalidate();

@@ -24,6 +24,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
   ]);
 
+  // 運営専用アカウント(テナントに所属しない運営者)は運営管理へ
+  if (!tenant && isOperator) redirect("/admin");
   // どの会社にも所属していないユーザー(招待を経ずに作られた等)にはデータを見せない
   if (!tenant) {
     return (

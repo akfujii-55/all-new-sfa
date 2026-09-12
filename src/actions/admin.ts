@@ -6,6 +6,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
+import { DEFAULT_MAIL_TEMPLATES, MAIL_TEMPLATE_KEYS, loadMailTemplate, buildMail, validateTemplate, type MailTemplate, type MailTemplateKey } from "@/lib/mail/templates";
 import { errorMessage } from "@/lib/log";
 import { PRICING_KEYS, pricingFromRows, type PricingSettings } from "@/lib/pricing";
 import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsage } from "@/lib/types";
@@ -95,42 +96,37 @@ export interface InviteOperatorResult {
 
 /**
  * 運営者をメールで招待する(スーパーユーザーのみ)。
- * 運営側テナント(自社)の営業担当者として登録し、招待リンクでパスワードを設定してもらう。
- * 既に利用者として登録済みのメールなら、運営者に加えてログイン用のリンクを送る。
+ * 運営専用のアカウント(どのテナントにも所属しない)を作り、招待リンクでパスワードを設定してもらう。
+ * テナントの利用者として登録済みのメールアドレスは使えない(運営とテナント利用を分けるため)。
  */
 export async function inviteOperator(formData: FormData): Promise<InviteOperatorResult> {
-  const { admin } = await requireSuperOperator();
+  const { admin, user } = await requireSuperOperator();
   const email = s(formData.get("email"))?.toLowerCase();
   const name = s(formData.get("name"));
   if (!email || !email.includes("@")) throw new Error("メールアドレスを入力してください");
   if (!name) throw new Error("氏名を入力してください");
   const note = s(formData.get("note"));
 
-  const { data: opTenant } = await admin.from("tenants").select("id, name").order("created_at").limit(1).single();
-  if (!opTenant) throw new Error("運営側のテナントがありません");
-
-  const { data: existing } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
+  const { data: existing } = await admin.from("profiles").select("id, tenant_id").ilike("email", email).maybeSingle();
   let userId: string | null = existing?.id ?? null;
   let tokenHash: string;
   let type: "invite" | "magiclink";
 
+  if (existing?.tenant_id) {
+    throw new Error("このメールアドレスはテナントの利用者として登録されています。運営者は運営専用のメールアドレスで招待してください");
+  }
   if (userId) {
+    // 招待済みで未ログインの運営者への再送
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (again.error) throw new Error(again.error.message);
     tokenHash = again.data.properties.hashed_token;
     type = "magiclink";
   } else {
-    // 運営側テナントの営業担当者として登録し、招待(auth ユーザー作成 → handle_new_user が所属を決める)
-    const { data: member, error: mErr } = await admin
-      .from("members")
-      .insert({ tenant_id: opTenant.id, name, email, is_active: true, sort_order: 99, invited_at: new Date().toISOString() })
-      .select("id")
-      .single();
-    if (mErr) throw new Error(mErr.message);
+    // 運営専用アカウント(operator=true)。handle_new_user はテナントに所属させない
     const first = await admin.auth.admin.generateLink({
       type: "invite",
       email,
-      options: { data: { full_name: name, member_id: member.id, tenant_id: opTenant.id } },
+      options: { data: { full_name: name, operator: "true" } },
     });
     if (first.error) throw new Error(first.error.message);
     tokenHash = first.data.properties.hashed_token;
@@ -150,20 +146,9 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
     const operator = await operatorTenantClient();
     if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
-    const text = [
-      `${name} 様`,
-      "",
-      "営業支援ツール「SFA」の運営管理に招待されました。",
-      type === "invite"
-        ? "以下のリンクを開いてパスワードを設定すると、ログインして運営管理(/admin)を利用できるようになります。"
-        : "以下のリンクを開くとログインでき、運営管理(/admin)を利用できるようになります。",
-      "",
-      inviteLink,
-      "",
-      "※ リンクの有効期限は 24 時間です。期限が切れた場合は再送を依頼してください。",
-      "※ 心当たりがない場合はこのメールを破棄してください。",
-    ].join("\n");
-    await sendMail(account, { to: [email], subject: "【SFA】運営管理への招待", text });
+    const { data: opTenant } = await admin.from("tenants").select("name").order("created_at").limit(1).maybeSingle();
+    const mail = await buildMail("operator_invite", { name, company: opTenant?.name ?? "", inviter: user.email ?? "", link: inviteLink });
+    await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
     mailSent = true;
   } catch (e) {
     mailError = errorMessage(e);
@@ -172,16 +157,71 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   return { inviteLink, mailSent, mailError };
 }
 
-/** 運営者から外す(スーパーユーザーのみ)。スーパーユーザーは外せない。auth ユーザーと営業担当者の登録は残る */
+/** 運営者を削除する(スーパーユーザーのみ)。運営専用アカウントはログインごと削除する。スーパーユーザーは削除できない */
 export async function removeOperator(userId: string): Promise<void> {
   const { admin, user } = await requireSuperOperator();
-  if (userId === user.id) throw new Error("スーパーユーザー自身は外せません");
+  if (userId === user.id) throw new Error("スーパーユーザー自身は削除できません");
   const { data: target } = await admin.from("operators").select("is_super").eq("user_id", userId).maybeSingle();
   if (!target) throw new Error("運営者が見つかりません");
-  if (target.is_super) throw new Error("スーパーユーザーは外せません");
+  if (target.is_super) throw new Error("スーパーユーザーは削除できません");
   const { error } = await admin.from("operators").delete().eq("user_id", userId);
   if (error) throw new Error(error.message);
+  // どのテナントにも所属しない運営専用アカウントなら、auth ユーザーも消してログインできなくする
+  const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+  if (!profile?.tenant_id) {
+    const { error: delErr } = await admin.auth.admin.deleteUser(userId);
+    if (delErr && !/not found/i.test(delErr.message)) throw new Error(`ログインの削除に失敗しました: ${delErr.message}`);
+  }
   revalidatePath("/admin/users");
+}
+
+// ---------- メールテンプレート ----------
+
+export interface MailTemplateRow extends MailTemplate {
+  key: MailTemplateKey;
+  /** 既定文面から変更されているか */
+  customized: boolean;
+  updated_at: string | null;
+}
+
+export async function listMailTemplates(): Promise<MailTemplateRow[]> {
+  const { admin } = await requireOperator();
+  const { data } = await admin.from("mail_templates").select("key, subject, body, updated_at");
+  const byKey = new Map((data ?? []).map((r) => [r.key as MailTemplateKey, r]));
+  return MAIL_TEMPLATE_KEYS.map((key) => {
+    const row = byKey.get(key);
+    return row
+      ? { key, subject: row.subject as string, body: row.body as string, customized: true, updated_at: row.updated_at as string }
+      : { key, ...DEFAULT_MAIL_TEMPLATES[key], customized: false, updated_at: null };
+  });
+}
+
+export async function saveMailTemplate(key: MailTemplateKey, formData: FormData): Promise<void> {
+  const { admin } = await requireOperator();
+  if (!MAIL_TEMPLATE_KEYS.includes(key)) throw new Error("テンプレートの種類が不正です");
+  const t: MailTemplate = {
+    subject: String(formData.get("subject") ?? "").replace(/\r\n/g, "\n").trim(),
+    body: String(formData.get("body") ?? "").replace(/\r\n/g, "\n").trim(),
+  };
+  const err = validateTemplate(t);
+  if (err) throw new Error(err);
+  const { error } = await admin.from("mail_templates").upsert({ key, ...t }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/mail-templates");
+}
+
+/** 既定の文面に戻す(保存した行を消す) */
+export async function resetMailTemplate(key: MailTemplateKey): Promise<void> {
+  const { admin } = await requireOperator();
+  const { error } = await admin.from("mail_templates").delete().eq("key", key);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/mail-templates");
+}
+
+/** 現在の文面(保存済みか既定)。プレビュー用 */
+export async function getMailTemplate(key: MailTemplateKey): Promise<MailTemplate> {
+  await requireOperator();
+  return loadMailTemplate(key);
 }
 
 // ---------- 参照 ----------
@@ -341,18 +381,8 @@ async function issueInvite(tenantId: string, memberId: string): Promise<Omit<Cre
     const operator = await operatorTenantClient();
     if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
-    const text = [
-      `${member.name} 様`,
-      "",
-      `営業支援ツール「SFA」に ${tenant?.name ?? ""} のアカウントを作成しました。`,
-      "以下のリンクを開いてパスワードを設定すると、ログインできるようになります。",
-      "",
-      inviteLink,
-      "",
-      "※ リンクの有効期限は 24 時間です。期限が切れた場合はご連絡ください。",
-      "※ 心当たりがない場合はこのメールを破棄してください。",
-    ].join("\n");
-    await sendMail(account, { to: [email], subject: `【SFA】${tenant?.name ?? ""} のアカウントを作成しました`, text });
+    const mail = await buildMail("tenant_invite", { name: member.name as string, company: (tenant?.name as string) ?? "", inviter: "", link: inviteLink });
+    await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
     mailSent = true;
   } catch (e) {
     mailError = errorMessage(e);

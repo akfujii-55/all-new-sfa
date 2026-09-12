@@ -46,14 +46,14 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
                         start(async () => {
                           try {
                             await removeOperator(o.user_id);
-                            toast.success("運営者から外しました");
+                            toast.success("運営者を削除しました");
                           } catch (e) {
                             toast.error((e as Error).message);
                           }
                         })
                       }
                     >
-                      <UserMinus className="size-4" /> 外す
+                      <UserMinus className="size-4" /> 削除
                     </Button>
                   )}
                 </TableCell>
