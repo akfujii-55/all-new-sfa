@@ -18,7 +18,7 @@
   - `createAdminClient`(service role)は RLS を通らないので業務テーブルの読み書きに使わない(使うのは auth.admin、Storage の実体操作、tenants 一覧、tenant_id が null のシステムログのみ)。service role で tenant_id 無しに insert すると例外になる。
   - 新しいテーブルを足すときは `tenant_id uuid not null references tenants(id) on delete cascade` + `set_tenant_id` トリガー + `tenant_isolation` ポリシーを必ず付ける。一意制約は `(tenant_id, ...)` の複合にする。
   - Storage(email-attachments)のパスは `<tenant_id>/...`。テナント作成は運営管理画面 `/admin/tenants/new`(または `node scripts/create-tenant.mjs`)。どちらも DB 関数 `create_tenant`。
-- 運営管理(0010 以降): `/admin`(`src/app/(admin)`)は `operators` に登録された auth ユーザーのみ(`is_operator()`)。さらに環境変数 `ADMIN_ACCESS_CODE` の入力で 8 時間有効の署名付きクッキーを発行する(`src/lib/admin-gate.ts`。未設定なら /admin は使えない)。運営者の追加・削除は /admin/settings。`src/actions/admin.ts` が service role でテナント横断に tenants / operator_settings / members(招待)を扱う。料金・既定上限は `operator_settings`、月額計算は `src/lib/pricing.ts`。
+- 運営管理(0010 以降): `/admin`(`src/app/(admin)`)は `operators` に登録された auth ユーザーのみ(`is_operator()`)。運営者は `operators.is_super` のスーパーユーザー(akfujii@art-trading.co.jp)が /admin/users からメールで招待する(運営側テナントの営業担当者として登録 + 招待リンクでパスワード設定)。追加パスワードは無し。`src/actions/admin.ts` が service role でテナント横断に tenants / operator_settings / members(招待)を扱う。料金・既定上限は `operator_settings`、月額計算は `src/lib/pricing.ts`。
   - 上限(ユーザー数=profiles+招待中、メールアカウント数、容量=添付+本文バイト)と利用可否(停止・解約・お試し期限切れは閲覧のみ)は `src/lib/tenant-quota.ts`。書き込み系 Server Action の入口で `assertTenantWritable` / `assertCanAddUser` / `assertCanAddMailAccount` / `assertStorageAvailable` を呼ぶ。
 
 ## ドメインの流れ
