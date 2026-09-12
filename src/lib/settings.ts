@@ -12,11 +12,12 @@ export interface MailSettings {
   reply_subject: string;
 }
 
+/** 未保存のときの既定値。テナント作成時(create_tenant)に会社名などを入れた行が作られるので、通常はここには落ちない */
 export const DEFAULT_MAIL_SETTINGS: MailSettings = {
-  signature_company: "アートトレーディング株式会社",
-  signature_email: "support@art-trading.co.jp",
+  signature_company: "",
+  signature_email: "",
   signature_extra: "",
-  reply_subject: "お問い合わせありがとうございます／アートトレーディング",
+  reply_subject: "お問い合わせありがとうございます",
 };
 
 export const MAIL_SETTING_KEYS = Object.keys(DEFAULT_MAIL_SETTINGS) as (keyof MailSettings)[];

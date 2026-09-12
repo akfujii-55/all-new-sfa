@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
+import { tenantIdOf } from "@/lib/supabase/tenant";
 
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
@@ -92,15 +93,18 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   if (!member.email) throw new Error("招待するにはメールアドレスを登録してください");
   if (member.profile_id) throw new Error("この営業担当者は既にログインできます");
   const email = member.email.toLowerCase();
+  const tenantId = await tenantIdOf(supabase);
 
+  // auth ユーザーの作成だけは service role が必要。テーブルの読み書きはログインユーザーのクライアントで行う
   const admin = createAdminClient();
   // 招待リンク。既に auth ユーザーがいる(招待済みで未設定)場合はマジックリンクで再送する
+  // member_id / tenant_id は DB 側(handle_new_user)が所属テナントと営業担当者の結び付けに使う
   let tokenHash: string | null = null;
   let type: "invite" | "magiclink" = "invite";
   const first = await admin.auth.admin.generateLink({
     type: "invite",
     email,
-    options: { data: { full_name: member.name, member_id: member.id } },
+    options: { data: { full_name: member.name, member_id: member.id, tenant_id: tenantId } },
   });
   if (first.error) {
     if (!/already|exists|registered/i.test(first.error.message)) throw new Error(first.error.message);
@@ -116,7 +120,7 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   const origin = await siteOrigin();
   const link = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent("/set-password")}`;
 
-  const account = await resolveSendAccount(admin, {});
+  const account = await resolveSendAccount(supabase, {});
   const text = [
     `${member.name} 様`,
     "",
@@ -130,7 +134,7 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   ].join("\n");
   await sendMail(account, { to: [email], subject: `【SFA】${inviterName} さんから招待が届いています`, text });
 
-  await admin.from("members").update({ invited_at: new Date().toISOString(), email }).eq("id", member.id);
+  await supabase.from("members").update({ invited_at: new Date().toISOString(), email }).eq("id", member.id);
   revalidate();
   return { message: `${email} に招待メールを送りました` };
 }

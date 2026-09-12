@@ -4,7 +4,7 @@ import { useRef, useState, type DragEvent } from "react";
 import { Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, fmtBytes } from "@/lib/mail/attachments";
+import { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, fmtBytes } from "@/lib/mail/attachment-shared";
 import { cn } from "@/lib/utils";
 
 /** メール作成・返信フォームの添付ファイル欄。ファイルはフォームの状態に持ち、送信時にアップロードする。

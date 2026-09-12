@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { encryptSecret } from "@/lib/mail/crypto";
 import { getMailAccount } from "@/lib/mail/accounts";
 import { verifySmtp } from "@/lib/mail/smtp";
@@ -16,10 +16,12 @@ function port(v: FormDataEntryValue | null, fallback: number) {
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
+/** ログイン済みのセッションで動くクライアント(RLS で自テナントのアカウントだけを扱う) */
 async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("ログインが必要です");
+  return supabase;
 }
 
 function revalidate() {
@@ -29,8 +31,7 @@ function revalidate() {
 
 /** メールアカウントを追加・更新する。パスワード欄が空なら既存のものを維持する */
 export async function saveMailAccount(id: string | null, formData: FormData) {
-  await requireUser();
-  const db = createAdminClient();
+  const db = await requireUser();
   const email = s(formData.get("email"))?.toLowerCase();
   const label = s(formData.get("label")) ?? email;
   const password = String(formData.get("password") ?? "").replace(/\s+/g, "");
@@ -63,8 +64,7 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
 }
 
 export async function deleteMailAccount(id: string) {
-  await requireUser();
-  const db = createAdminClient();
+  const db = await requireUser();
   const { data: target } = await db.from("mail_accounts").select("is_default").eq("id", id).maybeSingle();
   const { error } = await db.from("mail_accounts").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -77,8 +77,7 @@ export async function deleteMailAccount(id: string) {
 }
 
 export async function setDefaultMailAccount(id: string) {
-  await requireUser();
-  const db = createAdminClient();
+  const db = await requireUser();
   await db.from("mail_accounts").update({ is_default: false }).neq("id", id);
   const { error } = await db.from("mail_accounts").update({ is_default: true, is_active: true }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -87,8 +86,7 @@ export async function setDefaultMailAccount(id: string) {
 
 /** IMAP と SMTP の両方にログインできるか確認する */
 export async function testMailAccount(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireUser();
-  const db = createAdminClient();
+  const db = await requireUser();
   const account = await getMailAccount(db, id);
   if (!account) return { ok: false, error: "アカウントが見つかりません" };
   try {

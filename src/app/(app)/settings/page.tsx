@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText } from "lucide-react";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { bootstrapEnvAccount } from "@/lib/mail/accounts";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,17 @@ import { MailSettingsForm } from "@/components/settings/mail-settings-form";
 import { AlertSettingsForm } from "@/components/settings/alert-settings-form";
 import { getAlertSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import type { MailAccount } from "@/lib/types";
+import { TENANT_STATUS_LABEL, type MailAccount } from "@/lib/types";
 
 export const metadata = { title: "設定" };
 
 type AccountRow = Omit<MailAccount, "password_enc">;
 
 export default async function SettingsPage() {
-  // 環境変数で設定していた旧アカウントがあれば、初回だけアカウント表へ取り込む
-  await bootstrapEnvAccount(createAdminClient());
-
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [{ data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
+  const [tenant, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
+    getCurrentTenant(supabase),
     supabase
       .from("mail_accounts")
       .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, is_active, is_default, last_error, created_at, updated_at")
@@ -53,6 +51,23 @@ export default async function SettingsPage() {
       />
 
       <div className="space-y-4">
+        {tenant && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">会社(テナント)</CardTitle>
+              <CardDescription>この会社のデータは他の利用企業からは見えません。会社 ID はサポートへの問い合わせ時に使います。</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm space-y-1">
+              <p><span className="text-muted-foreground">会社名:</span> {tenant.name}</p>
+              <p><span className="text-muted-foreground">会社 ID:</span> <code className="rounded bg-muted px-1">{tenant.slug}</code></p>
+              <p>
+                <span className="text-muted-foreground">契約状態:</span> {TENANT_STATUS_LABEL[tenant.status]}
+                {tenant.status === "trial" && tenant.trial_ends_at && <span className="text-muted-foreground">(お試し期間は {fmtDateTime(tenant.trial_ends_at)} まで)</span>}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">メールアカウント</CardTitle>

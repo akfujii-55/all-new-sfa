@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { ATTACHMENT_BUCKET } from "@/lib/mail/attachments";
+import { createClient } from "@/lib/supabase/server";
+import { downloadAttachment } from "@/lib/mail/attachments";
 
 export const runtime = "nodejs";
 
@@ -21,7 +21,8 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
     .maybeSingle();
   if (!att) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const { data, error } = await createAdminClient().storage.from(ATTACHMENT_BUCKET).download(att.storage_path);
+  // 行は RLS 越しに取れている(自テナントの添付)ので、実体は service role で取得してよい
+  const { data, error } = await downloadAttachment(att.storage_path);
   if (error || !data) return NextResponse.json({ error: error?.message ?? "failed" }, { status: 500 });
 
   // RFC 5987: ASCII のフォールバック名 + UTF-8 の本来の名前

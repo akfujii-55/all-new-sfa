@@ -1,5 +1,5 @@
 import { Paperclip } from "lucide-react";
-import { fmtBytes } from "@/lib/mail/attachments";
+import { fmtBytes } from "@/lib/mail/attachment-shared";
 import type { EmailAttachment } from "@/lib/types";
 
 /**

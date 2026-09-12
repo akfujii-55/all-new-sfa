@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { ALERT_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEmails } from "@/lib/settings";
 import { getAlertTargets, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
@@ -16,7 +16,8 @@ export async function saveMailSettings(formData: FormData) {
   const email = rows.find((r) => r.key === "signature_email")?.value ?? "";
   if (email && !email.includes("@")) throw new Error("署名のメールアドレスの形式が正しくありません");
 
-  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "key" });
+  // tenant_id は insert トリガーが補う(主キーは tenant_id + key)
+  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
   if (error) {
     if (error.code === "PGRST205" || /app_settings/.test(error.message)) {
       throw new Error("設定テーブルがありません。supabase/migrations/0004_app_settings.sql を適用してください");
@@ -37,7 +38,7 @@ export async function saveAlertSettings(formData: FormData) {
   if (invalid.length) throw new Error(`メールアドレスの形式が正しくありません: ${invalid.join(", ")}`);
 
   const rows = ALERT_SETTING_KEYS.map((key) => ({ key, value: key === "alert_emails" ? splitAlertEmails(raw).join(", ") : String(formData.get(key) ?? "").trim() }));
-  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "key" });
+  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
@@ -48,11 +49,10 @@ export async function sendTestAlert(): Promise<{ ok: boolean; message: string }>
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("ログインが必要です");
 
-  const admin = createAdminClient();
-  const targets = await getAlertTargets(admin);
+  const targets = await getAlertTargets(supabase);
   if (targets.emails.length === 0 && !targets.webhook) return { ok: false, message: "通知先が設定されていません" };
 
-  const r = await sendAlert(admin, {
+  const r = await sendAlert(supabase, {
     subject: "[SFA] テスト通知",
     body: `これはテスト通知です。${fmtDateTime(new Date())} に ${auth.user.email ?? "ユーザー"} が送信しました。\nこのメールが届いていれば、エラー発生時の通知が受け取れます。`,
     targets,
@@ -82,11 +82,15 @@ export async function reportClientError(input: { message: string; digest?: strin
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const { logSystem } = await import("@/lib/log");
-  await logSystem({
-    source: "client",
-    message: input.message.slice(0, 1000),
-    detail: { stack: input.stack?.slice(0, 2000) ?? null },
-    path: input.path ?? null,
-    userEmail: auth.user?.email ?? null,
-  });
+  await logSystem(
+    {
+      source: "client",
+      message: input.message.slice(0, 1000),
+      detail: { stack: input.stack?.slice(0, 2000) ?? null },
+      path: input.path ?? null,
+      userEmail: auth.user?.email ?? null,
+    },
+    // ログイン中ならそのテナントのログとして残す
+    auth.user ? supabase : undefined,
+  );
 }

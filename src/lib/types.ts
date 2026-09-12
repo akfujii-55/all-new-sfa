@@ -28,10 +28,32 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   closed: "完了",
 };
 
+/** 契約企業(テナント)。業務データはすべて tenant_id で分離される */
+export interface Tenant {
+  id: string;
+  /** 会社 ID(英数字とハイフン) */
+  slug: string;
+  name: string;
+  status: TenantStatus;
+  trial_ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TenantStatus = "trial" | "active" | "suspended" | "cancelled";
+
+export const TENANT_STATUS_LABEL: Record<TenantStatus, string> = {
+  trial: "お試し期間",
+  active: "契約中",
+  suspended: "停止中",
+  cancelled: "解約",
+};
+
 export interface Profile {
   id: string;
   email: string | null;
   full_name: string | null;
+  tenant_id: string | null;
   created_at: string;
 }
 
@@ -214,5 +236,7 @@ export interface SystemLog {
   request_path: string | null;
   user_email: string | null;
   notified: boolean;
+  /** null はテナントに属さないシステム全体のログ(運営側だけが Supabase 上で確認する) */
+  tenant_id: string | null;
   created_at: string;
 }

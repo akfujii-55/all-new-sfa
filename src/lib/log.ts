@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
+import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { getAlertSettings, splitAlertEmails } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import type { SystemLogLevel } from "@/lib/types";
@@ -10,6 +11,9 @@ import type { SystemLogLevel } from "@/lib/types";
  * - 記録は失敗してもアプリの処理を止めない(必ず console にも出す)。
  * - level が error のときは通知先(設定画面の「通知先メールアドレス」と環境変数 ALERT_WEBHOOK_URL)に送る。
  *   同じ source の通知は NOTIFY_INTERVAL_MIN 分に 1 回までにして、連続エラー時のメール洪水を防ぐ。
+ * - db にログインユーザー/テナント用クライアントを渡すと、そのテナントのログとして記録し、そのテナントの通知先へ送る。
+ *   渡さない場合(onRequestError など)は tenant_id が null の「システム全体のログ」として service role で記録し、
+ *   通知先は運営側テナント(最初に作られたテナント)の設定を使う。
  */
 
 export interface LogInput {
@@ -71,7 +75,7 @@ export function isUserFacingError(message: string): boolean {
   return /(してください|が必要です|正しくありません|ありません|できません)[。)]?$/.test(message.trim());
 }
 
-/** ログを 1 件記録する。失敗しても例外は投げない */
+/** ログを 1 件記録する。失敗しても例外は投げない。db を渡すとそのテナントのログになる(渡さなければシステム全体のログ) */
 export async function logSystem(input: LogInput, db?: SupabaseClient): Promise<void> {
   const level = input.level ?? "error";
   const line = `[${input.source}] ${input.message}`;
@@ -80,6 +84,7 @@ export async function logSystem(input: LogInput, db?: SupabaseClient): Promise<v
   else console.log(line);
 
   try {
+    // tenant_id は db がテナント付きクライアントならトリガーが補う。service role なら null(システム全体)のまま
     const client = db ?? createAdminClient();
     const { data, error } = await client
       .from("system_logs")
@@ -97,7 +102,7 @@ export async function logSystem(input: LogInput, db?: SupabaseClient): Promise<v
       console.error("[log] system_logs への記録に失敗:", error.message);
       return;
     }
-    if (level === "error" && input.notify !== false) await notifyIfNeeded(client, data.id, input);
+    if (level === "error" && input.notify !== false) await notifyIfNeeded(client, data.id, input, db ?? null);
   } catch (e) {
     console.error("[log] 記録処理で例外:", errorMessage(e));
   }
@@ -120,22 +125,31 @@ export async function getAlertTargets(db: SupabaseClient): Promise<AlertTargets>
   return { emails: splitAlertEmails(settings.alert_emails), webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null };
 }
 
-async function notifyIfNeeded(db: SupabaseClient, logId: string, input: LogInput) {
-  const targets = await getAlertTargets(db);
+/**
+ * @param logDb ログを書いたクライアント(重複通知の判定と notified の更新に使う)
+ * @param tenantDb テナント付きのクライアント。null ならシステム全体のログなので、運営側テナントの通知先を使う
+ */
+async function notifyIfNeeded(logDb: SupabaseClient, logId: string, input: LogInput, tenantDb: SupabaseClient | null) {
+  const settingsDb = tenantDb ?? (await operatorTenantClient());
+  const targets = settingsDb
+    ? await getAlertTargets(settingsDb)
+    : { emails: [], webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null };
   if (targets.emails.length === 0 && !targets.webhook) return;
 
-  // 同じ発生箇所の通知は一定時間に 1 回まで
+  // 同じ発生箇所の通知は一定時間に 1 回まで(システム全体のログは tenant_id が null の行だけを見る)
   const since = new Date(Date.now() - NOTIFY_INTERVAL_MIN * 60 * 1000).toISOString();
-  const { count } = await db
+  let q = logDb
     .from("system_logs")
     .select("id", { count: "exact", head: true })
     .eq("source", input.source)
     .eq("notified", true)
     .gte("created_at", since);
+  if (!tenantDb) q = q.is("tenant_id", null);
+  const { count } = await q;
   if ((count ?? 0) > 0) return;
 
   // 先に通知済みにして、並行して起きたエラーが二重に通知されないようにする
-  await db.from("system_logs").update({ notified: true }).eq("id", logId);
+  await logDb.from("system_logs").update({ notified: true }).eq("id", logId);
 
   const subject = `[SFA] エラー: ${input.source} ${input.message}`.slice(0, 120);
   const lines = [
@@ -150,12 +164,12 @@ async function notifyIfNeeded(db: SupabaseClient, logId: string, input: LogInput
   ].filter((l): l is string => Boolean(l));
   const body = lines.join("\n");
 
-  await sendAlert(db, { subject, body, targets });
+  await sendAlert(settingsDb, { subject, body, targets });
 }
 
-/** 通知を送る(メールと Webhook)。失敗は warn として記録し、例外は投げない */
+/** 通知を送る(メールと Webhook)。失敗は warn として記録し、例外は投げない。db が null ならメールは送れない(Webhook のみ) */
 export async function sendAlert(
-  db: SupabaseClient,
+  db: SupabaseClient | null,
   { subject, body, targets }: { subject: string; body: string; targets: AlertTargets },
 ): Promise<{ email: boolean | null; webhook: boolean | null; errors: string[] }> {
   const result = { email: null as boolean | null, webhook: null as boolean | null, errors: [] as string[] };
@@ -176,7 +190,10 @@ export async function sendAlert(
     }
   }
 
-  if (targets.emails.length > 0) {
+  if (targets.emails.length > 0 && !db) {
+    result.email = false;
+    result.errors.push("メール: 送信に使うテナントを特定できません(SUPABASE_JWT_SECRET が未設定)");
+  } else if (targets.emails.length > 0 && db) {
     try {
       const { resolveSendAccount } = await import("@/lib/mail/accounts");
       const { sendMail } = await import("@/lib/mail/smtp");
@@ -192,7 +209,7 @@ export async function sendAlert(
   if (result.errors.length > 0) {
     await logSystem(
       { level: "warn", source: "alert", message: `通知の送信に失敗: ${result.errors.join(" / ")}`, detail: { subject }, notify: false },
-      db,
+      db ?? undefined,
     );
   }
   return result;

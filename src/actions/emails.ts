@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
-import { createAdminClient } from "@/lib/supabase/server";
+import { tenantIdOf } from "@/lib/supabase/tenant";
 import {
   attachOutgoing,
   discardOutgoing,
@@ -47,7 +47,7 @@ export async function sendEmail(input: SendEmailInput) {
   const cc = splitAddrs(input.cc);
   if (to.length === 0) throw new Error("宛先を入力してください");
   if (!input.subject.trim()) throw new Error("件名を入力してください");
-  const attachmentRefs = validateOutgoingRefs(input.attachments);
+  const attachmentRefs = validateOutgoingRefs(input.attachments, await tenantIdOf(supabase));
 
   let inReplyTo: string | null = null;
   let references: string[] = [];
@@ -89,11 +89,10 @@ export async function sendEmail(input: SendEmailInput) {
     }
   }
 
-  const admin = createAdminClient();
-  const account = await resolveSendAccount(admin, { accountId: input.accountId, replyToAccountId });
+  const account = await resolveSendAccount(supabase, { accountId: input.accountId, replyToAccountId });
   let sent: Awaited<ReturnType<typeof sendMail>>;
   try {
-    const attachments = await loadOutgoingAttachments(admin, attachmentRefs);
+    const attachments = await loadOutgoingAttachments(attachmentRefs);
     sent = await sendMail(account, {
       to,
       cc,
@@ -105,7 +104,7 @@ export async function sendEmail(input: SendEmailInput) {
     });
   } catch (e) {
     // 送信していないので、アップロード済みの添付は残さない
-    await discardOutgoing(admin, attachmentRefs);
+    await discardOutgoing(attachmentRefs);
     // SMTP の失敗は受信(IMAP)が動いていても起こる。後から追えるように記録して通知する
     await logSystem(
       {
@@ -114,7 +113,7 @@ export async function sendEmail(input: SendEmailInput) {
         detail: { ...errorDetail(e), account: account.email, to, cc, subject: input.subject, attachments: attachmentRefs.map((a) => a.filename) },
         userEmail: auth.user.email ?? null,
       },
-      admin,
+      supabase,
     );
     throw new LoggedError(`メールを送信できませんでした(${account.email}): ${errorMessage(e)}。このメールは送信されていません。`, e);
   }
@@ -149,14 +148,14 @@ export async function sendEmail(input: SendEmailInput) {
         detail: { messageId, to, subject: input.subject, code: error.code },
         userEmail: auth.user.email ?? null,
       },
-      admin,
+      supabase,
     );
     throw new LoggedError(`メールは送信されましたが、一覧への記録に失敗しました: ${error.message}`);
   }
 
   if (attachmentRefs.length > 0) {
     // 相手には添付付きで届いている。ここで失敗しても送信済みフォルダの同期で添付は補完されるので、記録だけ残す
-    const failed = await attachOutgoing(admin, inserted.id, attachmentRefs);
+    const failed = await attachOutgoing(supabase, inserted.id, attachmentRefs);
     if (failed.length > 0) {
       await logSystem(
         {
@@ -166,7 +165,7 @@ export async function sendEmail(input: SendEmailInput) {
           detail: { messageId, emailId: inserted.id, failed },
           userEmail: auth.user.email ?? null,
         },
-        admin,
+        supabase,
       );
     }
   }
@@ -199,7 +198,8 @@ export async function runMailSync() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("ログインが必要です");
-  const results = await syncMail(createAdminClient());
+  // ログインユーザーのセッションで実行する(RLS で自テナントに絞られる)
+  const results = await syncMail(supabase);
   revalidatePath("/inbox");
   revalidatePath("/inquiries");
   revalidatePath("/companies");
@@ -223,7 +223,7 @@ export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted:
 
   // 添付ファイルの実体を先に消す(行は emails の削除で cascade)
   const { data: members } = await supabase.from("emails").select("id").in("thread_key", threadKeys);
-  await removeAttachmentObjects(createAdminClient(), (members ?? []).map((m) => m.id));
+  await removeAttachmentObjects(supabase, (members ?? []).map((m) => m.id));
 
   const { count, error } = await supabase.from("emails").delete({ count: "exact" }).in("thread_key", threadKeys);
   if (error) throw new Error(error.message);

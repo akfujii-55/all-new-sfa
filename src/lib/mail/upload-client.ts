@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, fmtBytes, outboxPath, type OutgoingAttachmentRef } from "@/lib/mail/attachments";
+import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, fmtBytes, outboxPath, type OutgoingAttachmentRef } from "@/lib/mail/attachment-shared";
 
 /** 選んだファイルが上限内か確認する。問題があればメッセージを返す */
 export function checkAttachmentLimits(files: File[]): string | null {
@@ -18,11 +18,14 @@ export function checkAttachmentLimits(files: File[]): string | null {
 export async function uploadAttachments(files: File[]): Promise<OutgoingAttachmentRef[]> {
   if (files.length === 0) return [];
   const supabase = createClient();
+  // Storage のパスは <tenant_id>/outbox/... 。自テナント配下にしかアップロードできない(Storage のポリシー)
+  const { data: tenantId, error: tenantErr } = await supabase.rpc("current_tenant_id");
+  if (tenantErr || !tenantId) throw new Error("所属する会社(テナント)を確認できないため、添付ファイルをアップロードできません");
   const batch = crypto.randomUUID();
   const refs: OutgoingAttachmentRef[] = [];
   try {
     for (const [i, file] of files.entries()) {
-      const storagePath = outboxPath(batch, i, file.name);
+      const storagePath = outboxPath(tenantId as string, batch, i, file.name);
       const contentType = file.type || "application/octet-stream";
       const { error } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, { contentType });
       if (error) throw new Error(`添付ファイルのアップロードに失敗しました(${file.name}): ${error.message}`);
