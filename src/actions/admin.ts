@@ -452,14 +452,33 @@ export async function updateTenantPlan(id: string, formData: FormData) {
   revalidatePath("/admin", "layout");
 }
 
+/** 運営側から Stripe のサブスクリプション数量を現在の利用数に合わせる */
+export async function syncTenantBillingNow(id: string): Promise<void> {
+  await requireOperator();
+  const { syncTenantBilling } = await import("@/lib/stripe");
+  await syncTenantBilling(id);
+  revalidatePath(`/admin/tenants/${id}`);
+}
+
 /** テナントを削除する。業務データ・利用者の所属もすべて消える(auth ユーザー自体は残る) */
 export async function deleteTenant(id: string, confirmSlug: string) {
   const { admin } = await requireOperator();
-  const { data: t } = await admin.from("tenants").select("slug, created_at").eq("id", id).single();
+  const { data: t } = await admin.from("tenants").select("slug, created_at, stripe_subscription_id").eq("id", id).single();
   if (!t) throw new Error("テナントが見つかりません");
   if (t.slug !== confirmSlug) throw new Error("確認のため会社 ID を正しく入力してください");
   const { data: first } = await admin.from("tenants").select("id").order("created_at").limit(1).single();
   if (first?.id === id) throw new Error("運営側のテナント(自社)は削除できません");
+  // Stripe の契約が残っていれば先に解約する(請求が続かないように)
+  if (t.stripe_subscription_id) {
+    const { getStripe, stripeConfigured } = await import("@/lib/stripe");
+    if (stripeConfigured()) {
+      try {
+        await getStripe().subscriptions.cancel(t.stripe_subscription_id as string);
+      } catch (e) {
+        if (!/No such subscription|already been canceled/i.test(errorMessage(e))) throw new Error(`Stripe の契約を解約できませんでした: ${errorMessage(e)}`);
+      }
+    }
+  }
   // Storage の添付ファイルの実体を先に消す(行は cascade)
   const { data: files } = await admin.from("email_attachments").select("storage_path").eq("tenant_id", id);
   const paths = (files ?? []).map((f) => f.storage_path as string);

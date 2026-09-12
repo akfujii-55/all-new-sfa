@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { tenantIdOf } from "@/lib/supabase/tenant";
+import { syncTenantBilling } from "@/lib/stripe";
 import { encryptSecret } from "@/lib/mail/crypto";
 import { getMailAccount } from "@/lib/mail/accounts";
 import { verifySmtp } from "@/lib/mail/smtp";
@@ -64,6 +67,11 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
     if (error.code === "23505") throw new Error("このメールアドレスは既に登録されています");
     throw new Error(error.message);
   }
+  // メールアカウント数は課金対象なので、追加後に Stripe の数量を合わせる(応答後に実行)
+  if (!id) {
+    const tenantId = await tenantIdOf(db);
+    after(() => syncTenantBilling(tenantId));
+  }
   revalidate();
 }
 
@@ -72,6 +80,8 @@ export async function deleteMailAccount(id: string) {
   const { data: target } = await db.from("mail_accounts").select("is_default").eq("id", id).maybeSingle();
   const { error } = await db.from("mail_accounts").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  const tenantId = await tenantIdOf(db);
+  after(() => syncTenantBilling(tenantId));
   // 既定アカウントを消したら、残りの先頭を既定にする
   if (target?.is_default) {
     const { data: rest } = await db.from("mail_accounts").select("id").order("created_at").limit(1);

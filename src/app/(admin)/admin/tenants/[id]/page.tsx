@@ -11,8 +11,10 @@ import { TenantPlanForm } from "@/components/admin/tenant-plan-form";
 import { DeleteTenantButton } from "@/components/admin/delete-tenant-button";
 import { ResendInviteButton } from "@/components/admin/resend-invite-button";
 import { fmtDate, fmtDateTime, yen } from "@/lib/format";
-import { fmtGb, monthlyFee } from "@/lib/pricing";
+import { fmtGb, monthlyFee, TAX_PERCENT, withTax } from "@/lib/pricing";
 import { BILLING_STATUS_LABEL, TENANT_STATUS_LABEL } from "@/lib/types";
+import { stripeConfigured, stripeDashboardUrl } from "@/lib/stripe";
+import { SyncBillingButton } from "@/components/admin/sync-billing-button";
 
 export const metadata = { title: "テナント詳細 | 運営管理" };
 
@@ -78,9 +80,14 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
                   </tr>
                 ))}
                 <tr className="border-t font-medium">
-                  <td className="pt-1">合計</td>
+                  <td className="pt-1">合計(税抜)</td>
                   <td />
                   <td className="pt-1 text-right tabular-nums">{yen(fee.total)}</td>
+                </tr>
+                <tr className="text-muted-foreground">
+                  <td className="pt-0.5">税込(消費税 {TAX_PERCENT}%)</td>
+                  <td />
+                  <td className="pt-0.5 text-right tabular-nums">{yen(withTax(fee.total).gross)}</td>
                 </tr>
               </tbody>
             </table>
@@ -94,6 +101,29 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
             <CardDescription>停止中・解約・お試し期限切れのテナントは閲覧のみになり、登録・送信・同期ができなくなります。</CardDescription>
           </CardHeader>
           <CardContent><TenantPlanForm tenant={tenant} /></CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Stripe(オンライン決済)</CardTitle>
+            <CardDescription>契約状態は Stripe の Webhook で自動更新されます。手で契約状態を変えるのは、Stripe を使わない請求(請求書払いなど)のときだけにしてください。</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {!stripeConfigured() ? (
+              <p className="text-muted-foreground">STRIPE_SECRET_KEY が未設定のため、オンライン決済は無効です。</p>
+            ) : (
+              <dl className="grid grid-cols-[8rem_1fr] gap-y-2">
+                <dt className="text-muted-foreground">顧客</dt>
+                <dd>{tenant.stripe_customer_id ? <a className="underline" href={stripeDashboardUrl(`customers/${tenant.stripe_customer_id}`)} target="_blank" rel="noreferrer">{tenant.stripe_customer_id}</a> : "未登録(お支払い方法が未登録)"}</dd>
+                <dt className="text-muted-foreground">サブスクリプション</dt>
+                <dd>{tenant.stripe_subscription_id ? <a className="underline" href={stripeDashboardUrl(`subscriptions/${tenant.stripe_subscription_id}`)} target="_blank" rel="noreferrer">{tenant.stripe_subscription_id}</a> : "なし"}{tenant.stripe_subscription_status && <span className="ml-2 text-muted-foreground">({tenant.stripe_subscription_status})</span>}</dd>
+                <dt className="text-muted-foreground">次回請求</dt>
+                <dd>{tenant.current_period_end ? fmtDate(tenant.current_period_end) : "-"}{tenant.cancel_at_period_end && <span className="ml-2 text-destructive">期間末で解約予定</span>}</dd>
+                <dt className="text-muted-foreground">数量の同期</dt>
+                <dd>{tenant.stripe_subscription_id ? <SyncBillingButton tenantId={tenant.id} /> : <span className="text-muted-foreground">契約後に利用数を Stripe へ自動反映します</span>}</dd>
+              </dl>
+            )}
+          </CardContent>
         </Card>
 
         <Card>

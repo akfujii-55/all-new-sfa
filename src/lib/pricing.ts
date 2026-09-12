@@ -59,6 +59,16 @@ export function monthlyFee(u: Pick<TenantUsage, "users" | "mail_accounts" | "sto
   return { items, total: items.reduce((a, i) => a + i.amount, 0) };
 }
 
+/** 消費税率(10%)。Stripe 側は同じ率の Tax Rate を default_tax_rates に付ける(src/lib/stripe.ts ensureTaxRate) */
+export const TAX_RATE = 0.1;
+export const TAX_PERCENT = 10;
+
+/** 税抜金額に消費税を足す(円未満切り捨て) */
+export function withTax(net: number) {
+  const tax = Math.floor(net * TAX_RATE);
+  return { net, tax, gross: net + tax };
+}
+
 export function fmtGb(bytes: number) {
   const gb = bytes / GIB;
   return gb >= 10 ? `${gb.toFixed(0)} GB` : gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1024 / 1024).toFixed(0)} MB`;

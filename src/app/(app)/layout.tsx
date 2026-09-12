@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, MobileNav } from "@/components/layout/sidebar";
@@ -7,7 +8,7 @@ import { buildSignature } from "@/lib/mail/signature";
 import { getMailSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { signOut } from "@/actions/auth";
-import { tenantAccess } from "@/lib/tenant-quota";
+import { tenantAccess, trialDaysLeft as calcTrialDaysLeft } from "@/lib/tenant-quota";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
@@ -43,6 +44,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const signature = buildSignature(mailSettings, member?.name || profile?.full_name || (auth.user.email ?? "").split("@")[0]);
   // 停止中・解約・お試し期限切れは閲覧のみ(書き込み系の Server Action は個別に拒否する)
   const access = tenantAccess(tenant);
+  // お試し終了が近く、まだお支払い方法が未登録なら知らせる(7 日前から)
+  const trialDaysLeft = calcTrialDaysLeft(tenant);
+  const trialEndingSoon = access.writable && !tenant.stripe_subscription_id && trialDaysLeft !== null && trialDaysLeft <= 7;
 
   return (
     <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject}>
@@ -53,6 +57,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           {!access.writable && (
             <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100 md:px-6">
               {access.reason} 現在は閲覧のみ可能です。
+              {tenant.status !== "suspended" && <Link href="/settings/billing" className="ml-2 underline">ご契約・お支払いへ</Link>}
+            </div>
+          )}
+          {trialEndingSoon && (
+            <div className="border-b border-sky-300 bg-sky-50 px-4 py-2 text-sm text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-100 md:px-6">
+              お試し期間は{trialDaysLeft! <= 0 ? "本日" : `あと ${trialDaysLeft} 日`}で終了します。引き続き利用するには
+              <Link href="/settings/billing" className="mx-1 underline">ご契約・お支払い</Link>からお支払い方法を登録してください。
             </div>
           )}
           <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>

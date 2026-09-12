@@ -4,9 +4,9 @@
  * 本文・件名には {{name}} などの差し込み項目を書ける。
  */
 
-export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite";
+export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite" | "signup_confirm";
 
-export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["tenant_invite", "operator_invite", "member_invite"];
+export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["signup_confirm", "tenant_invite", "operator_invite", "member_invite"];
 
 export interface MailTemplate {
   subject: string;
@@ -53,9 +53,27 @@ export const MAIL_TEMPLATE_META: Record<MailTemplateKey, { label: string; descri
     label: "営業担当者への招待",
     description: "各テナントの営業担当者ページで「招待」を押したときに、そのテナントのメールアカウントから送ります。",
   },
+  signup_confirm: {
+    label: "Web 申し込みの確認メール",
+    description: "申し込みフォームの送信直後に、入力されたメールアドレス宛に運営側のメールアカウントから送ります。リンクを開くとアカウントが開設されます。",
+  },
 };
 
 export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKey, MailTemplate> = {
+  signup_confirm: {
+    subject: "【{{app_name}}】お申し込みの確認",
+    body: [
+      "{{name}} 様",
+      "",
+      "営業支援ツール「{{app_name}}」にお申し込みいただきありがとうございます。",
+      "以下のリンクを開いて「アカウントを開設する」を押すと、{{company}} のアカウントが作成され、パスワードの設定に進みます。",
+      "",
+      "{{link}}",
+      "",
+      "※ リンクの有効期限は {{expires}} です。期限が切れた場合はもう一度お申し込みください。",
+      "※ 心当たりがない場合はこのメールを破棄してください。アカウントは作成されません。",
+    ].join("\n"),
+  },
   tenant_invite: {
     subject: "【{{app_name}}】{{company}} のアカウントを作成しました",
     body: [

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText } from "lucide-react";
+import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { getMyUsage } from "@/lib/tenant-quota";
@@ -75,6 +75,9 @@ export default async function SettingsPage() {
                   上限の変更は運営までお問い合わせください。
                 </p>
               )}
+              <div className="pt-2">
+                <Button asChild size="sm" variant="outline"><Link href="/settings/billing"><CreditCard className="size-4" /> ご契約・お支払い</Link></Button>
+              </div>
             </CardContent>
           </Card>
         )}

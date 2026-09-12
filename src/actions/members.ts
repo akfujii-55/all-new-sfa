@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
@@ -9,6 +10,7 @@ import { buildMail } from "@/lib/mail/templates";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertCanAddUser, assertTenantWritable } from "@/lib/tenant-quota";
+import { syncTenantBilling } from "@/lib/stripe";
 
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
@@ -74,6 +76,9 @@ export async function deleteMember(id: string) {
   const { data: member } = await supabase.from("members").select("id, profile_id").eq("id", id).maybeSingle();
   if (!member) throw new Error("営業担当者が見つかりません");
   if (member.profile_id === auth.user.id) throw new Error("自分自身は削除できません。他の営業担当者に削除してもらってください");
+  const tenantId = await tenantIdOf(supabase);
+  // 利用ユーザー数は課金対象なので、削除後に Stripe の数量を合わせる(応答後に実行)
+  if (member.profile_id) after(() => syncTenantBilling(tenantId));
 
   if (member.profile_id) {
     // auth ユーザーの削除だけは service role が必要。profiles は cascade で消え、セッションも無効になる
@@ -114,6 +119,8 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   if (member.invited_at) await assertTenantWritable(supabase);
   else await assertCanAddUser(supabase);
   const tenantId = await tenantIdOf(supabase);
+  // 招待中もユーザー数に数えるので、招待後に Stripe の数量を合わせる(応答後に実行)
+  if (!member.invited_at) after(() => syncTenantBilling(tenantId));
 
   // auth ユーザーの作成だけは service role が必要。テーブルの読み書きはログインユーザーのクライアントで行う
   const admin = createAdminClient();

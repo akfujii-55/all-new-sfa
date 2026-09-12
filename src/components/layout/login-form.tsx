@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { signIn, type AuthState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,9 @@ export function LoginForm({ next, error }: { next: string; error?: string | null
           </Button>
           <p className="text-center text-xs text-muted-foreground">
             アカウントは管理者からの招待メールで作成されます。
+          </p>
+          <p className="text-center text-xs text-muted-foreground">
+            はじめてご利用の会社は <Link href="/signup" className="underline">無料で申し込む</Link>
           </p>
         </form>
       </CardContent>

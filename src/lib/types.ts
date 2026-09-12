@@ -53,7 +53,11 @@ export interface Tenant {
   billing_status: BillingStatus;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  /** Stripe の subscription.status(trialing / active / past_due / canceled など) */
+  stripe_subscription_status: string | null;
   current_period_end: string | null;
+  /** 期間末で解約する予定(Stripe の cancel_at_period_end) */
+  cancel_at_period_end: boolean;
   created_at: string;
   updated_at: string;
 }

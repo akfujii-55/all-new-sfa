@@ -14,11 +14,17 @@ export type TenantAccess = { writable: true } | { writable: false; reason: strin
 
 export function tenantAccess(t: Pick<Tenant, "status" | "trial_ends_at" | "name">): TenantAccess {
   if (t.status === "suspended") return { writable: false, reason: "このアカウントは利用停止中です。運営にお問い合わせください。" };
-  if (t.status === "cancelled") return { writable: false, reason: "このアカウントは解約済みです。データの閲覧のみ可能です。" };
+  if (t.status === "cancelled") return { writable: false, reason: "このアカウントは解約済みです。データの閲覧のみ可能です。再開するには「設定 → ご契約・お支払い」からお支払い方法を登録してください。" };
   if (t.status === "trial" && t.trial_ends_at && Date.parse(t.trial_ends_at) < Date.now()) {
-    return { writable: false, reason: "お試し期間が終了しました。引き続き利用するには契約手続きが必要です。運営にお問い合わせください。" };
+    return { writable: false, reason: "お試し期間が終了しました。引き続き利用するには「設定 → ご契約・お支払い」からお支払い方法を登録してください。" };
   }
   return { writable: true };
+}
+
+/** お試し終了までの残り日数(切り上げ)。お試し中でなければ null。Server Component から Date.now を直接呼ばないための共通関数 */
+export function trialDaysLeft(t: Pick<Tenant, "status" | "trial_ends_at">, now: number = Date.now()): number | null {
+  if (t.status !== "trial" || !t.trial_ends_at) return null;
+  return Math.ceil((Date.parse(t.trial_ends_at) - now) / 86400000);
 }
 
 export async function getMyUsage(db: SupabaseClient): Promise<TenantUsage> {
