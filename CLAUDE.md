@@ -13,6 +13,7 @@
 - `src/lib/types.ts` DB 行の型とステージ定義。
 - 担当者は2種類: `contacts`(取引先側の担当者、メールから自動登録)と `members`(自社の営業担当者、`deals.owner_id` の参照先)。ログインは招待制: 営業担当者ページの「招待」で `auth.admin.generateLink` のリンクを自アプリの SMTP で送り、`/auth/confirm` → `/set-password` でパスワードを設定する。自己登録は無効。
 - UI の用語: 取引先=companies、担当者=contacts、営業担当者=members。
+- タグ(0014): `tags`(テナントごと、設定画面で最大 20 個、既定 6 個はテナント作成時にトリガーで投入)、`email_tags` / `contact_tags`。メール一覧の選択からタグ付けするとスレッド内の全メールと紐付く担当者にも付く(`src/actions/tags.ts`)。担当者一覧はタグで絞り込み、`/api/contacts/export` で CSV。埋め込みは `tags:email_tags(tag:tags(...))`、絞り込みは `filter_tags:email_tags!inner(tag_id)` + `.eq("filter_tags.tag_id", id)`。
 - マルチテナント(0009 以降): 契約企業は `tenants`、所属は `profiles.tenant_id`。業務テーブルは全部 `tenant_id` 列 + RLS(`tenant_isolation`)で分離し、insert 時は DB トリガーが `current_tenant_id()` で補う。
   - ログインユーザーのクライアント(`createClient`)なら既存コードのまま自テナントに絞られる。cron などユーザーが居ない処理は `src/lib/supabase/tenant.ts` の `createTenantClient(tenantId)`(要 `SUPABASE_JWT_SECRET`)でテナントごとに回す。
   - `createAdminClient`(service role)は RLS を通らないので業務テーブルの読み書きに使わない(使うのは auth.admin、Storage の実体操作、tenants 一覧、tenant_id が null のシステムログのみ)。service role で tenant_id 無しに insert すると例外になる。

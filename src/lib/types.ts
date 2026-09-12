@@ -133,6 +133,16 @@ export interface MailAccount {
 /** クライアントに渡す用のアカウント情報(認証情報を含まない) */
 export type MailAccountOption = Pick<MailAccount, "id" | "label" | "email" | "is_default">;
 
+/** メール・担当者に付けるタグ(テナントごとに設定画面で管理) */
+export interface Tag {
+  id: string;
+  name: string;
+  /** 表示色のキー(src/lib/tags.ts の TAG_COLORS) */
+  color: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -157,6 +167,7 @@ export interface Contact {
   created_at: string;
   updated_at: string;
   company?: Pick<Company, "id" | "name"> | null;
+  tags?: Tag[];
 }
 
 export interface Deal {

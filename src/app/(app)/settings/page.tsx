@@ -13,9 +13,10 @@ import { MailAccountDialog } from "@/components/settings/mail-account-dialog";
 import { MailAccountActions } from "@/components/settings/mail-account-actions";
 import { MailSettingsForm } from "@/components/settings/mail-settings-form";
 import { AlertSettingsForm } from "@/components/settings/alert-settings-form";
+import { TagSettings } from "@/components/settings/tag-settings";
 import { getAlertSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import { TENANT_STATUS_LABEL, type MailAccount } from "@/lib/types";
+import { TENANT_STATUS_LABEL, type MailAccount, type Tag } from "@/lib/types";
 
 export const metadata = { title: "設定" };
 
@@ -24,9 +25,10 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, usage, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
+  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
+    supabase.from("tags").select("*").order("sort_order").order("created_at"),
     supabase
       .from("mail_accounts")
       .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, is_active, is_default, last_error, created_at, updated_at")
@@ -129,6 +131,16 @@ export default async function SettingsPage() {
               </div>
             )}
             <div className="pt-3"><MailSyncButton label="今すぐ同期" /></div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">タグ</CardTitle>
+            <CardDescription>メールと担当者に付ける属性(リード、顧客、要注意など)。名前と色を変えたり、追加・削除ができます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TagSettings tags={(tagRows ?? []) as Tag[]} />
           </CardContent>
         </Card>
 

@@ -10,6 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createInquiriesFromEmails } from "@/actions/inquiries";
 import { deleteEmailThreads } from "@/actions/emails";
+import { setEmailTags } from "@/actions/tags";
+import { TagPicker } from "@/components/tags/tag-picker";
+import { TagBadges } from "@/components/tags/tag-badge";
+import type { Tag } from "@/lib/types";
 import { fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -29,9 +33,11 @@ export interface InboxThread {
   attachments: number;
   company: { id: string; name: string } | null;
   deal: { id: string; title: string } | null;
+  /** スレッド内のメールに付いたタグ */
+  tags: Tag[];
 }
 
-export function InboxList({ threads }: { threads: InboxThread[] }) {
+export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
@@ -41,6 +47,12 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
   const someChecked = ids.some((id) => selected.has(id));
   const selectedIds = ids.filter((id) => selected.has(id));
   const registrable = threads.filter((t) => selected.has(t.id) && !t.inquiry_id).length;
+  // 選択中のスレッドに付いているタグ(tag_id → 付いているスレッド数)
+  const currentTags = new Map<string, number>();
+  for (const t of threads) {
+    if (!selected.has(t.id)) continue;
+    for (const tag of t.tags) currentTags.set(tag.id, (currentTags.get(tag.id) ?? 0) + 1);
+  }
 
   function toggle(id: string, checked: boolean) {
     setSelected((prev) => {
@@ -60,6 +72,18 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
         const r = await createInquiriesFromEmails(selectedIds);
         if (r.created > 0) toast.success(`${r.created}件を問い合わせに登録しました${r.skipped ? `(登録済み ${r.skipped}件はスキップ)` : ""}`);
         else toast.info("選択したメールはすべて問い合わせ登録済みです");
+        setSelected(new Set());
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    });
+  }
+
+  function applyTags(change: { add: string[]; remove: string[] }) {
+    start(async () => {
+      try {
+        const r = await setEmailTags(selectedIds, change);
+        toast.success(`${selectedIds.length}件のスレッドのタグを更新しました${r.contacts ? `(担当者 ${r.contacts}名にも付与)` : ""}`);
         setSelected(new Set());
       } catch (e) {
         toast.error((e as Error).message);
@@ -99,12 +123,13 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
                 {registrable === 0 ? "選択したメールはすべて登録済みです" : `${selectedIds.length - registrable}件は登録済みのためスキップされます`}
               </span>
             )}
+            <TagPicker tags={tags} current={currentTags} onApply={applyTags} pending={pending} description="スレッド内のメールと、紐付く担当者にタグを付けます" />
             <Button size="sm" variant="outline" disabled={pending} onClick={() => setConfirmDelete(true)} className="text-destructive">
               <Trash2 className="size-4" /> 削除
             </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">メールを選択して問い合わせに登録、または削除できます</span>
+          <span className="text-sm text-muted-foreground">メールを選択して問い合わせに登録、タグ付け、削除ができます</span>
         )}
       </div>
 
@@ -138,6 +163,7 @@ export function InboxList({ threads }: { threads: InboxThread[] }) {
                     {t.inquiry_id && <Badge className="hidden sm:inline-flex">問い合わせ</Badge>}
                     {t.company && <Badge variant="secondary" className="hidden sm:inline-flex">{t.company.name}</Badge>}
                     {t.deal && <Badge variant="outline" className="hidden md:inline-flex">{t.deal.title}</Badge>}
+                    <TagBadges tags={t.tags} max={3} />
                   </div>
                   <p className={cn("truncate text-sm", unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.subject || "(件名なし)"}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.snippet}</p>

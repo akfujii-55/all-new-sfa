@@ -16,7 +16,9 @@ import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { getMailAccountOptions } from "@/lib/mail/options";
 import { resolveCounterpart } from "@/lib/mail/link";
 import { fmtDateTime } from "@/lib/format";
-import type { Email } from "@/lib/types";
+import { ThreadTags } from "@/components/inbox/thread-tags";
+import { tagsFromRows } from "@/lib/tags";
+import type { Email, Tag } from "@/lib/types";
 
 export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
   const { id } = await params;
@@ -26,11 +28,13 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   const { data } = await supabase
     .from("emails")
-    .select("*, company:companies(id,name), contact:contacts(id,name), deal:deals(id,title), attachments:email_attachments(*)")
+    .select("*, company:companies(id,name), contact:contacts(id,name), deal:deals(id,title), attachments:email_attachments(*), tags:email_tags(tag:tags(id,name,color,sort_order,created_at))")
     .eq("thread_key", root.thread_key)
     .order("received_at", { ascending: true });
-  const emails = (data ?? []) as unknown as Email[];
+  const emails = (data ?? []) as unknown as (Email & { tags?: { tag: Tag | Tag[] | null }[] })[];
   if (emails.length === 0) notFound();
+  const threadTags: Tag[] = [];
+  for (const e of emails) for (const t of tagsFromRows(e.tags)) if (!threadTags.some((x) => x.id === t.id)) threadTags.push(t);
 
   const latest = emails[emails.length - 1];
   const latestInbound = [...emails].reverse().find((e) => e.direction === "inbound") ?? latest;
@@ -38,7 +42,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   await Promise.all(emails.filter((e) => !e.is_read).map((e) => markEmailRead(e.id)));
 
-  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }, accounts] = await Promise.all([
+  const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }, accounts, { data: allTags }] = await Promise.all([
     linked.company_id
       ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
       : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
@@ -47,6 +51,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
     linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
     getMailAccountOptions(supabase),
+    supabase.from("tags").select("*").order("sort_order").order("created_at"),
   ]);
   const selves = new Set(accounts.map((a) => a.email.toLowerCase()));
   // 返信の差出人は、このスレッドを受信したアカウント
@@ -121,6 +126,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
                   {linked.contact ? <span className="font-medium">{linked.contact.name}</span> : <span className="text-muted-foreground">未登録</span>}
                 </div>
               </div>
+              <ThreadTags emailId={latest.id} tags={(allTags ?? []) as Tag[]} current={threadTags} />
               {inquiry && (
                 <div className="flex items-start gap-2">
                   <MessageSquareText className="size-4 mt-0.5 text-muted-foreground" />
