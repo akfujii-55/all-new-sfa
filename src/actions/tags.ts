@@ -71,6 +71,19 @@ export async function deleteTag(id: string) {
   revalidateTagPages();
 }
 
+/** 並び順を保存する(id の配列の順に sort_order を振り直す) */
+export async function reorderTags(ids: string[]) {
+  const supabase = await requireUser();
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  await Promise.all(
+    unique.map(async (id, i) => {
+      const { error } = await supabase.from("tags").update({ sort_order: i }).eq("id", id);
+      if (error) throw new Error(error.message);
+    }),
+  );
+  revalidateTagPages();
+}
+
 // ---------- 付け外し ----------
 
 export interface TagChange {

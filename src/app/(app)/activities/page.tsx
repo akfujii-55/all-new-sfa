@@ -11,7 +11,7 @@ import type { DealActivity } from "@/lib/types";
 
 export const metadata = { title: "行動" };
 
-const SELECT = "*, deal:deals(id,title,stage,company:companies(id,name))";
+const SELECT = "*, kind:activity_kinds(id,name,icon), deal:deals(id,title,stage,company:companies(id,name))";
 
 /** 全案件の行動(Todo)を期限の状態ごとに一覧する。完了はここからも付けられる */
 export default async function ActivitiesPage({ searchParams }: PageProps<"/activities">) {

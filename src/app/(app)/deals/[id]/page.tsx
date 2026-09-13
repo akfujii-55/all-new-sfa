@@ -31,14 +31,15 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   if (!data) notFound();
   const deal = data as unknown as Deal;
 
-  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts, { data: activityRows }] = await Promise.all([
+  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts, { data: activityRows }, { data: kindRows }] = await Promise.all([
     supabase.from("emails").select("*, attachments:email_attachments(*)").eq("deal_id", id).order("received_at", { ascending: false }),
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
     supabase.from("members").select("id, name, is_active").order("sort_order").order("created_at"),
     getMailAccountOptions(supabase),
-    supabase.from("deal_activities").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
+    supabase.from("deal_activities").select("*, author:profiles(id,full_name), kind:activity_kinds(id,name,icon)").eq("deal_id", id).order("created_at", { ascending: false }),
+    supabase.from("activity_kinds").select("id, name, icon").order("sort_order").order("created_at"),
   ]);
   const activities = (activityRows ?? []) as unknown as DealActivity[];
   const openActivities = activities.filter((a) => !a.done_at).length;
@@ -92,7 +93,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
         </TabsList>
 
         <TabsContent value="activities" className="mt-4">
-          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} activities={activities} /></CardContent></Card>
+          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} activities={activities} kinds={kindRows ?? []} /></CardContent></Card>
         </TabsContent>
 
         <TabsContent value="emails" className="mt-4 space-y-3">

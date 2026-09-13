@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
 import { dueState, type DueState } from "@/lib/activities";
 import { fmtDateTime } from "@/lib/format";
-import { ACTIVITY_KIND_LABEL, type DealActivity } from "@/lib/types";
+import type { DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const DUE_CHIP: Record<DueState, { text: string; className: string } | null> = {
@@ -53,7 +53,7 @@ export function ActivityRow({ activity: a, showDeal = true }: { activity: DealAc
       <div className="min-w-0 flex-1">
         <p className={cn("text-sm leading-snug", done && "line-through")}>
           <span className="mr-1.5 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs font-medium align-[1px]">
-            <ActivityKindIcon kind={a.kind} className="size-3" /> {ACTIVITY_KIND_LABEL[a.kind]}
+            <ActivityKindIcon icon={a.kind?.icon} className="size-3" /> {a.kind?.name ?? "(種類なし)"}
           </span>
           {a.body}
         </p>

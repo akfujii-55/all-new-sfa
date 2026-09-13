@@ -41,7 +41,7 @@ export default async function DashboardPage() {
     // 期限超過と 7 日以内の未完了の行動
     supabase
       .from("deal_activities")
-      .select("*, deal:deals(id,title,stage,company:companies(id,name))")
+      .select("*, kind:activity_kinds(id,name,icon), deal:deals(id,title,stage,company:companies(id,name))")
       .is("done_at", null)
       .not("due_at", "is", null)
       .lte("due_at", weekAhead)

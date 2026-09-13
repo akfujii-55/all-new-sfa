@@ -15,9 +15,10 @@ import { MailSettingsForm } from "@/components/settings/mail-settings-form";
 import { AlertSettingsForm } from "@/components/settings/alert-settings-form";
 import { FormSettingsForm } from "@/components/settings/form-settings-form";
 import { TagSettings } from "@/components/settings/tag-settings";
+import { ActivityKindSettings } from "@/components/settings/activity-kind-settings";
 import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import { TENANT_STATUS_LABEL, type MailAccount, type Tag } from "@/lib/types";
+import { TENANT_STATUS_LABEL, type ActivityKind, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
 
 export const metadata = { title: "設定" };
@@ -27,7 +28,7 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings] = await Promise.all([
+  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings, { data: kindRows }] = await Promise.all([
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
@@ -43,6 +44,7 @@ export default async function SettingsPage() {
     supabase.from("system_logs").select("id", { count: "exact", head: true }).eq("level", "error").gte("created_at", hoursAgo(24)),
     supabase.from("system_logs").select("message, created_at, level").like("source", "cron.%").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     getFormSettings(supabase),
+    supabase.from("activity_kinds").select("*").order("sort_order").order("created_at"),
   ]);
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
@@ -180,6 +182,16 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <TagSettings tags={(tagRows ?? []) as Tag[]} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">行動の種類</CardTitle>
+            <CardDescription>案件の「行動」で選ぶ種類(電話、メール、訪問、見積書作成など)。名前とアイコンを変えたり、追加・削除・並び替えができます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActivityKindSettings kinds={(kindRows ?? []) as ActivityKind[]} />
           </CardContent>
         </Card>
 

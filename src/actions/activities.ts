@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertTenantWritable } from "@/lib/tenant-quota";
 import { parseLocalInput } from "@/lib/format";
-import { ACTIVITY_KINDS, type ActivityKind } from "@/lib/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * 案件の行動(電話・メール・訪問などの履歴と、期限付きの Todo)。
@@ -16,9 +16,13 @@ function s(v: FormDataEntryValue | null) {
   return t === "" ? null : t;
 }
 
-function kindOf(v: FormDataEntryValue | null): ActivityKind {
-  const k = String(v ?? "");
-  return (ACTIVITY_KINDS.some((x) => x.key === k) ? k : "other") as ActivityKind;
+/** 種類 ID。自テナントの activity_kinds にあるものだけ受け付ける(RLS で他テナントの ID は見えない) */
+async function kindIdOf(supabase: SupabaseClient, v: FormDataEntryValue | null): Promise<string> {
+  const id = s(v);
+  if (!id) throw new Error("行動の種類を選んでください");
+  const { data } = await supabase.from("activity_kinds").select("id").eq("id", id).maybeSingle();
+  if (!data) throw new Error("行動の種類が見つかりません。設定画面で種類を確認してください");
+  return data.id as string;
 }
 
 async function requireUser() {
@@ -32,6 +36,7 @@ async function requireUser() {
 function revalidate(dealId: string) {
   revalidatePath(`/deals/${dealId}`);
   revalidatePath("/deals");
+  revalidatePath("/activities");
   revalidatePath("/");
 }
 
@@ -41,7 +46,7 @@ export async function addActivity(dealId: string, formData: FormData): Promise<v
   if (!body) throw new Error("内容を入力してください");
   const { error } = await supabase.from("deal_activities").insert({
     deal_id: dealId,
-    kind: kindOf(formData.get("kind")),
+    kind_id: await kindIdOf(supabase, formData.get("kind_id")),
     body,
     due_at: parseLocalInput(s(formData.get("due_at"))),
     done_at: formData.get("done") === "on" ? new Date().toISOString() : null,
@@ -57,7 +62,7 @@ export async function updateActivity(id: string, dealId: string, formData: FormD
   if (!body) throw new Error("内容を入力してください");
   const { error } = await supabase
     .from("deal_activities")
-    .update({ kind: kindOf(formData.get("kind")), body, due_at: parseLocalInput(s(formData.get("due_at"))) })
+    .update({ kind_id: await kindIdOf(supabase, formData.get("kind_id")), body, due_at: parseLocalInput(s(formData.get("due_at"))) })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidate(dealId);

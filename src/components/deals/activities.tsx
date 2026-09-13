@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { AlertTriangle, CalendarClock, Check, Pencil, Trash2 } from "lucide-react";
 import { addActivity, deleteActivity, setActivityDone, updateActivity } from "@/actions/activities";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { dueState, sortActivities, type DueState } from "@/lib/activities";
 import { fmtDateTime, toLocalInput } from "@/lib/format";
-import { ACTIVITY_KINDS, type ActivityKind, type DealActivity } from "@/lib/types";
+import type { ActivityKind, DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ActivityKindIcon } from "./activity-kind-icon";
@@ -27,25 +28,31 @@ const DUE_LABEL: Record<DueState, { text: string; className: string } | null> = 
   done: null,
 };
 
-function KindPicker({ value, onChange, idPrefix }: { value: ActivityKind; onChange: (k: ActivityKind) => void; idPrefix: string }) {
+type KindOption = Pick<ActivityKind, "id" | "name" | "icon">;
+
+/** 種類の選択(設定画面で決めた順に並ぶ)。種類が 1 つも無いときは設定画面へ案内する */
+function KindPicker({ kinds, value, onChange, idPrefix }: { kinds: KindOption[]; value: string; onChange: (id: string) => void; idPrefix: string }) {
+  if (kinds.length === 0) {
+    return <p className="text-xs text-muted-foreground">行動の種類がありません。<Link href="/settings" className="underline">設定</Link>で追加してください。</p>;
+  }
   return (
     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="行動の種類">
-      {ACTIVITY_KINDS.map((k) => {
-        const active = value === k.key;
+      {kinds.map((k) => {
+        const active = value === k.id;
         return (
           <button
-            key={k.key}
-            id={`${idPrefix}-kind-${k.key}`}
+            key={k.id}
+            id={`${idPrefix}-kind-${k.id}`}
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => onChange(k.key)}
+            onClick={() => onChange(k.id)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
               active ? "border-primary bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            <ActivityKindIcon kind={k.key} className="size-3.5" /> {k.label}
+            <ActivityKindIcon icon={k.icon} className="size-3.5" /> {k.name}
           </button>
         );
       })}
@@ -53,12 +60,12 @@ function KindPicker({ value, onChange, idPrefix }: { value: ActivityKind; onChan
   );
 }
 
-export function DealActivities({ dealId, activities }: { dealId: string; activities: DealActivity[] }) {
+export function DealActivities({ dealId, activities, kinds }: { dealId: string; activities: DealActivity[]; kinds: KindOption[] }) {
   const [pending, start] = useTransition();
   const ref = useRef<HTMLFormElement>(null);
-  const [kind, setKind] = useState<ActivityKind>("call");
+  const [kind, setKind] = useState<string>(kinds[0]?.id ?? "");
   const [editing, setEditing] = useState<DealActivity | null>(null);
-  const [editKind, setEditKind] = useState<ActivityKind>("call");
+  const [editKind, setEditKind] = useState<string>(kinds[0]?.id ?? "");
   const sorted = sortActivities(activities);
   const overdue = activities.filter((a) => dueState(a) === "overdue").length;
   const open = activities.filter((a) => !a.done_at).length;
@@ -88,7 +95,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
         action={(fd) =>
           start(async () => {
             try {
-              fd.set("kind", kind);
+              fd.set("kind_id", kind);
               await addActivity(dealId, fd);
               ref.current?.reset();
               toast.success("行動を登録しました");
@@ -98,7 +105,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
           })
         }
       >
-        <KindPicker value={kind} onChange={setKind} idPrefix="new" />
+        <KindPicker kinds={kinds} value={kind} onChange={setKind} idPrefix="new" />
         <Textarea id="activity-body" name="body" rows={2} placeholder="内容(例: 見積書を送付。来週中に回答予定 / 部長に折り返し電話をもらう)" required />
         <div className="flex flex-wrap items-end gap-3">
           <div className="grid gap-1.5">
@@ -139,7 +146,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1 font-medium text-foreground"><ActivityKindIcon kind={a.kind} className="size-3.5" /> {ACTIVITY_KINDS.find((k) => k.key === a.kind)?.label}</span>
+                  <span className="inline-flex items-center gap-1 font-medium text-foreground"><ActivityKindIcon icon={a.kind?.icon} className="size-3.5" /> {a.kind?.name ?? "(種類なし)"}</span>
                   {a.due_at && (
                     <span className={cn("inline-flex items-center gap-1 text-muted-foreground", state === "overdue" && "text-rose-700 dark:text-rose-300 font-medium")}>
                       <CalendarClock className="size-3.5" /> 期限 {fmtDateTime(a.due_at)}
@@ -152,7 +159,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
                 <p className={cn("mt-1 whitespace-pre-wrap text-sm", done && "line-through")}>{a.body}</p>
               </div>
               <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind); }}><Pencil className="size-3.5" /></Button>
+                <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind_id); }}><Pencil className="size-3.5" /></Button>
                 <Button size="sm" variant="ghost" className="text-destructive" aria-label="削除" disabled={pending} onClick={() => run(() => deleteActivity(a.id, dealId), "削除しました")}><Trash2 className="size-3.5" /></Button>
               </div>
             </div>
@@ -169,7 +176,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
               action={(fd) =>
                 start(async () => {
                   try {
-                    fd.set("kind", editKind);
+                    fd.set("kind_id", editKind);
                     await updateActivity(editing.id, dealId, fd);
                     setEditing(null);
                     toast.success("保存しました");
@@ -179,7 +186,7 @@ export function DealActivities({ dealId, activities }: { dealId: string; activit
                 })
               }
             >
-              <KindPicker value={editKind} onChange={setEditKind} idPrefix="edit" />
+              <KindPicker kinds={kinds} value={editKind} onChange={setEditKind} idPrefix="edit" />
               <Textarea id="edit-activity-body" name="body" rows={3} defaultValue={editing.body} required />
               <div className="grid gap-1.5">
                 <Label htmlFor="edit-activity-due">期限</Label>
