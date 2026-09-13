@@ -7,10 +7,10 @@ import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { yen, fmtRelative, fmtDateTime, monthStart } from "@/lib/format";
-import { ACTIVITY_KIND_LABEL, DEAL_STAGES, type DealActivity, type Email, type Inquiry } from "@/lib/types";
+import { yen, fmtRelative, monthStart } from "@/lib/format";
+import { DEAL_STAGES, type DealActivity, type Email, type Inquiry } from "@/lib/types";
 import { daysAhead, dueState, sortActivities } from "@/lib/activities";
-import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
+import { ActivityRow } from "@/components/deals/activity-row";
 import { monthlyRevenueSeries } from "@/lib/queries/dashboard";
 
 export const metadata = { title: "ダッシュボード" };
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
     // 期限超過と 7 日以内の未完了の行動
     supabase
       .from("deal_activities")
-      .select("*, deal:deals(id,title)")
+      .select("*, deal:deals(id,title,stage,company:companies(id,name))")
       .is("done_at", null)
       .not("due_at", "is", null)
       .lte("due_at", weekAhead)
@@ -75,37 +75,21 @@ export default async function DashboardPage() {
       <Card className={`mt-6 ${overdueCount > 0 ? "border-rose-300 dark:border-rose-900" : ""}`}>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="size-4" /> 行動の予定(期限超過と 7 日以内)
+            <CalendarClock className="size-4" /> 今日やること
             {overdueCount > 0 && <Badge variant="destructive" className="h-5 px-1.5"><AlertTriangle className="mr-1 size-3" /> 期限超過 {overdueCount}</Badge>}
           </CardTitle>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/deals">案件 <ArrowRight className="size-4" /></Link>
+            <Link href="/activities">行動の一覧 <ArrowRight className="size-4" /></Link>
           </Button>
         </CardHeader>
         <CardContent className="divide-y">
           {todos.length ? (
-            todos.slice(0, 10).map((a) => {
-              const st = dueState(a);
-              return (
-                <div key={a.id} className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <Link href={`/deals/${a.deal_id}`} className="text-sm font-medium hover:underline line-clamp-1">
-                      <ActivityKindIcon kind={a.kind} className="mr-1 inline size-3.5 align-[-2px]" />
-                      {a.deal?.title ?? "案件"}
-                    </Link>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{ACTIVITY_KIND_LABEL[a.kind]} · {a.body}</p>
-                  </div>
-                  <div className="shrink-0 text-right text-xs">
-                    <p className={st === "overdue" ? "font-medium text-rose-600 dark:text-rose-300" : st === "today" ? "font-medium text-amber-600 dark:text-amber-300" : "text-muted-foreground"}>
-                      {st === "overdue" ? "期限超過" : st === "today" ? "今日" : "予定"}
-                    </p>
-                    <p className="text-muted-foreground">{fmtDateTime(a.due_at)}</p>
-                  </div>
-                </div>
-              );
-            })
+            todos.slice(0, 8).map((a) => <ActivityRow key={a.id} activity={a} />)
           ) : (
-            <p className="text-sm text-muted-foreground">期限が近い行動はありません。案件の「行動」タブから期限付きの Todo を登録できます。</p>
+            <p className="text-sm text-muted-foreground">期限超過や 7 日以内の行動はありません。案件の「行動」タブから期限付きの Todo を登録できます。</p>
+          )}
+          {todos.length > 8 && (
+            <p className="pt-2.5 text-xs text-muted-foreground">ほか {todos.length - 8} 件。<Link href="/activities" className="underline">行動の一覧</Link>で確認できます。</p>
           )}
         </CardContent>
       </Card>

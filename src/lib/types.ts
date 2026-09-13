@@ -289,7 +289,7 @@ export interface DealActivity {
   created_at: string;
   updated_at: string;
   author?: Pick<Profile, "id" | "full_name"> | null;
-  deal?: Pick<Deal, "id" | "title"> | null;
+  deal?: (Pick<Deal, "id" | "title" | "stage"> & { company?: Pick<Company, "id" | "name"> | null }) | null;
 }
 
 export interface DealNote {

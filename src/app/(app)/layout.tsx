@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, MobileNav } from "@/components/layout/sidebar";
+import { nowIso } from "@/lib/activities";
 import { Header } from "@/components/layout/header";
 import { SignatureProvider } from "@/components/mail/signature-provider";
 import { buildSignature } from "@/lib/mail/signature";
@@ -15,7 +16,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
 
-  const [tenant, { data: isOperator }, { data: profile }, { data: member }, mailSettings, { count: unread }, { count: inquiries }] = await Promise.all([
+  const [tenant, { data: isOperator }, { data: profile }, { data: member }, mailSettings, { count: unread }, { count: inquiries }, { count: overdue }] = await Promise.all([
     getCurrentTenant(supabase),
     supabase.rpc("is_operator"),
     supabase.from("profiles").select("email, full_name").eq("id", auth.user.id).maybeSingle(),
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getMailSettings(supabase),
     supabase.from("emails").select("id", { count: "exact", head: true }).eq("is_read", false).eq("direction", "inbound"),
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("deal_activities").select("id", { count: "exact", head: true }).is("done_at", null).lt("due_at", nowIso()),
   ]);
 
   // 運営専用アカウント(テナントに所属しない運営者)は運営管理へ
@@ -51,7 +53,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject}>
       <div className="flex min-h-screen">
-        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0 }} isOperator={Boolean(isOperator)} />
+        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} isOperator={Boolean(isOperator)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header user={{ email: profile?.email ?? auth.user.email ?? null, full_name: profile?.full_name ?? null }} tenantName={tenant.name} />
           {!access.writable && (

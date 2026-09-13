@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck,
+  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck, CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/inbox", label: "メール", icon: Inbox, badgeKey: "unread" as const },
   { href: "/inquiries", label: "問い合わせ", icon: MessageSquareText, badgeKey: "inquiries" as const },
   { href: "/deals", label: "案件", icon: KanbanSquare },
+  { href: "/activities", label: "行動", icon: CalendarCheck, badgeKey: "overdue" as const },
   { href: "/companies", label: "取引先", icon: Building2 },
   { href: "/contacts", label: "担当者", icon: Users },
   { href: "/members", label: "営業担当者", icon: UserCog },
@@ -21,7 +22,9 @@ const NAV = [
   { href: "/settings", label: "設定", icon: Settings },
 ];
 
-export function Sidebar({ counts, isOperator = false }: { counts: { unread: number; inquiries: number }; isOperator?: boolean }) {
+export type NavCounts = { unread: number; inquiries: number; overdue: number };
+
+export function Sidebar({ counts, isOperator = false }: { counts: NavCounts; isOperator?: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -50,7 +53,7 @@ export function Sidebar({ counts, isOperator = false }: { counts: { unread: numb
             >
               <item.icon className="size-4" />
               <span className="flex-1">{item.label}</span>
-              {badge > 0 && <Badge variant="secondary" className="h-5 px-1.5 text-xs">{badge}</Badge>}
+              {badge > 0 && <Badge variant={item.badgeKey === "overdue" ? "destructive" : "secondary"} className="h-5 px-1.5 text-xs">{badge}</Badge>}
             </Link>
           );
         })}

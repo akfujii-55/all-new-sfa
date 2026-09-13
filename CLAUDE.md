@@ -27,7 +27,7 @@
   - テナント側は `/settings/billing`(`src/actions/billing.ts`): Checkout(お試し中なら `trial_end` を付けて課金開始をお試し終了日にする)、カスタマーポータル(支払い方法・請求書・解約)。契約状態は Webhook `/api/stripe/webhook`(`stripe_events` で重複排除)が `tenants` に写す(`applySubscriptionToTenant`: trialing→trial、active→active、past_due→active+past_due、unpaid/paused→suspended、canceled→cancelled)。運営が手で停止(suspended)したテナントは Webhook で上書きしない。
   - 環境変数 `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`。未設定なら課金画面は「準備中」表示で申し込みだけ動く。`NEXT_PUBLIC_SITE_URL` があれば確認メール・Checkout の戻り先に使う。
 
-- 案件の行動(0019): `deal_activities`(種類 call/email/visit/quote/callback/other、本文、期限 due_at、完了 done_at)。`src/actions/activities.ts` で登録・編集・完了・削除、期限超過の判定は `src/lib/activities.ts` の `dueState`(今日の判定は日本時間)。案件詳細の「行動」タブ、カンバンのカード(期限超過・今日の件数)、ダッシュボードの「行動の予定」に表示。
+- 案件の行動(0019): `deal_activities`(種類 call/email/visit/quote/callback/other、本文、期限 due_at、完了 done_at)。`src/actions/activities.ts` で登録・編集・完了・削除、期限超過の判定は `src/lib/activities.ts` の `dueState`(今日の判定は日本時間)。案件詳細の「行動」タブ、カンバンのカード(期限超過・今日の件数)、ダッシュボードの「今日やること」、一覧ページ `/activities`(期限の状態ごとにグループ)、サイドバー「行動」の期限超過バッジに表示。共通の 1 行は `activity-row.tsx`(完了チェック付き)。
 
 ## ドメインの流れ
 受信メール(顧客/担当者は自動登録) → メール一覧で選択して問い合わせ(inquiries)に登録 → アポ取得で案件化(deals, stage=appointment) → カンバンでステージ管理 → 成約時に月次売上(revenues)を必須入力。

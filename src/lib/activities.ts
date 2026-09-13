@@ -40,3 +40,22 @@ export function sortActivities(list: DealActivity[]): DealActivity[] {
 export function daysAhead(days: number, now: Date = new Date()): string {
   return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }
+
+/** 今の時刻(ISO)。サーバーコンポーネント内で Date.now() を直接呼ばないための薄いラッパー */
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+export const DUE_GROUPS: { key: DueState; label: string }[] = [
+  { key: "overdue", label: "期限超過" },
+  { key: "today", label: "今日" },
+  { key: "soon", label: "3 日以内" },
+  { key: "later", label: "それ以降" },
+  { key: "none", label: "期限なし" },
+];
+
+/** 一覧ページ用に、未完了の行動を期限の状態ごとに分ける(各グループ内は期限順) */
+export function groupByDue(list: DealActivity[], now: Date = new Date()): { key: DueState; label: string; items: DealActivity[] }[] {
+  const sorted = sortActivities(list);
+  return DUE_GROUPS.map((g) => ({ ...g, items: sorted.filter((a) => dueState(a, now) === g.key) }));
+}
