@@ -43,11 +43,18 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/signup") ||
     path.startsWith("/forgot-password") ||
     path.startsWith("/legal") ||
+    path.startsWith("/lp") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/mail") ||
     path.startsWith("/api/stripe") ||
     path === "/api/health";
 
+  // 未ログインでトップを開いたら紹介ページ(LP)を表示する(URL は / のまま)
+  if (!user && path === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/lp";
+    return NextResponse.rewrite(url, { request });
+  }
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

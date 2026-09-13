@@ -29,6 +29,8 @@
 
 - 案件の行動(0019): `deal_activities`(種類 call/email/visit/quote/callback/other、本文、期限 due_at、完了 done_at)。`src/actions/activities.ts` で登録・編集・完了・削除、期限超過の判定は `src/lib/activities.ts` の `dueState`(今日の判定は日本時間)。案件詳細の「行動」タブ、カンバンのカード(期限超過・今日の件数)、ダッシュボードの「今日やること」、一覧ページ `/activities`(期限の状態ごとにグループ)、サイドバー「行動」の期限超過バッジに表示。共通の 1 行は `activity-row.tsx`(完了チェック付き)。
 
+- LP(紹介ページ): 未ログインで `/` を開くと `src/lib/supabase/proxy.ts` が `/lp` に rewrite(URL は / のまま)。文言・構成・開発者写真は `src/content/lp.ts`、見た目は `src/app/lp/lp.css`(`.lp` にスコープ)、料金は operator_settings から自動。写真は public/lp/ に置いて lp.ts の verdict.founder を設定。
+
 ## ドメインの流れ
 受信メール(顧客/担当者は自動登録) → メール一覧で選択して問い合わせ(inquiries)に登録 → アポ取得で案件化(deals, stage=appointment) → カンバンでステージ管理 → 成約時に月次売上(revenues)を必須入力。
 
