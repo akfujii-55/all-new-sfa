@@ -1,12 +1,19 @@
 import nodemailer from "nodemailer";
 import type { MailAccountConfig } from "./accounts";
 
+/**
+ * 465 は接続時から TLS(SMTPS)、それ以外(587 / 25)は STARTTLS で暗号化してから認証する。
+ * requireTLS で、STARTTLS に対応しないサーバーへ平文でパスワードを送らないようにする。
+ */
 export function createTransport(account: MailAccountConfig) {
+  const secure = account.smtpPort === 465;
   return nodemailer.createTransport({
     host: account.smtpHost,
     port: account.smtpPort,
-    secure: account.smtpPort === 465,
-    auth: { user: account.email, pass: account.password },
+    secure,
+    requireTLS: !secure,
+    auth: { user: account.loginUser, pass: account.password },
+    connectionTimeout: 15000,
   });
 }
 

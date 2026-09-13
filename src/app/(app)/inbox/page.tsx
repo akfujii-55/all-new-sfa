@@ -118,7 +118,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
     <div>
       <PageHeader
         title="メール"
-        description="Gmail の受信・送信履歴。対応が必要なメールを選んで問い合わせに登録します。"
+        description="連携したメールアカウントの受信・送信履歴。対応が必要なメールを選んで問い合わせに登録します。"
         actions={
           <>
             <MailSyncButton />
@@ -172,7 +172,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         <EmptyState
           icon={Inbox}
           title="メールがありません"
-          description="「メール同期」を押すと Gmail の受信トレイと送信済みメールを取り込みます。"
+          description="「メール同期」を押すと、連携したメールアカウントの受信トレイと送信済みメールを取り込みます。"
           action={<MailSyncButton label="今すぐ同期" />}
         />
       ) : (

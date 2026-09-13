@@ -43,16 +43,22 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
   const label = s(formData.get("label")) ?? email;
   const password = String(formData.get("password") ?? "").replace(/\s+/g, "");
   if (!email || !email.includes("@")) throw new Error("メールアドレスを入力してください");
-  if (!id && !password) throw new Error("アプリパスワードを入力してください");
+  if (!id && !password) throw new Error("パスワードを入力してください");
+  const imapHost = s(formData.get("imap_host"))?.toLowerCase() ?? "imap.gmail.com";
+  const smtpHost = s(formData.get("smtp_host"))?.toLowerCase() ?? "smtp.gmail.com";
+  if (!/^[a-z0-9.-]+$/.test(imapHost) || !/^[a-z0-9.-]+$/.test(smtpHost)) throw new Error("サーバー名はホスト名だけを入力してください(例: imap.example.jp)");
+  const loginUser = s(formData.get("login_user"));
 
   const values: Record<string, unknown> = {
     label,
     email,
     from_name: s(formData.get("from_name")),
-    imap_host: s(formData.get("imap_host")) ?? "imap.gmail.com",
+    imap_host: imapHost,
     imap_port: port(formData.get("imap_port"), 993),
-    smtp_host: s(formData.get("smtp_host")) ?? "smtp.gmail.com",
+    smtp_host: smtpHost,
     smtp_port: port(formData.get("smtp_port"), 465),
+    // メールアドレスと同じなら空にしておく(既定の動作と区別しない)
+    login_user: loginUser && loginUser.toLowerCase() !== email ? loginUser : null,
     is_active: formData.get("is_active") !== "false",
   };
   if (password) values.password_enc = encryptSecret(password);

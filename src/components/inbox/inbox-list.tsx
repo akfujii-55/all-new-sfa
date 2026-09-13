@@ -186,7 +186,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
           <DialogHeader>
             <DialogTitle>メールを削除しますか?</DialogTitle>
             <DialogDescription>
-              選択した {selectedIds.length} 件のスレッドをこのアプリから削除します。Gmail 側のメールは削除されません。登録済みの問い合わせ・案件は残ります。
+              選択した {selectedIds.length} 件のスレッドをこのアプリから削除します。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

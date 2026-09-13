@@ -17,6 +17,7 @@ import { TagSettings } from "@/components/settings/tag-settings";
 import { getAlertSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import { TENANT_STATUS_LABEL, type MailAccount, type Tag } from "@/lib/types";
+import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
 
 export const metadata = { title: "設定" };
 
@@ -31,7 +32,7 @@ export default async function SettingsPage() {
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
     supabase
       .from("mail_accounts")
-      .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, is_active, is_default, last_error, created_at, updated_at")
+      .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, login_user, is_active, is_default, last_error, created_at, updated_at")
       .order("is_default", { ascending: false })
       .order("created_at"),
     supabase.from("mail_sync_state").select("*"),
@@ -51,8 +52,8 @@ export default async function SettingsPage() {
     <div className="max-w-3xl">
       <PageHeader
         title="設定"
-        description="Gmail 連携、署名、通知の設定"
-        actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> Gmail アカウントを追加</Button>} />}
+        description="メールアカウント連携、署名、通知の設定"
+        actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />}
       />
 
       <div className="space-y-4">
@@ -84,18 +85,17 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Gmail 連携設定</CardTitle>
+            <CardTitle className="text-base">メールアカウント連携</CardTitle>
             <CardDescription>
-              営業で使う Gmail アカウントを連携すると、受信トレイと送信済みメールを取り込み、このアプリから返信・送信できます(返信は受信したアカウントから送られます)。
-              連携には Google の「アプリパスワード」を使います。
-              <a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">https://myaccount.google.com/apppasswords</a> に連携する Gmail アカウントでログインしてパスワードを発行し、そのパスワードで連携してください。
+              営業で使うメールアカウントを連携すると、受信トレイと送信済みメールを取り込み、このアプリから返信・送信できます(返信は受信したアカウントから送られます)。
+              Gmail / Google Workspace のほか、IMAP と SMTP が使えるメールサーバー(レンタルサーバーのメールなど)を連携できます。設定手順はこのページの下にあります。
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             {accounts.length === 0 ? (
               <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
                 <Mail className="mx-auto mb-2 size-6" />
-                まだ Gmail アカウントが連携されていません。右上の「Gmail アカウントを追加」から連携してください。
+                まだメールアカウントが連携されていません。右上の「メールアカウントを追加」から連携してください。
               </div>
             ) : (
               <div className="divide-y">
@@ -111,7 +111,11 @@ export default async function SettingsPage() {
                           {!a.is_active && <Badge variant="outline">無効</Badge>}
                         </div>
                         {a.from_name && <p className="text-xs text-muted-foreground">差出人名: {a.from_name}</p>}
-                        {a.imap_host !== "imap.gmail.com" && <p className="text-xs text-muted-foreground">{a.imap_host}:{a.imap_port} / {a.smtp_host}:{a.smtp_port}</p>}
+                        <p className="text-xs text-muted-foreground">
+                          {PROVIDER_LABEL[providerOf(a)]}
+                          {providerOf(a) === "other" && ` · IMAP ${a.imap_host}:${a.imap_port} / SMTP ${a.smtp_host}:${a.smtp_port}`}
+                          {a.login_user && ` · ログイン ID ${a.login_user}`}
+                        </p>
                         {a.last_error ? (
                           <p className="mt-1 flex items-center gap-1 text-xs text-destructive"><XCircle className="size-3" /> {a.last_error}</p>
                         ) : own.length > 0 ? (
@@ -198,10 +202,11 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Gmail 連携の設定手順</CardTitle>
-            <CardDescription>Google のアプリパスワードを発行し、そのパスワードでアカウントを連携します。</CardDescription>
+            <CardTitle className="text-base">メールアカウント連携の設定手順</CardTitle>
+            <CardDescription>Gmail は Google のアプリパスワードで、その他のメールサーバーは IMAP / SMTP の設定で連携します。</CardDescription>
           </CardHeader>
           <CardContent className="text-sm space-y-4">
+            <h3 className="font-medium">Gmail / Google Workspace の場合</h3>
             <ol className="list-decimal pl-5 space-y-2">
               <li>連携する Gmail アカウントで 2 段階認証(2 段階認証プロセス)を有効にします。アプリパスワードは 2 段階認証が有効なアカウントでのみ発行できます。</li>
               <li>
@@ -209,12 +214,22 @@ export default async function SettingsPage() {
                 {" "}に、連携する Gmail アカウントでログインします。アプリ名(例: SFA)を入力して「作成」を押すと、16 桁のアプリパスワードが表示されます。この画面を閉じると再表示できないので控えてください。
               </li>
               <li>Gmail の設定 → 「メール転送と POP/IMAP」で IMAP が有効になっていることを確認します。</li>
-              <li>右上の「Gmail アカウントを追加」で、メールアドレスと発行したアプリパスワードを入力して保存し、「接続テスト」で確認します。パスワードは暗号化して保存されます。</li>
+              <li>右上の「メールアカウントを追加」で「Gmail / Google Workspace」を選び、メールアドレスと発行したアプリパスワードを入力して保存し、「接続テスト」で確認します。パスワードは暗号化して保存されます。</li>
               <li>「今すぐ同期」を押すと、そのアカウントの直近 30 日分のメールを取り込みます。以後は毎日自動で同期されます。</li>
             </ol>
             <p className="text-muted-foreground">
               Google Workspace のアカウントでは、管理者が IMAP とアプリパスワードの利用を許可している必要があります。
               アプリパスワードは Google アカウントの「セキュリティ」からいつでも取り消せます。取り消した場合はこの画面で新しいパスワードに更新してください。
+            </p>
+            <h3 className="font-medium pt-2">その他のメールサーバー(レンタルサーバー、プロバイダーのメールなど)の場合</h3>
+            <ol className="list-decimal pl-5 space-y-2">
+              <li>ご利用のメールサービスの管理画面やマニュアルで、「メールソフトの設定」に記載されている IMAP サーバー名・SMTP サーバー名・ポート番号・ログイン ID を確認します。IMAP が無効になっている場合は有効にします。</li>
+              <li>右上の「メールアカウントを追加」で「その他の IMAP / SMTP サーバー」を選び、メールアドレス、パスワード、サーバー名とポートを入力します。ログイン ID がメールアドレスと違う場合だけ「ログイン ID」に入力します。</li>
+              <li>保存後に「接続テスト」で IMAP と SMTP の両方にログインできることを確認します。失敗した場合はエラーの内容に沿ってサーバー名・ポート・ログイン ID を見直してください。</li>
+            </ol>
+            <p className="text-muted-foreground">
+              接続は SSL(IMAP 993 / SMTP 465)または STARTTLS(IMAP 143 / SMTP 587)で暗号化します。暗号化に対応していないサーバーには接続できません。
+              Microsoft 365 / Outlook.com は IMAP のパスワード認証が廃止されているため、現在は連携できません(今後、メール転送による取り込みで対応予定です)。
             </p>
           </CardContent>
         </Card>

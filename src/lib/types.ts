@@ -116,7 +116,7 @@ export interface Member {
   updated_at: string;
 }
 
-/** 受信・送信に使うメールアカウント(Gmail など)。password_enc はサーバー側で暗号化済み */
+/** 受信・送信に使うメールアカウント(Gmail やその他の IMAP / SMTP サーバー)。password_enc はサーバー側で暗号化済み */
 export interface MailAccount {
   id: string;
   label: string;
@@ -126,6 +126,8 @@ export interface MailAccount {
   imap_port: number;
   smtp_host: string;
   smtp_port: number;
+  /** ログイン ID がメールアドレスと異なるサーバー用。null ならメールアドレスでログインする */
+  login_user: string | null;
   password_enc: string;
   is_active: boolean;
   is_default: boolean;

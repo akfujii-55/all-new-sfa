@@ -54,7 +54,7 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>このスレッドを削除しますか?</DialogTitle>
-            <DialogDescription>スレッド内のメールをすべてこのアプリから削除します。Gmail 側のメールは削除されません。登録済みの問い合わせ・案件は残ります。</DialogDescription>
+            <DialogDescription>スレッド内のメールをすべてこのアプリから削除します。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={pending}>キャンセル</Button>

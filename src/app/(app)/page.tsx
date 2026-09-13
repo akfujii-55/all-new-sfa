@@ -154,7 +154,7 @@ export default async function DashboardPage() {
               ))
             ) : (
               <p className="text-sm text-muted-foreground">
-                メールはまだありません。右上の「メール同期」で Gmail から取り込みます。
+                メールはまだありません。右上の「メール同期」で連携したメールアカウントから取り込みます。
               </p>
             )}
           </CardContent>

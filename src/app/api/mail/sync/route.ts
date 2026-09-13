@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 /**
- * Gmail の IMAP 同期。
+ * 連携したメールアカウント(Gmail など)の IMAP 同期。
  * - cron から: Authorization: Bearer <CRON_SECRET>。有効な全テナントを順に同期する(テナント用クライアントで RLS を通す)
  * - ログインユーザーから: セッションクッキー。自テナントだけを同期する
  * ?backfill=<日数> を付けると、通常の同期の代わりに取り込み済みメールの添付ファイルを後追いで保存する

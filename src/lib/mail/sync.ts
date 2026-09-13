@@ -11,22 +11,26 @@ type Db = SupabaseClient;
 
 type Mailbox = { key: string; path: string; direction: "inbound" | "outbound" };
 
+/** SPECIAL-USE を返さないサーバー向けの、送信済みフォルダのよくある名前(階層の最後の要素で比較) */
+const SENT_FOLDER_NAMES = ["sent", "sent items", "sent messages", "sent mail", "sent-mail", "sentbox", "送信済み", "送信済みアイテム", "送信済みメール", "送信済"];
+
 /**
  * 同期対象のメールボックスを解決する。
  * 送信済みフォルダは Gmail の表示言語でパスが変わる(例: "[Gmail]/Sent Mail" / "[Gmail]/送信済みメール")ため、
- * 名前を固定せず SPECIAL-USE の \Sent フラグから探す。
+ * 名前を固定せず SPECIAL-USE の \Sent フラグから探す。SPECIAL-USE に対応しないサーバーでは、よくある名前で探す。
  * key は mail_sync_state の主キーとして使う安定した識別子。
  */
 async function resolveMailboxes(client: ImapFlow): Promise<{ mailboxes: Mailbox[]; sentError?: string }> {
   const mailboxes: Mailbox[] = [{ key: "INBOX", path: "INBOX", direction: "inbound" }];
   try {
     const list = await client.list();
-    const sent = list.find((m) => m.specialUse === "\\Sent");
+    const leaf = (m: { path: string; delimiter?: string }) => m.path.split(m.delimiter || "/").at(-1)?.toLowerCase() ?? "";
+    const sent = list.find((m) => m.specialUse === "\\Sent") ?? list.find((m) => SENT_FOLDER_NAMES.includes(leaf(m)));
     if (sent) {
       mailboxes.push({ key: "SENT", path: sent.path, direction: "outbound" });
       return { mailboxes };
     }
-    return { mailboxes, sentError: "送信済みメールのフォルダが見つかりません(Gmail の設定で IMAP に表示されているか確認してください)" };
+    return { mailboxes, sentError: "送信済みメールのフォルダが見つかりません(メールサーバーの設定で IMAP に送信済みフォルダが表示されているか確認してください)" };
   } catch (e) {
     return { mailboxes, sentError: `フォルダ一覧の取得に失敗しました: ${(e as Error).message}` };
   }
@@ -97,12 +101,15 @@ export async function verifyImap(account: MailAccountConfig) {
   await client.logout().catch(() => {});
 }
 
+/** 993 は接続時から TLS、それ以外(143)は STARTTLS で暗号化してから認証する(STARTTLS 非対応なら失敗させ、平文でパスワードを送らない) */
 function imapClient(account: MailAccountConfig) {
+  const secure = account.imapPort === 993;
   return new ImapFlow({
     host: account.imapHost,
     port: account.imapPort,
-    secure: account.imapPort === 993,
-    auth: { user: account.email, pass: account.password },
+    secure,
+    doSTARTTLS: secure ? undefined : true,
+    auth: { user: account.loginUser, pass: account.password },
     logger: false,
   });
 }
@@ -115,7 +122,7 @@ async function connectOrThrow(client: ImapFlow) {
     if (err.authenticationFailed) {
       throw new Error(
         `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
-          "メールアドレスとアプリパスワードを確認してください。Google Workspace の場合は管理者が IMAP / アプリパスワードを許可している必要があります。",
+          "ログイン ID とパスワードを確認してください。Gmail はアプリパスワード(2 段階認証が必要)、Google Workspace は管理者が IMAP / アプリパスワードを許可している必要があります。ログイン ID がメールアドレスと違うサーバーでは「ログイン ID」欄に入力してください。",
       );
     }
     throw new Error(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);

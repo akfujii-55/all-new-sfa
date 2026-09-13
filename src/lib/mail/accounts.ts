@@ -14,6 +14,8 @@ export interface MailAccountConfig {
   imapPort: number;
   smtpHost: string;
   smtpPort: number;
+  /** IMAP / SMTP の認証に使うユーザー名(login_user が無ければメールアドレス) */
+  loginUser: string;
   password: string;
   isDefault: boolean;
   isActive: boolean;
@@ -29,6 +31,7 @@ function toConfig(row: MailAccount): MailAccountConfig {
     imapPort: row.imap_port,
     smtpHost: row.smtp_host,
     smtpPort: row.smtp_port,
+    loginUser: row.login_user?.trim() || row.email,
     password: decryptSecret(row.password_enc),
     isDefault: row.is_default,
     isActive: row.is_active,
