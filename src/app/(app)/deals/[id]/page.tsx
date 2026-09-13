@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StageSelect } from "@/components/deals/stage-select";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
 import { DealNotes } from "@/components/deals/notes";
+import { DealActivities } from "@/components/deals/activities";
+import { dueState } from "@/lib/activities";
 import { RevenueEditor } from "@/components/deals/revenue-editor";
 import { EmailBody } from "@/components/inbox/email-body";
 import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { fmtDate, fmtDateTime, fmtMonth, yen } from "@/lib/format";
 import { getMailAccountOptions } from "@/lib/mail/options";
-import type { Deal, DealNote, Email, Revenue } from "@/lib/types";
+import type { Deal, DealActivity, DealNote, Email, Revenue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default async function DealDetailPage({ params }: PageProps<"/deals/[id]">) {
@@ -29,14 +31,18 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   if (!data) notFound();
   const deal = data as unknown as Deal;
 
-  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts] = await Promise.all([
+  const [{ data: emails }, { data: notes }, { data: revenues }, { data: contacts }, { data: members }, accounts, { data: activityRows }] = await Promise.all([
     supabase.from("emails").select("*, attachments:email_attachments(*)").eq("deal_id", id).order("received_at", { ascending: false }),
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
     supabase.from("members").select("id, name, is_active").order("sort_order").order("created_at"),
     getMailAccountOptions(supabase),
+    supabase.from("deal_activities").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
   ]);
+  const activities = (activityRows ?? []) as unknown as DealActivity[];
+  const openActivities = activities.filter((a) => !a.done_at).length;
+  const overdueActivities = activities.filter((a) => dueState(a) === "overdue").length;
   const memberOptions = (members ?? []).filter((m) => m.is_active || m.id === deal.owner_id);
 
   const revTotal = (revenues ?? []).reduce((a, r) => a + Number(r.amount), 0);
@@ -74,12 +80,20 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
       )}
       {deal.memo && <Card className="mb-6"><CardContent className="pt-0 text-sm whitespace-pre-wrap">{deal.memo}</CardContent></Card>}
 
-      <Tabs defaultValue="emails">
+      <Tabs defaultValue="activities">
         <TabsList>
+          <TabsTrigger value="activities">
+            行動
+            <Badge variant={overdueActivities > 0 ? "destructive" : "secondary"} className="ml-1.5 h-5 px-1.5">{overdueActivities > 0 ? `超過 ${overdueActivities}` : openActivities}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="emails">メール履歴 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{emails?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="notes">商談メモ <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{notes?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="revenue">売上計上 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{revenues?.length ?? 0}</Badge></TabsTrigger>
         </TabsList>
+
+        <TabsContent value="activities" className="mt-4">
+          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} activities={activities} /></CardContent></Card>
+        </TabsContent>
 
         <TabsContent value="emails" className="mt-4 space-y-3">
           <div className="flex justify-end">

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { Building2, CalendarClock, GripVertical, UserCog } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, GripVertical, UserCog } from "lucide-react";
 import { moveDealStage } from "@/actions/deals";
 import { DEAL_STAGES, type Deal, type DealStage } from "@/lib/types";
 import { fmtDate, yen } from "@/lib/format";
@@ -136,6 +136,16 @@ function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
             <span className="text-sm font-semibold tabular-nums">{yen(deal.amount)}</span>
             <Badge variant="secondary" className="text-[10px]">{deal.probability}%</Badge>
           </div>
+          {((deal.overdue_activities ?? 0) > 0 || (deal.today_activities ?? 0) > 0) && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px]">
+              {(deal.overdue_activities ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 rounded bg-rose-600 px-1.5 py-0.5 font-medium text-white"><AlertTriangle className="size-3" /> 期限超過 {deal.overdue_activities}</span>
+              )}
+              {(deal.today_activities ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 rounded bg-amber-500 px-1.5 py-0.5 font-medium text-white">今日 {deal.today_activities}</span>
+              )}
+            </p>
+          )}
           {(deal.appointment_at || deal.expected_close_date) && (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
               <CalendarClock className="size-3" />

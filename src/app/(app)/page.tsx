@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, KanbanSquare, JapaneseYen, TrendingUp, ArrowRight } from "lucide-react";
+import { Inbox, KanbanSquare, JapaneseYen, TrendingUp, ArrowRight, AlertTriangle, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -7,8 +7,10 @@ import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { yen, fmtRelative, monthStart } from "@/lib/format";
-import { DEAL_STAGES, type Email, type Inquiry } from "@/lib/types";
+import { yen, fmtRelative, fmtDateTime, monthStart } from "@/lib/format";
+import { ACTIVITY_KIND_LABEL, DEAL_STAGES, type DealActivity, type Email, type Inquiry } from "@/lib/types";
+import { daysAhead, dueState, sortActivities } from "@/lib/activities";
+import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
 import { monthlyRevenueSeries } from "@/lib/queries/dashboard";
 
 export const metadata = { title: "ダッシュボード" };
@@ -17,7 +19,8 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const thisMonth = monthStart();
 
-  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage] = await Promise.all([
+  const weekAhead = daysAhead(7);
+  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage, upcoming] = await Promise.all([
     supabase.from("deals").select("amount, probability").not("stage", "in", '("won","lost")'),
     supabase.from("revenues").select("amount").eq("year_month", thisMonth),
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
@@ -35,7 +38,18 @@ export default async function DashboardPage() {
       .order("received_at", { ascending: false })
       .limit(5),
     supabase.from("deals").select("id, stage, amount").not("stage", "in", '("won","lost")'),
+    // 期限超過と 7 日以内の未完了の行動
+    supabase
+      .from("deal_activities")
+      .select("*, deal:deals(id,title)")
+      .is("done_at", null)
+      .not("due_at", "is", null)
+      .lte("due_at", weekAhead)
+      .order("due_at")
+      .limit(30),
   ]);
+  const todos = sortActivities((upcoming.data ?? []) as unknown as DealActivity[]);
+  const overdueCount = todos.filter((a) => dueState(a) === "overdue").length;
 
   const pipeline = (openDeals.data ?? []).reduce((a, d) => a + Number(d.amount), 0);
   const weighted = (openDeals.data ?? []).reduce((a, d) => a + (Number(d.amount) * Number(d.probability)) / 100, 0);
@@ -54,9 +68,47 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="今月の売上計上" value={yen(monthTotal)} icon={JapaneseYen} />
         <StatCard label="パイプライン総額" value={yen(pipeline)} hint={`確度加重 ${yen(weighted)}`} icon={TrendingUp} />
-        <StatCard label="進行中の案件" value={`${openDeals.data?.length ?? 0} 件`} icon={KanbanSquare} />
+        <StatCard label="進行中の案件" value={`${openDeals.data?.length ?? 0} 件`} hint={overdueCount > 0 ? `期限超過の行動 ${overdueCount} 件` : "期限超過の行動なし"} icon={KanbanSquare} />
         <StatCard label="新規問い合わせ" value={`${newInq.count ?? 0} 件`} hint={`未読メール ${unread.count ?? 0} 件`} icon={Inbox} />
       </div>
+
+      <Card className={`mt-6 ${overdueCount > 0 ? "border-rose-300 dark:border-rose-900" : ""}`}>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="size-4" /> 行動の予定(期限超過と 7 日以内)
+            {overdueCount > 0 && <Badge variant="destructive" className="h-5 px-1.5"><AlertTriangle className="mr-1 size-3" /> 期限超過 {overdueCount}</Badge>}
+          </CardTitle>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/deals">案件 <ArrowRight className="size-4" /></Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="divide-y">
+          {todos.length ? (
+            todos.slice(0, 10).map((a) => {
+              const st = dueState(a);
+              return (
+                <div key={a.id} className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <Link href={`/deals/${a.deal_id}`} className="text-sm font-medium hover:underline line-clamp-1">
+                      <ActivityKindIcon kind={a.kind} className="mr-1 inline size-3.5 align-[-2px]" />
+                      {a.deal?.title ?? "案件"}
+                    </Link>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{ACTIVITY_KIND_LABEL[a.kind]} · {a.body}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs">
+                    <p className={st === "overdue" ? "font-medium text-rose-600 dark:text-rose-300" : st === "today" ? "font-medium text-amber-600 dark:text-amber-300" : "text-muted-foreground"}>
+                      {st === "overdue" ? "期限超過" : st === "today" ? "今日" : "予定"}
+                    </p>
+                    <p className="text-muted-foreground">{fmtDateTime(a.due_at)}</p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-sm text-muted-foreground">期限が近い行動はありません。案件の「行動」タブから期限付きの Todo を登録できます。</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
