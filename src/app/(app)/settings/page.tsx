@@ -13,8 +13,9 @@ import { MailAccountDialog } from "@/components/settings/mail-account-dialog";
 import { MailAccountActions } from "@/components/settings/mail-account-actions";
 import { MailSettingsForm } from "@/components/settings/mail-settings-form";
 import { AlertSettingsForm } from "@/components/settings/alert-settings-form";
+import { FormSettingsForm } from "@/components/settings/form-settings-form";
 import { TagSettings } from "@/components/settings/tag-settings";
-import { getAlertSettings, getMailSettings } from "@/lib/settings";
+import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import { TENANT_STATUS_LABEL, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
@@ -26,7 +27,7 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }] = await Promise.all([
+  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings] = await Promise.all([
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
@@ -41,6 +42,7 @@ export default async function SettingsPage() {
     getAlertSettings(supabase),
     supabase.from("system_logs").select("id", { count: "exact", head: true }).eq("level", "error").gte("created_at", hoursAgo(24)),
     supabase.from("system_logs").select("message, created_at, level").like("source", "cron.%").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    getFormSettings(supabase),
   ]);
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
@@ -138,6 +140,36 @@ export default async function SettingsPage() {
               </div>
             )}
             <div className="pt-3"><MailSyncButton label="今すぐ同期" /></div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">問い合わせフォームの通知メール</CardTitle>
+            <CardDescription>
+              自社サイトの問い合わせフォームから届く通知メールは、差出人(フォームツール)ではなく本文に書かれた問い合わせ者を担当者として登録します。
+              本文の「項目名: 値」の行を読み取るので、通知メールを下の推奨フォーマットに合わせると確実です。合わせられない場合は、自社フォームの項目名をここに登録してください。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 text-sm">
+            <FormSettingsForm settings={formSettings} />
+            <div className="space-y-2">
+              <p className="font-medium">推奨フォーマット(通知メールの本文)</p>
+              <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs leading-relaxed">{`会社名: 株式会社サンプル
+お名前: 山田 太郎
+メールアドレス: taro@example.co.jp
+電話番号: 03-1234-5678
+お問い合わせ内容:
+在庫管理の効率化について相談したい。
+来週デモをお願いできますか。`}</pre>
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>1 行に 1 項目、「項目名: 値」の形にします(コロンは半角・全角どちらでも可)。問い合わせ内容は複数行でも構いません。</li>
+                <li>メールアドレスの行は必須です。この行が無いと通常のメールとして扱い、差出人が担当者として登録されます。</li>
+                <li>HTML メールでも読み取れますが、表組みではなくテキストの行にするほうが確実です。</li>
+                <li>Google フォーム、formrun、HubSpot、WordPress(Contact Form 7 など)の通知メールは、テンプレートの本文をこの形に編集できます。</li>
+                <li>通知メールの差出人アドレスを上の「送信元アドレス」に登録しておくと、読み取れなかった場合でもフォームツールのアドレスが担当者として登録されるのを防げます。</li>
+              </ul>
+            </div>
           </CardContent>
         </Card>
 

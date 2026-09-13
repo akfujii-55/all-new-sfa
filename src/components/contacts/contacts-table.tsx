@@ -3,18 +3,19 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Pencil } from "lucide-react";
+import { Mail, Merge, Pencil } from "lucide-react";
 import { setContactTags } from "@/actions/tags";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ContactDialog } from "@/components/companies/contact-dialog";
+import { MergeContactDialog, type MergeContactCandidate } from "@/components/contacts/merge-contact-dialog";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { TagBadges } from "@/components/tags/tag-badge";
 import type { Contact, Tag } from "@/lib/types";
 
-export function ContactsTable({ rows, companies, tags }: { rows: Contact[]; companies: { id: string; name: string }[]; tags: Tag[] }) {
+export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows: Contact[]; companies: { id: string; name: string }[]; tags: Tag[]; mergeCandidates: MergeContactCandidate[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   const ids = rows.map((r) => r.id);
@@ -71,7 +72,7 @@ export function ContactsTable({ rows, companies, tags }: { rows: Contact[]; comp
             <TableHead className="hidden md:table-cell">役職</TableHead>
             <TableHead className="hidden sm:table-cell">メール</TableHead>
             <TableHead className="hidden lg:table-cell">電話</TableHead>
-            <TableHead className="w-24" />
+            <TableHead className="w-32" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -88,6 +89,7 @@ export function ContactsTable({ rows, companies, tags }: { rows: Contact[]; comp
                 <div className="flex justify-end gap-1">
                   {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: p.company_id }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
                   <ContactDialog contact={p} companies={companies} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                  <MergeContactDialog contact={p} contacts={mergeCandidates} companies={companies} trigger={<Button size="sm" variant="ghost" title="別の担当者に統合"><Merge className="size-4" /></Button>} />
                 </div>
               </TableCell>
             </TableRow>

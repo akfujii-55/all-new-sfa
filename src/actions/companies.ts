@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { propagateContactCompany } from "@/lib/relink";
 
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
@@ -79,6 +80,7 @@ export async function createContact(formData: FormData) {
 export async function updateContact(id: string, formData: FormData) {
   const supabase = await createClient();
   const companyId = s(formData.get("company_id"));
+  const { data: before } = await supabase.from("contacts").select("company_id").eq("id", id).maybeSingle();
   const { error } = await supabase
     .from("contacts")
     .update({
@@ -91,6 +93,13 @@ export async function updateContact(id: string, formData: FormData) {
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  // 所属が変わったら、この担当者のメール・問い合わせの取引先も合わせる(旧所属のものだけ。案件は動かさない)
+  if (before && before.company_id !== companyId) {
+    await propagateContactCompany(supabase, id, before.company_id, companyId);
+    if (before.company_id) revalidatePath(`/companies/${before.company_id}`);
+    revalidatePath("/inbox");
+    revalidatePath("/inquiries");
+  }
   revalidatePath("/contacts");
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }

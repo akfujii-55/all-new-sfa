@@ -53,3 +53,43 @@ export async function getAlertSettings(db: SupabaseClient): Promise<AlertSetting
 export function splitAlertEmails(v: string): string[] {
   return Array.from(new Set(v.split(/[,;\s]+/).map((a) => a.trim().toLowerCase()).filter((a) => a.includes("@"))));
 }
+
+/**
+ * 問い合わせフォームの通知メールの読み取り設定(app_settings テーブル)。
+ * 通知メールの「お名前: ◯◯」のようなラベル行から問い合わせ者の情報を取り出すときに、
+ * 既定のラベル(src/lib/mail/extract.ts の DEFAULT_FORM_LABELS)に加えて、そのテナントのフォーム固有のラベルを使う。
+ * 値はカンマまたは改行区切り。
+ */
+export interface FormSettings {
+  /** 通知メールの送信元アドレス(フォームツールの差出人)。ここからのメールはフォーム通知として扱う */
+  form_senders: string;
+  form_labels_name: string;
+  form_labels_company: string;
+  form_labels_email: string;
+  form_labels_phone: string;
+  form_labels_message: string;
+}
+
+export const DEFAULT_FORM_SETTINGS: FormSettings = {
+  form_senders: "",
+  form_labels_name: "",
+  form_labels_company: "",
+  form_labels_email: "",
+  form_labels_phone: "",
+  form_labels_message: "",
+};
+export const FORM_SETTING_KEYS = Object.keys(DEFAULT_FORM_SETTINGS) as (keyof FormSettings)[];
+
+export async function getFormSettings(db: SupabaseClient): Promise<FormSettings> {
+  const { data } = await db.from("app_settings").select("key, value").in("key", FORM_SETTING_KEYS);
+  const settings = { ...DEFAULT_FORM_SETTINGS };
+  for (const row of data ?? []) {
+    if ((FORM_SETTING_KEYS as string[]).includes(row.key)) settings[row.key as keyof FormSettings] = String(row.value ?? "");
+  }
+  return settings;
+}
+
+/** カンマ・改行区切りの設定値を配列にする(空要素は除く) */
+export function splitList(v: string): string[] {
+  return Array.from(new Set(v.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)));
+}

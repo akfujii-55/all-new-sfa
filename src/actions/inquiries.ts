@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { extractFromEmail } from "@/lib/mail/extract";
+import { loadFormProfile } from "@/lib/mail/form-profile";
 import type { InquiryStatus } from "@/lib/types";
 
 export async function updateInquiryStatus(id: string, status: InquiryStatus) {
@@ -79,6 +80,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
   let created = 0;
   let skipped = 0;
   const companyIds = new Set<string>();
+  const form = await loadFormProfile(supabase);
 
   for (const threadKey of threadKeys) {
     const { data: thread } = await supabase
@@ -101,6 +103,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
       fromAddress: base.from_address,
       subject: base.subject,
       text: base.text_body ?? "",
+      form,
     });
 
     const { data: inq, error } = await supabase

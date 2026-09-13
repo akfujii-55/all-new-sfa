@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { ALERT_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEmails } from "@/lib/settings";
+import { ALERT_SETTING_KEYS, FORM_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEmails, splitList } from "@/lib/settings";
 import { getAlertTargets, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
 
@@ -25,6 +25,21 @@ export async function saveMailSettings(formData: FormData) {
     throw new Error(error.message);
   }
   revalidatePath("/", "layout");
+}
+
+/** 問い合わせフォームの通知メールの読み取り設定(送信元アドレス・追加ラベル)を保存する */
+export async function saveFormSettings(formData: FormData) {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("ログインが必要です");
+
+  const rows = FORM_SETTING_KEYS.map((key) => ({ key, value: splitList(String(formData.get(key) ?? "").replace(/\r\n/g, "\n")).join("\n") }));
+  const senders = splitList(rows.find((r) => r.key === "form_senders")?.value ?? "");
+  const bad = senders.find((a) => !a.includes("@"));
+  if (bad) throw new Error(`送信元アドレスの形式が正しくありません: ${bad}`);
+  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
 }
 
 /** エラー通知の設定(通知先メールアドレス)を保存する */

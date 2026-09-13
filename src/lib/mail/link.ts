@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { extractFromEmail, isFreeMail, parseFormNotification, type Extracted } from "./extract";
+import { extractFromEmail, isFreeMail, parseFormNotification, type Extracted, type FormProfile } from "./extract";
 
 type Db = SupabaseClient;
 
@@ -21,6 +21,8 @@ export function resolveCounterpart(opts: {
   /** 自社のメールアドレス(登録済みアカウント全部) */
   self: string | string[];
   text: string;
+  /** テナントのフォーム通知設定(ラベルの追加・通知システムの送信元) */
+  form?: FormProfile | null;
 }): { counterpart: Counterpart | null; isForm: boolean } {
   const selves = new Set((Array.isArray(opts.self) ? opts.self : [opts.self]).map((a) => a.toLowerCase()));
   if (opts.direction === "outbound") {
@@ -29,9 +31,14 @@ export function resolveCounterpart(opts: {
       isForm: false,
     };
   }
-  const form = parseFormNotification(opts.text);
+  const form = parseFormNotification(opts.text, opts.form?.labels);
   if (form && form.email !== opts.from.address) {
     return { counterpart: { address: form.email, name: form.name ?? "" }, isForm: true };
+  }
+  // 設定で「通知システムの送信元」に登録されたアドレスからのメールは、本文を読み取れなくても
+  // 送信元を顧客として登録しない(担当者・取引先の紐付けはスレッド画面で手で行う)
+  if (opts.form?.senders.includes(opts.from.address.toLowerCase())) {
+    return { counterpart: null, isForm: true };
   }
   return { counterpart: opts.from, isForm: false };
 }
@@ -72,6 +79,7 @@ export async function findOrCreateContact(
     companyId?: string | null;
     /** 事前に抽出済みならそれを使う(再抽出を避ける) */
     extracted?: Extracted | null;
+    form?: FormProfile | null;
   },
 ): Promise<{ contactId: string | null; companyId: string | null; extracted: Extracted | null }> {
   const { counterpart } = opts;
@@ -89,6 +97,7 @@ export async function findOrCreateContact(
       fromAddress: counterpart.address,
       subject: opts.subject,
       text: opts.text,
+      form: opts.form,
     });
   }
   const domain = counterpart.address.split("@")[1] ?? "";

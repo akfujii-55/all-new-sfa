@@ -3,6 +3,8 @@ import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { stripQuotes } from "./extract";
 import { findOrCreateContact, isExternalAddress, isSystemAddress, resolveCounterpart } from "./link";
+import { loadFormProfile } from "./form-profile";
+import type { FormProfile } from "./extract";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
 import { cleanupOutbox, saveAttachments } from "./attachments";
 import { errorDetail, logSystem } from "@/lib/log";
@@ -67,11 +69,12 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
   if (accounts.length === 0) throw new Error("メールアカウントが設定されていません。設定画面から追加してください。");
   const selves = accounts.map((a) => a.email);
+  const form = await loadFormProfile(db);
 
   const results: SyncResult[] = [];
   for (const account of accounts) {
     try {
-      results.push(...(await syncAccount(db, account, selves, opts)));
+      results.push(...(await syncAccount(db, account, selves, { ...opts, form })));
       await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
     } catch (e) {
       const message = (e as Error).message;
@@ -133,7 +136,7 @@ async function syncAccount(
   db: Db,
   account: MailAccountConfig,
   selves: string[],
-  opts: { initialDays?: number },
+  opts: { initialDays?: number; form?: FormProfile | null },
 ): Promise<SyncResult[]> {
   const client = imapClient(account);
   const results: SyncResult[] = [];
@@ -177,7 +180,7 @@ async function syncAccount(
           if (!msg || !msg.source) continue;
           res.fetched++;
           const parsed = await simpleParser(msg.source);
-          const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id);
+          const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id, opts.form);
           if (inserted) res.inserted++;
           maxUid = Math.max(maxUid, uid);
         }
@@ -304,6 +307,7 @@ export async function ingestParsedMail(
   selfAddresses: string | string[],
   imapUid?: number,
   accountId?: string | null,
+  form?: FormProfile | null,
 ): Promise<boolean> {
   const messageId = parsed.messageId?.trim();
   if (messageId) {
@@ -318,7 +322,7 @@ export async function ingestParsedMail(
 
   const text = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
   // 相手(顧客側)を決める。自社サイトのフォーム通知なら本文の問い合わせ者本人
-  const { counterpart } = resolveCounterpart({ direction, from, to, cc, self, text });
+  const { counterpart } = resolveCounterpart({ direction, from, to, cc, self, text, form });
 
   const references = refs(parsed);
   const inReplyTo = parsed.inReplyTo?.trim() || undefined;
@@ -342,7 +346,7 @@ export async function ingestParsedMail(
   // 相手が社内アドレス/自分自身、または配送エラー通知・no-reply などのシステム送信元なら顧客紐付けはしない
   if (counterpart && isExternalAddress(counterpart.address, self) && !isSystemAddress(counterpart.address)) {
     if (!contactId) {
-      const linked = await findOrCreateContact(db, { counterpart, direction, subject: parsed.subject ?? null, text, companyId });
+      const linked = await findOrCreateContact(db, { counterpart, direction, subject: parsed.subject ?? null, text, companyId, form });
       contactId = linked.contactId;
       companyId = linked.companyId;
     }

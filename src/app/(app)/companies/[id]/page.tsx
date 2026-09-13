@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Globe, Phone, MapPin, Plus, Pencil, Mail, User } from "lucide-react";
+import { ArrowLeft, Globe, Phone, MapPin, Plus, Pencil, Mail, User, Merge } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanyDialog } from "@/components/companies/company-dialog";
 import { ContactDialog } from "@/components/companies/contact-dialog";
+import { MergeCompanyDialog } from "@/components/companies/merge-company-dialog";
+import { MergeContactDialog } from "@/components/contacts/merge-contact-dialog";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { StageBadge } from "@/components/deals/stage-badge";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
@@ -25,8 +27,8 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
     supabase.from("deals").select("*, contact:contacts(id,name,email)").eq("company_id", id).order("updated_at", { ascending: false }),
     supabase.from("inquiries").select("*, contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title)").eq("company_id", id).order("received_at", { ascending: false }),
     supabase.from("emails").select("id, thread_key, direction, from_name, from_address, subject, snippet, received_at, is_read, deal:deals(id,title)").eq("company_id", id).order("received_at", { ascending: false }).limit(100),
-    supabase.from("companies").select("id, name").order("name"),
-    supabase.from("contacts").select("id, name, company_id").order("name"),
+    supabase.from("companies").select("id, name, domain").order("name"),
+    supabase.from("contacts").select("id, name, company_id, email").order("name"),
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
   const c = company as Company;
@@ -52,6 +54,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
         <div className="flex gap-2">
           <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />
           <CompanyDialog company={c} trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
+          <MergeCompanyDialog company={c} companies={companies ?? []} trigger={<Button size="sm" variant="outline"><Merge className="size-4" /> 統合</Button>} />
         </div>
       </div>
 
@@ -108,6 +111,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
                   <div className="flex gap-1 shrink-0">
                     {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: id }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
                     <ContactDialog contact={p} companies={companies ?? []} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                    <MergeContactDialog contact={p} contacts={allContacts ?? []} companies={companies ?? []} trigger={<Button size="sm" variant="ghost" title="別の担当者に統合"><Merge className="size-4" /></Button>} />
                   </div>
                 </div>
               )) : <p className="text-sm text-muted-foreground">担当者はまだ登録されていません</p>}

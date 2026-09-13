@@ -11,6 +11,7 @@ import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ReplyForm } from "@/components/inbox/reply-form";
 import { LinkDealSelect } from "@/components/inbox/link-deal-select";
 import { ThreadActions } from "@/components/inbox/thread-actions";
+import { RelinkDialog } from "@/components/inbox/relink-dialog";
 import { ThreadMessage } from "@/components/inbox/thread-message";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { getMailAccountOptions } from "@/lib/mail/options";
@@ -47,7 +48,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
       : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
     supabase.from("companies").select("id, name").order("name"),
-    supabase.from("contacts").select("id, name, company_id").order("name"),
+    supabase.from("contacts").select("id, name, company_id, email").order("name"),
     linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
     getMailAccountOptions(supabase),
@@ -126,6 +127,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
                   {linked.contact ? <span className="font-medium">{linked.contact.name}</span> : <span className="text-muted-foreground">未登録</span>}
                 </div>
               </div>
+              <RelinkDialog emailId={latest.id} contacts={contacts ?? []} companies={companies ?? []} currentContactId={linked.contact_id ?? null} currentCompanyId={linked.company_id ?? null} />
               <ThreadTags emailId={latest.id} tags={(allTags ?? []) as Tag[]} current={threadTags} />
               {inquiry && (
                 <div className="flex items-start gap-2">

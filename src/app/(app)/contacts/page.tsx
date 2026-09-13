@@ -24,10 +24,12 @@ export default async function ContactsPage({ searchParams }: PageProps<"/contact
     .order("updated_at", { ascending: false });
   if (tagId) query = query.eq("filter_tags.tag_id", tagId);
   if (q) query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,title.ilike.%${q}%`);
-  const [{ data }, { data: companies }, { data: tagRows }] = await Promise.all([
+  const [{ data }, { data: companies }, { data: tagRows }, { data: allContacts }] = await Promise.all([
     query,
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
+    // 統合先の候補(絞り込みに関係なく全員)
+    supabase.from("contacts").select("id, name, email, company_id").order("name"),
   ]);
   const rows = ((data ?? []) as unknown as (Contact & { tags: { tag: Tag | Tag[] | null }[] })[]).map((c) => ({ ...c, tags: tagsFromRows(c.tags) }));
   const allTags = (tagRows ?? []) as Tag[];
@@ -62,7 +64,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/contact
       {rows.length === 0 ? (
         <EmptyState icon={Users} title="担当者がいません" description={tagId || q ? "条件に合う担当者がいません。タグや検索語を変えてください。" : "メールを同期すると送信者が自動登録されます。"} />
       ) : (
-        <ContactsTable rows={rows} companies={companies ?? []} tags={allTags} />
+        <ContactsTable rows={rows} companies={companies ?? []} tags={allTags} mergeCandidates={allContacts ?? []} />
       )}
     </div>
   );

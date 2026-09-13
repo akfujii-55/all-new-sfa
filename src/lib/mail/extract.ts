@@ -26,20 +26,75 @@ export interface FormNotification {
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const FORM_HINT_RE = /お問い合わせがありました|問い合わせフォーム|フォームより|フォームから|contact form/i;
-const FORM_LABELS = {
-  name: /^(お名前|氏名|名前|ご担当者名|担当者名|name)\s*[:：]\s*(.+)$/i,
-  company: /^(会社名|御社名|貴社名|法人名|団体名|組織名|company)\s*[:：]\s*(.+)$/i,
-  email: /^(メールアドレス|メール|e-?mail|email address)\s*[:：]\s*(.+)$/i,
-  phone: /^(電話番号|電話|tel|phone)\s*[:：]\s*(.+)$/i,
-  message: /^(お問い合わせ内容|問い合わせ内容|ご相談内容|ご要望|内容|message|現状の課題やご相談内容があれば教えてください。?)\s*[:：]\s*(.*)$/i,
+
+/** フォーム通知メールのラベル(項目名)。テナントの設定で追加できる */
+export interface FormLabels {
+  name: string[];
+  company: string[];
+  email: string[];
+  phone: string[];
+  message: string[];
+}
+
+/** フォーム通知の読み取りに使う、テナントごとの設定(ラベルの追加と通知システムの送信元) */
+export interface FormProfile {
+  labels: FormLabels;
+  /** 通知システムの送信元アドレス(小文字)。ここからのメールは本文の問い合わせ者を相手として扱う */
+  senders: string[];
+}
+
+/** 一般的なフォームツールで使われているラベル。設定画面で足したものはこれに追加される */
+export const DEFAULT_FORM_LABELS: FormLabels = {
+  name: ["お名前", "氏名", "名前", "ご担当者名", "担当者名", "ご担当者様", "ご氏名", "name", "your name", "full name"],
+  company: ["会社名", "御社名", "貴社名", "法人名", "団体名", "組織名", "企業名", "所属", "company", "company name", "organization"],
+  email: ["メールアドレス", "メール", "e-mail", "email", "email address", "e-mail address", "mail"],
+  phone: ["電話番号", "電話", "tel", "phone", "phone number", "連絡先電話番号", "お電話番号"],
+  message: ["お問い合わせ内容", "問い合わせ内容", "ご相談内容", "ご要望", "内容", "message", "ご質問", "お問合せ内容", "本文", "comments"],
 };
+
+function escapeRe(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 「ラベル: 値」の行にマッチする正規表現(ラベルの末尾の「。」「*」「(必須)」は任意) */
+function labelRe(labels: string[], allowEmpty = false) {
+  const alt = labels.map((l) => escapeRe(l.replace(/[。\s]+$/, ""))).sort((a, b) => b.length - a.length).join("|");
+  return new RegExp(`^(${alt})[。*＊]?\\s*(?:[(（]必須[)）])?\\s*[:：]\\s*(.${allowEmpty ? "*" : "+"})$`, "i");
+}
+
+function mergeLabels(custom?: Partial<FormLabels> | null): FormLabels {
+  const m = (k: keyof FormLabels) => Array.from(new Set([...DEFAULT_FORM_LABELS[k], ...(custom?.[k] ?? [])]));
+  return { name: m("name"), company: m("company"), email: m("email"), phone: m("phone"), message: m("message") };
+}
+
+const labelCache = new WeakMap<object, ReturnType<typeof buildLabelRes>>();
+function buildLabelRes(labels: FormLabels) {
+  return {
+    name: labelRe(labels.name),
+    company: labelRe(labels.company),
+    email: labelRe(labels.email),
+    phone: labelRe(labels.phone),
+    message: labelRe(labels.message, true),
+  };
+}
+const DEFAULT_LABEL_RES = buildLabelRes(DEFAULT_FORM_LABELS);
+function labelRes(custom?: Partial<FormLabels> | null) {
+  if (!custom) return DEFAULT_LABEL_RES;
+  let res = labelCache.get(custom);
+  if (!res) {
+    res = buildLabelRes(mergeLabels(custom));
+    labelCache.set(custom, res);
+  }
+  return res;
+}
 
 /**
  * 自社サイトの問い合わせフォームなど、通知システムが送るメールから問い合わせ者本人の情報を取り出す。
  * 「お名前: ◯◯」「メールアドレス: ◯◯」のようなラベル付き行が並ぶ形式を対象にし、
  * メールアドレスの行が見つからなければ null(通常のメールとして扱う)。
  */
-export function parseFormNotification(text: string): FormNotification | null {
+export function parseFormNotification(text: string, customLabels?: Partial<FormLabels> | null): FormNotification | null {
+  const FORM_LABELS = labelRes(customLabels);
   const body = (text || "").replace(/\r\n/g, "\n");
   const lines = body.split("\n").map((l) => l.trim());
   const out: { name?: string; company?: string; email?: string; phone?: string } = {};
@@ -127,13 +182,17 @@ export function stripQuotes(text: string): string {
 const COMPANY_RE =
   /((?:株式会社|有限会社|合同会社|一般社団法人|医療法人|学校法人|特定非営利活動法人)\s*[^\s、。,\n]{1,30}|[^\s、。,\n]{1,30}\s*(?:株式会社|有限会社|合同会社|Inc\.|Co\.,?\s*Ltd\.?|Corp(?:oration)?\.?|LLC|K\.K\.))/;
 
-export function ruleBasedExtract(opts: {
+export interface ExtractInput {
   fromName: string | null;
   fromAddress: string;
   subject: string | null;
   text: string;
-}): Extracted {
-  const form = parseFormNotification(opts.text || "");
+  /** テナントのフォーム通知設定(ラベルの追加)。無ければ既定のラベルだけで読む */
+  form?: FormProfile | null;
+}
+
+export function ruleBasedExtract(opts: ExtractInput): Extracted {
+  const form = parseFormNotification(opts.text || "", opts.form?.labels);
   if (form) return formExtract(opts, form);
 
   const body = stripQuotes(opts.text || "");
@@ -245,18 +304,13 @@ const ExtractSchema = z.object({
  * メール本文から顧客・担当者・問い合わせ内容を抽出する。
  * ANTHROPIC_API_KEY があれば Claude で抽出し、無ければルールベースにフォールバックする。
  */
-export async function extractFromEmail(opts: {
-  fromName: string | null;
-  fromAddress: string;
-  subject: string | null;
-  text: string;
-}): Promise<Extracted> {
+export async function extractFromEmail(opts: ExtractInput): Promise<Extracted> {
   const fallback = ruleBasedExtract(opts);
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
 
   try {
     const client = new Anthropic();
-    const form = parseFormNotification(opts.text || "");
+    const form = parseFormNotification(opts.text || "", opts.form?.labels);
     const body = (form ? opts.text || "" : stripQuotes(opts.text || "")).slice(0, 6000);
     const response = await client.messages.parse({
       model: "claude-opus-5",
