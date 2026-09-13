@@ -16,15 +16,16 @@ const ERRORS: Record<string, string> = {
   recovery: "パスワード再設定のリンクが無効か、有効期限が切れています。もう一度お手続きください。",
 };
 
-export function LoginForm({ next, error }: { next: string; error?: string | null }) {
+export function LoginForm({ next, error, admin = false }: { next: string; error?: string | null; admin?: boolean }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
   const linkError = error ? ERRORS[error] : null;
 
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>ログイン</CardTitle>
-        <CardDescription>メールアドレスとパスワードを入力してください</CardDescription>
+        {admin && <p className="text-xs font-medium uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Operator console</p>}
+        <CardTitle>{admin ? "ART テナント管理画面" : "ログイン"}</CardTitle>
+        <CardDescription>{admin ? "運営者のメールアドレスとパスワードを入力してください。利用者(テナント)のアカウントではログインできません。" : "メールアドレスとパスワードを入力してください"}</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-4">
@@ -48,13 +49,21 @@ export function LoginForm({ next, error }: { next: string; error?: string | null
           <p className="text-center text-xs text-muted-foreground">
             <Link href="/forgot-password" className="underline">パスワードを忘れた方</Link>
           </p>
-          <p className="text-center text-xs text-muted-foreground">
-            アカウントは管理者からの招待メールで作成されます。
-          </p>
-          <p className="text-center text-xs text-muted-foreground">
-            はじめてご利用の会社は <Link href="/signup" className="underline">無料で申し込む</Link>
-          </p>
-          <LegalLinks />
+          {admin ? (
+            <p className="text-center text-xs text-muted-foreground">
+              利用者(テナント)の方は <Link href="/login" className="underline">こちらのログイン画面</Link> へ
+            </p>
+          ) : (
+            <>
+              <p className="text-center text-xs text-muted-foreground">
+                アカウントは管理者からの招待メールで作成されます。
+              </p>
+              <p className="text-center text-xs text-muted-foreground">
+                はじめてご利用の会社は <Link href="/signup" className="underline">無料で申し込む</Link>
+              </p>
+              <LegalLinks />
+            </>
+          )}
         </form>
       </CardContent>
     </Card>
