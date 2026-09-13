@@ -157,6 +157,24 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   return { inviteLink, mailSent, mailError };
 }
 
+/** 運営者の氏名・メモを変更する。自分自身は誰でも、他の運営者はスーパーユーザーのみ変更できる */
+export async function updateOperator(userId: string, formData: FormData): Promise<void> {
+  const { admin, user, isSuper } = await requireOperator();
+  if (userId !== user.id && !isSuper) throw new Error("他の運営者の変更はスーパーユーザーのみ行えます");
+  const name = String(formData.get("name") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!name) throw new Error("氏名を入力してください");
+  if (name.length > 50) throw new Error("氏名は 50 文字以内にしてください");
+  const { data: target } = await admin.from("operators").select("user_id").eq("user_id", userId).maybeSingle();
+  if (!target) throw new Error("運営者が見つかりません");
+  const { error } = await admin.from("operators").update({ name, note }).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  // 一覧の表示名の元になる profiles.full_name も合わせる(profiles は運営者本人の行なので service role で更新してよい)
+  await admin.from("profiles").update({ full_name: name }).eq("id", userId);
+  await admin.auth.admin.updateUserById(userId, { user_metadata: { full_name: name } }).catch(() => {});
+  revalidatePath("/admin/users");
+}
+
 /** 運営者を削除する(スーパーユーザーのみ)。運営専用アカウントはログインごと削除する。スーパーユーザーは削除できない */
 export async function removeOperator(userId: string): Promise<void> {
   const { admin, user } = await requireSuperOperator();

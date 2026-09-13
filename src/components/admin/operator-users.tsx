@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Send, UserMinus } from "lucide-react";
-import { inviteOperator, removeOperator, type OperatorRow } from "@/actions/admin";
+import { Pencil, Send, UserMinus } from "lucide-react";
+import { inviteOperator, removeOperator, updateOperator, type OperatorRow } from "@/actions/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,8 +15,44 @@ import { fmtDate } from "@/lib/format";
 export function OperatorUsers({ operators, currentUserId, isSuper }: { operators: OperatorRow[]; currentUserId: string; isSuper: boolean }) {
   const [pending, start] = useTransition();
   const [link, setLink] = useState<string | null>(null);
+  const [editing, setEditing] = useState<OperatorRow | null>(null);
   return (
     <div className="space-y-4">
+      <Dialog open={Boolean(editing)} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>運営者を編集</DialogTitle></DialogHeader>
+          {editing && (
+            <form
+              className="space-y-3"
+              action={(fd) =>
+                start(async () => {
+                  try {
+                    await updateOperator(editing.user_id, fd);
+                    toast.success("保存しました");
+                    setEditing(null);
+                  } catch (e) {
+                    toast.error((e as Error).message);
+                  }
+                })
+              }
+            >
+              <div className="grid gap-1.5">
+                <Label htmlFor="edit_op_name">氏名</Label>
+                <Input id="edit_op_name" name="name" defaultValue={editing.full_name ?? ""} maxLength={50} required autoFocus />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="edit_op_note">メモ</Label>
+                <Input id="edit_op_note" name="note" defaultValue={editing.note ?? ""} placeholder="役割など" />
+              </div>
+              <p className="text-xs text-muted-foreground">メールアドレス: {editing.email ?? "-"}(変更できません)</p>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>
+                <Button type="submit" disabled={pending}>{pending ? "保存中..." : "保存"}</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
       <Table>
         <TableHeader>
           <TableRow>
@@ -24,7 +61,7 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
             <TableHead>状態</TableHead>
             <TableHead>メモ</TableHead>
             <TableHead>追加日</TableHead>
-            {isSuper && <TableHead className="w-24" />}
+            <TableHead className="w-32" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -37,9 +74,14 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
               </TableCell>
               <TableCell className="text-muted-foreground">{o.note ?? ""}</TableCell>
               <TableCell className="text-muted-foreground">{fmtDate(o.created_at)}</TableCell>
-              {isSuper && (
-                <TableCell className="text-right">
-                  {!o.is_super && (
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-1">
+                  {(isSuper || o.user_id === currentUserId) && (
+                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(o)} title="氏名・メモを編集">
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  {isSuper && !o.is_super && (
                     <Button
                       size="sm" variant="ghost" className="text-destructive" disabled={pending}
                       onClick={() =>
@@ -56,8 +98,8 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
                       <UserMinus className="size-4" /> 削除
                     </Button>
                   )}
-                </TableCell>
-              )}
+                </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
