@@ -1,5 +1,8 @@
 import { LoginForm } from "@/components/layout/login-form";
 
+import Link from "next/link";
+import { LEGAL_PAGES, OPERATOR } from "@/lib/legal";
+
 export const metadata = { title: "ログイン" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -19,7 +22,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             Gmail の問い合わせを自動で取り込み、顧客・案件・売上までひとつの流れで管理します。
           </p>
         </div>
-        <p className="text-xs text-zinc-500">© {new Date().getFullYear()} SFA</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+          <span>© {new Date().getFullYear()} {OPERATOR.name}</span>
+          {LEGAL_PAGES.map((p) => (
+            <Link key={p.href} href={p.href} className="hover:text-zinc-300">{p.label}</Link>
+          ))}
+        </div>
       </div>
       <div className="flex items-center justify-center p-6">
         <LoginForm next={next} error={error} />

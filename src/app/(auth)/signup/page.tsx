@@ -3,6 +3,9 @@ import { pricingFromRows, TAX_PERCENT, withTax } from "@/lib/pricing";
 import { yen } from "@/lib/format";
 import { SignupForm } from "@/components/signup/signup-form";
 
+import Link from "next/link";
+import { LEGAL_PAGES, OPERATOR } from "@/lib/legal";
+
 export const metadata = { title: "お申し込み" };
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,12 @@ export default async function SignupPage() {
           </dl>
           <p className="text-xs text-zinc-500">表示価格は税抜です。ご請求時に消費税 {TAX_PERCENT}% を加算します。お試し期間終了後にご利用を続ける場合は、設定画面からお支払い方法(クレジットカード)を登録してください。料金は実際の利用数で毎月計算します。</p>
         </div>
-        <p className="text-xs text-zinc-500">© {new Date().getFullYear()} SFA</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+          <span>© {new Date().getFullYear()} {OPERATOR.name}</span>
+          {LEGAL_PAGES.map((p) => (
+            <Link key={p.href} href={p.href} className="hover:text-zinc-300">{p.label}</Link>
+          ))}
+        </div>
       </div>
       <div className="flex items-center justify-center p-6">
         <SignupForm trialDays={pricing.trial_days} />

@@ -140,3 +140,24 @@
   --viz-series-1: #3987e5;
   --viz-grid: oklch(0.3 0 0);
 }
+
+/* 法務ページ(利用規約など)の本文。見出し・段落・箇条書きの余白をまとめて指定する */
+.legal-doc h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+.legal-doc h2 { font-size: 1.125rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; }
+.legal-doc h3 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.25rem; }
+.legal-doc p { line-height: 1.8; margin-bottom: 0.75rem; }
+.legal-doc ol, .legal-doc ul { padding-left: 1.5rem; margin-bottom: 0.75rem; line-height: 1.8; }
+.legal-doc ol { list-style: decimal; }
+.legal-doc ul { list-style: disc; }
+.legal-doc li { margin-bottom: 0.25rem; }
+.legal-doc li > ol, .legal-doc li > ul { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.legal-doc a { text-decoration: underline; text-underline-offset: 2px; }
+.legal-doc .meta { color: var(--muted-foreground); font-size: 0.875rem; margin-bottom: 1.5rem; }
+.legal-doc table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; margin-bottom: 1rem; }
+.legal-doc th, .legal-doc td { border: 1px solid var(--border); padding: 0.625rem 0.75rem; vertical-align: top; text-align: left; line-height: 1.7; }
+.legal-doc th { width: 11rem; background: var(--muted); font-weight: 500; white-space: nowrap; }
+@media (max-width: 640px) {
+  .legal-doc th, .legal-doc td { display: block; width: auto; border-top: none; }
+  .legal-doc tr { display: block; border-top: 1px solid var(--border); }
+  .legal-doc th { white-space: normal; }
+}

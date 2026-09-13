@@ -8,13 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function SetPasswordForm({ email }: { email: string }) {
+export function SetPasswordForm({ email, reset = false }: { email: string; reset?: boolean }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(setPassword, undefined);
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>パスワードを設定</CardTitle>
-        <CardDescription>{email} でログインするためのパスワードを決めてください。</CardDescription>
+        <CardTitle>{reset ? "新しいパスワードを設定" : "パスワードを設定"}</CardTitle>
+        <CardDescription>{reset ? `${email} の新しいパスワードを入力してください。` : `${email} でログインするためのパスワードを決めてください。`}</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-4">
@@ -29,7 +29,7 @@ export function SetPasswordForm({ email }: { email: string }) {
           {state?.error && (
             <Alert variant="destructive"><AlertDescription>{state.error}</AlertDescription></Alert>
           )}
-          <Button type="submit" className="w-full" disabled={pending}>{pending ? "保存中..." : "設定してはじめる"}</Button>
+          <Button type="submit" className="w-full" disabled={pending}>{pending ? "保存中..." : reset ? "パスワードを変更する" : "設定してはじめる"}</Button>
         </form>
       </CardContent>
     </Card>

@@ -70,7 +70,7 @@ export async function requestSignup(_: SignupState, formData: FormData): Promise
   if (!SLUG_RE.test(values.slug)) return fail("会社 ID は英小文字・数字・ハイフンで 3〜40 文字(先頭と末尾は英数字)にしてください");
   if (!values.contact_name) return fail("担当者名を入力してください");
   if (!values.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) return fail("メールアドレスの形式が正しくありません");
-  if (formData.get("agree") !== "on") return fail("利用規約への同意が必要です");
+  if (formData.get("agree") !== "on") return fail("利用規約とプライバシーポリシーへの同意が必要です");
 
   const admin = createAdminClient();
   const ip = await clientIp();

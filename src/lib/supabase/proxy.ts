@@ -41,6 +41,8 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
+    path.startsWith("/forgot-password") ||
+    path.startsWith("/legal") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/mail") ||
     path.startsWith("/api/stripe") ||

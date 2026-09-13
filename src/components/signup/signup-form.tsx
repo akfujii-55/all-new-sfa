@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LegalLinks } from "@/components/legal/legal-links";
 
 /** 会社名から会社 ID の候補を作る(英数字以外は落とす) */
 function suggestSlug(name: string) {
@@ -80,7 +81,11 @@ export function SignupForm({ trialDays }: { trialDays: number }) {
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" name="agree" className="mt-1" required />
-            <span>お試し期間終了後は、ご利用を続ける場合にお支払い方法の登録が必要になることを確認しました。登録しない場合はデータの閲覧のみ可能になります。</span>
+            <span>
+              <Link href="/legal/terms" className="underline" target="_blank">利用規約</Link>と
+              <Link href="/legal/privacy" className="underline" target="_blank">プライバシーポリシー</Link>
+              に同意します。お試し期間終了後にご利用を続けるにはお支払い方法の登録が必要で、登録しない場合はデータの閲覧のみ可能になることを確認しました。
+            </span>
           </label>
           {state && !state.ok && (
             <Alert variant="destructive"><AlertDescription>{state.error}</AlertDescription></Alert>
@@ -89,6 +94,7 @@ export function SignupForm({ trialDays }: { trialDays: number }) {
           <p className="text-center text-xs text-muted-foreground">
             すでにアカウントをお持ちの方は <Link href="/login" className="underline">ログイン</Link>
           </p>
+          <LegalLinks />
         </form>
       </CardContent>
     </Card>

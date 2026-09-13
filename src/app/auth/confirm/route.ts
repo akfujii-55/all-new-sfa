@@ -16,5 +16,5 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (!error) return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : "/"}`);
   }
-  return NextResponse.redirect(`${origin}/login?error=invite`);
+  return NextResponse.redirect(`${origin}/login?error=${type === "recovery" ? "recovery" : "invite"}`);
 }

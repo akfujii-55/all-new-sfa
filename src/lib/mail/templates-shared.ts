@@ -1,12 +1,12 @@
 /**
- * アプリが送る招待メールの文面(全テナント共通)。
+ * アプリが送る招待メール・パスワード再設定メールの文面(全テナント共通)。
  * 運営管理(/admin/mail-templates)で編集した内容は mail_templates に保存され、無ければ既定文面を使う。
  * 本文・件名には {{name}} などの差し込み項目を書ける。
  */
 
-export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite" | "signup_confirm";
+export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite" | "signup_confirm" | "password_reset";
 
-export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["signup_confirm", "tenant_invite", "operator_invite", "member_invite"];
+export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["signup_confirm", "tenant_invite", "operator_invite", "member_invite", "password_reset"];
 
 export interface MailTemplate {
   subject: string;
@@ -35,7 +35,7 @@ export const PLACEHOLDERS: { key: keyof MailTemplateVars; label: string }[] = [
   { key: "name", label: "宛名(招待される人の名前)" },
   { key: "company", label: "会社名(テナント名)" },
   { key: "inviter", label: "招待した人の名前" },
-  { key: "link", label: "招待リンク(必須)" },
+  { key: "link", label: "招待・再設定リンク(必須)" },
   { key: "expires", label: "リンクの有効期限" },
   { key: "app_name", label: "アプリ名" },
 ];
@@ -56,6 +56,10 @@ export const MAIL_TEMPLATE_META: Record<MailTemplateKey, { label: string; descri
   signup_confirm: {
     label: "Web 申し込みの確認メール",
     description: "申し込みフォームの送信直後に、入力されたメールアドレス宛に運営側のメールアカウントから送ります。リンクを開くとアカウントが開設されます。",
+  },
+  password_reset: {
+    label: "パスワード再設定",
+    description: "ログイン画面の「パスワードを忘れた方」から送ります。送信元はその利用者の会社のメールアカウント(無ければ運営側のメールアカウント)です。",
   },
 };
 
@@ -102,6 +106,20 @@ export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKey, MailTemplate> = {
       "※ 心当たりがない場合はこのメールを破棄してください。",
     ].join("\n"),
   },
+  password_reset: {
+    subject: "【{{app_name}}】パスワード再設定のご案内",
+    body: [
+      "{{name}} 様",
+      "",
+      "営業支援ツール「{{app_name}}」のパスワード再設定の依頼を受け付けました。",
+      "以下のリンクを開いて、新しいパスワードを設定してください。",
+      "",
+      "{{link}}",
+      "",
+      "※ リンクの有効期限は {{expires}} です。期限が切れた場合はログイン画面からもう一度お手続きください。",
+      "※ 心当たりがない場合はこのメールを破棄してください。パスワードは変更されません。",
+    ].join("\n"),
+  },
   member_invite: {
     subject: "【{{app_name}}】{{inviter}} さんから招待が届いています",
     body: [
@@ -130,7 +148,7 @@ export function renderTemplate(text: string, vars: Partial<MailTemplateVars>): s
 export function validateTemplate(t: MailTemplate): string | null {
   if (!t.subject.trim()) return "件名を入力してください";
   if (!t.body.trim()) return "本文を入力してください";
-  if (!/\{\{\s*link\s*\}\}/.test(t.body)) return "本文に招待リンク {{link}} を入れてください";
+  if (!/\{\{\s*link\s*\}\}/.test(t.body)) return "本文にリンク {{link}} を入れてください";
   const unknown = [...t.body.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g), ...t.subject.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g)]
     .map((m) => m[1])
     .filter((k) => !PLACEHOLDERS.some((p) => p.key === k));
