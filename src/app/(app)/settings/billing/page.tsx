@@ -57,7 +57,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/settings
             <CardDescription>
               {tenant.status === "trial" && !subscribed && trialDaysLeft !== null && trialDaysLeft > 0 && `お試し期間はあと ${trialDaysLeft} 日(${fmtDateTime(tenant.trial_ends_at)} まで)です。期間中にお支払い方法を登録すると、お試し終了日から自動的に課金が始まり、そのまま使い続けられます。`}
               {tenant.status === "trial" && subscribed && `お支払い方法は登録済みです。お試し期間(${fmtDateTime(tenant.trial_ends_at)} まで)が終わると自動的に課金が始まります。`}
-              {tenant.status === "trial" && !subscribed && trialDaysLeft !== null && trialDaysLeft <= 0 && "お試し期間が終了しました。引き続き利用するにはお支払い方法を登録してください。登録するまではデータの閲覧のみ可能です。"}
+              {tenant.status === "trial" && !subscribed && trialDaysLeft !== null && trialDaysLeft <= 0 && "お試し期間が終了しました。引き続き利用するにはお支払い方法を登録してください。登録がない場合、利用規約にもとづきデータは削除されます。"}
               {tenant.status === "active" && subscribed && `ご契約中です。次回のご請求は ${tenant.current_period_end ? fmtDate(tenant.current_period_end) : "-"} の予定です。`}
               {tenant.status === "active" && !subscribed && "ご契約中です(請求は運営から個別にご案内しています)。"}
               {tenant.status === "cancelled" && "解約済みです。データの閲覧のみ可能です。再開するにはお支払い方法を登録してください。"}

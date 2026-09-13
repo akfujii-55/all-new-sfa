@@ -22,9 +22,6 @@ export const SERVICE_NAME = "SFA";
 /** 規約・ポリシーの制定日 */
 export const LEGAL_EFFECTIVE_DATE = "2026年9月13日";
 
-/** お試し期間終了後にお支払い方法の登録がない場合、閲覧のみの状態からデータを削除するまでの猶予(日) */
-export const TRIAL_GRACE_DAYS = 30;
-
 export const LEGAL_PAGES = [
   { href: "/legal/terms", label: "利用規約" },
   { href: "/legal/privacy", label: "プライバシーポリシー" },

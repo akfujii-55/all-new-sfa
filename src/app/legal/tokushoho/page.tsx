@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { pricingFromRows, TAX_PERCENT, withTax } from "@/lib/pricing";
 import { yen } from "@/lib/format";
-import { LEGAL_EFFECTIVE_DATE, OPERATOR, SERVICE_NAME, TRIAL_GRACE_DAYS } from "@/lib/legal";
+import { LEGAL_EFFECTIVE_DATE, OPERATOR, SERVICE_NAME } from "@/lib/legal";
 
 export const metadata = { title: "特定商取引法に基づく表記" };
 export const dynamic = "force-dynamic";
@@ -84,7 +84,7 @@ export default async function TokushohoPage() {
             <td>
               設定画面の「ご契約・お支払い」からいつでも解約できます。解約後は、お支払い済みの利用期間の終了日までご利用いただけ、利用期間の終了と同時にお客様のデータをすべて削除します。
               <br />
-              お試し期間終了後にお支払い方法の登録がない場合は、データの閲覧のみ可能な状態となり、お試し期間終了から {TRIAL_GRACE_DAYS} 日を経過した時点でデータを削除します。
+              無料お試し期間の終了までにお支払い方法の登録がない場合は、お試し期間の終了と同時に利用契約が終了し、お客様のデータをすべて削除します。
             </td>
           </tr>
           <tr>

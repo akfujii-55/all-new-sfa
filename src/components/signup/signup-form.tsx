@@ -84,7 +84,7 @@ export function SignupForm({ trialDays }: { trialDays: number }) {
             <span>
               <Link href="/legal/terms" className="underline" target="_blank">利用規約</Link>と
               <Link href="/legal/privacy" className="underline" target="_blank">プライバシーポリシー</Link>
-              に同意します。お試し期間終了後にご利用を続けるにはお支払い方法の登録が必要で、登録しない場合はデータの閲覧のみ可能になることを確認しました。
+              に同意します。お試し期間終了後にご利用を続けるにはお支払い方法の登録が必要で、登録がない場合はお試し期間の終了と同時にデータが削除されることを確認しました。
             </span>
           </label>
           {state && !state.ok && (
