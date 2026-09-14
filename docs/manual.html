@@ -1,0 +1,389 @@
+<title>SFA 簡易マニュアル</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1D21;
+    --ink-2: #5E6270;
+    --rule: #E3E3DE;
+    --accent: #2D4FA1;
+    --accent-ink: #FFFFFF;
+    --tint: #EEF2FA;
+    --warn-tint: #FBF3E4;
+    --warn-ink: #7A4B00;
+    --mono-bg: #F1F1EC;
+    --display: "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Sans", sans-serif;
+    --body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #17181B; --surface: #1E1F24; --ink: #ECECE8; --ink-2: #A0A3AD; --rule: #2E2F35;
+      --accent: #8FA8E8; --accent-ink: #14161C; --tint: #21262F; --warn-tint: #2E2618; --warn-ink: #E8C27A; --mono-bg: #24252A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #17181B; --surface: #1E1F24; --ink: #ECECE8; --ink-2: #A0A3AD; --rule: #2E2F35;
+    --accent: #8FA8E8; --accent-ink: #14161C; --tint: #21262F; --warn-tint: #2E2618; --warn-ink: #E8C27A; --mono-bg: #24252A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.85; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 0 80px; }
+
+  header.top { padding-block: 48px 28px; border-bottom: 1px solid var(--rule); }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 4vw, 38px); line-height: 1.25; margin: 6px 0 10px; text-wrap: balance; letter-spacing: 0.01em; }
+  .lede { max-width: 62ch; color: var(--ink-2); margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 24px 0 0; padding: 0; list-style: none; }
+  .flow li { display: flex; align-items: center; gap: 8px; }
+  .flow .step { background: var(--tint); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 12px; font-family: var(--display); font-weight: 500; font-size: 14px; }
+  .flow .step small { display: block; font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--ink-2); }
+  .flow .arrow { color: var(--ink-2); font-size: 14px; }
+
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; margin-top: 28px; }
+  nav.toc { position: sticky; top: 20px; align-self: start; font-size: 13px; }
+  nav.toc .eyebrow { margin-bottom: 8px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  nav.toc a { display: grid; grid-template-columns: 22px 1fr; gap: 6px; color: var(--ink); padding: 4px 6px; border-radius: 4px; }
+  nav.toc a:hover { background: var(--tint); text-decoration: none; }
+  nav.toc .n { font-family: var(--mono); color: var(--ink-2); font-size: 12px; }
+  main { max-width: 72ch; }
+
+  section { padding-block: 40px 8px; border-top: 1px solid var(--rule); }
+  section:first-of-type { border-top: none; padding-top: 24px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.35; margin: 0 0 14px; display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: baseline; text-wrap: balance; }
+  h2 .n { font-family: var(--mono); font-weight: 500; font-size: 14px; color: var(--accent); }
+  h3 { font-family: var(--display); font-weight: 700; font-size: 16px; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 1.4em; }
+  li { margin-bottom: 4px; }
+  li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
+  strong { font-weight: 700; }
+  code, .path { font-family: var(--mono); font-size: 0.88em; background: var(--mono-bg); border-radius: 4px; padding: 1px 6px; }
+  pre { font-family: var(--mono); font-size: 13px; line-height: 1.7; background: var(--mono-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; margin: 0 0 14px; }
+  .btn { display: inline-block; font-family: var(--display); font-weight: 500; font-size: 0.9em; border: 1px solid var(--rule); background: var(--surface); border-radius: 5px; padding: 0 8px; line-height: 1.6; white-space: nowrap; }
+  .menu { font-family: var(--display); font-weight: 500; }
+
+  .note { background: var(--tint); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 10px 14px; margin: 14px 0; font-size: 14px; }
+  .note.warn { background: var(--warn-tint); border-left-color: var(--warn-ink); color: var(--warn-ink); }
+  .note p:last-child { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); line-height: 1.6; }
+  th { font-family: var(--display); font-weight: 500; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; font-size: 14px; }
+  dl.kv dt { font-family: var(--display); font-weight: 500; color: var(--ink-2); }
+  dl.kv dd { margin: 0; }
+
+  footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; gap: 24px; }
+    nav.toc { position: static; }
+    nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    h2 { grid-template-columns: 34px 1fr; font-size: 20px; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Operation manual</p>
+    <h1>SFA 簡易マニュアル</h1>
+    <p class="lede">メールから始まる、中小企業向けの営業支援ツール。Web でのお申し込みから、メールの取り込み、問い合わせ・案件・売上の管理、担当者やタグの整理、お支払いまでを一通りまとめています。</p>
+    <div class="meta">
+      <span>提供: アートトレーディング株式会社</span>
+      <span>版: 2026年9月14日(第 4 版)</span>
+      <span>対象: テナントの利用者(営業担当者)と運営者</span>
+      <span>URL: <a href="https://sfa.art-trading.net/login">sfa.art-trading.net</a></span>
+    </div>
+    <ul class="flow" aria-label="業務の流れ">
+      <li><span class="step">メール受信<small>顧客・担当者を自動登録</small></span><span class="arrow">→</span></li>
+      <li><span class="step">問い合わせ<small>メール一覧で選んで登録</small></span><span class="arrow">→</span></li>
+      <li><span class="step">案件<small>アポ取得で案件化、カンバンで管理</small></span><span class="arrow">→</span></li>
+      <li><span class="step">売上<small>成約時に月次売上を計上</small></span></li>
+    </ul>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="目次">
+      <p class="eyebrow">目次</p>
+      <ol>
+        <li><a href="#s1"><span class="n">1</span>お申し込みとログイン</a></li>
+        <li><a href="#s2"><span class="n">2</span>初期設定</a></li>
+        <li><a href="#s3"><span class="n">3</span>メール</a></li>
+        <li><a href="#s4"><span class="n">4</span>担当者・取引先の自動登録と修正</a></li>
+        <li><a href="#s5"><span class="n">5</span>問い合わせ</a></li>
+        <li><a href="#s6"><span class="n">6</span>案件(カンバン)</a></li>
+        <li><a href="#s7"><span class="n">7</span>売上</a></li>
+        <li><a href="#s8"><span class="n">8</span>取引先・担当者・タグ</a></li>
+        <li><a href="#s9"><span class="n">9</span>営業担当者(ログインユーザー)</a></li>
+        <li><a href="#s10"><span class="n">10</span>ご契約とお支払い</a></li>
+        <li><a href="#s11"><span class="n">11</span>運営管理(運営者向け)</a></li>
+        <li><a href="#s12"><span class="n">12</span>困ったときは</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="s1">
+        <h2><span class="n">01</span>お申し込みとログイン</h2>
+        <h3>Web からのお申し込み(新しい会社)</h3>
+        <ol>
+          <li>ログイン画面の「無料で申し込む」、または <a href="https://sfa.art-trading.net/signup"><span class="path">https://sfa.art-trading.net/signup</span></a> を開きます。</li>
+          <li>会社名、会社 ID(英小文字・数字・ハイフン、3〜40 文字。ログイン後の識別に使います)、担当者名、メールアドレスを入力し、利用規約とプライバシーポリシーに同意して <span class="btn">確認メールを送る</span> を押します。</li>
+          <li>届いたメールのリンクを開き、<span class="btn">アカウントを開設する</span> を押します。リンクの有効期限は 24 時間です。</li>
+          <li>続けてパスワード(8 文字以上)を設定すると、そのままログインした状態でダッシュボードが開きます。</li>
+        </ol>
+        <div class="note">
+          <p>お申し込み時にクレジットカードは不要です。開設日から 90 日間(運営の設定による)が無料お試し期間で、期間中に「設定 → ご契約・お支払い」からお支払い方法を登録すると、お試し終了日から自動的に課金が始まります。登録がないままお試し期間が終わると、利用規約にもとづきデータは削除されます。</p>
+        </div>
+        <h3>ログイン</h3>
+        <p><a href="https://sfa.art-trading.net/login"><span class="path">https://sfa.art-trading.net/login</span></a> でメールアドレスとパスワードを入力します。アカウントは招待制です。すでに利用中の会社に参加する場合は、その会社の営業担当者ページから招待メールを送ってもらい、メールのリンクからパスワードを設定します(<a href="#s9">9 章</a>)。</p>
+        <h3>パスワードを忘れたとき</h3>
+        <p>ログイン画面の「パスワードを忘れた方」でメールアドレスを入力すると、再設定用のリンクをメールで送ります。リンクから新しいパスワードを設定してください。同じアドレスへの再設定メールは 1 時間に 3 通までです。</p>
+      </section>
+
+      <section id="s2">
+        <h2><span class="n">02</span>初期設定</h2>
+        <p>左のメニュー <span class="menu">設定</span> で行います。最初にメールアカウントを連携すると、以降のすべてが動き出します。</p>
+        <h3>メールアカウント連携</h3>
+        <ol>
+          <li><span class="btn">メールアカウントを追加</span> を押し、メールサービスを選びます。</li>
+          <li><strong>Gmail / Google Workspace</strong>: 連携する Google アカウントで 2 段階認証を有効にし、<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google のアプリパスワード</a> のページで 16 桁のアプリパスワードを発行して入力します。Gmail の設定で IMAP が有効になっていることも確認してください。</li>
+          <li><strong>その他の IMAP / SMTP サーバー</strong>(レンタルサーバーやプロバイダーのメール): メールサービスの「メールソフトの設定」に書かれている IMAP サーバー名・SMTP サーバー名・ポートを入力します。ログイン ID がメールアドレスと違う場合だけ「ログイン ID」に入力します。SSL(IMAP 993 / SMTP 465)または STARTTLS(IMAP 143 / SMTP 587)で接続します。</li>
+          <li>保存後に <span class="btn">接続テスト</span> で受信・送信の両方にログインできることを確認し、<span class="btn">今すぐ同期</span> で直近 30 日分のメールを取り込みます。</li>
+        </ol>
+        <ul>
+          <li>複数のアカウントを連携できます。「既定の差出人」にしたアカウントが新規メールの送信元になります(返信は受信したアカウントから送られます)。</li>
+          <li>パスワードは暗号化して保存されます。アプリパスワードを取り消したときは、このアカウントを編集して新しいパスワードに更新してください。</li>
+          <li>Microsoft 365 / Outlook.com は IMAP のパスワード認証が廃止されているため、現在は連携できません。</li>
+        </ul>
+        <h3>メール署名・返信件名</h3>
+        <p>会社名、メールアドレス、追加行(電話・住所・URL など)を入れると、返信や新規メールの本文末尾に署名が入ります。返信メールの件名の初期値もここで変えられます。</p>
+        <h3>問い合わせフォームの通知メール</h3>
+        <p>自社サイトの問い合わせフォームから届く通知メールは、差出人(フォームツール)ではなく本文に書かれた問い合わせ者を担当者として登録します。通知メールの本文が次の形なら、設定なしで読み取れます。</p>
+<pre>会社名: 株式会社サンプル
+お名前: 山田 太郎
+メールアドレス: taro@example.co.jp
+電話番号: 03-1234-5678
+お問い合わせ内容:
+在庫管理の効率化について相談したい。</pre>
+        <ul>
+          <li>1 行に 1 項目、「項目名: 値」の形にします。メールアドレスの行は必須です。</li>
+          <li>自社フォームの項目名が標準の一覧(設定画面に表示)に無いときは、「会社名の項目名」などの欄に追加します。</li>
+          <li>「通知メールの送信元アドレス」にフォームツールの差出人を登録しておくと、本文を読み取れなかった場合でもフォームツールのアドレスが担当者として登録されるのを防げます。</li>
+        </ul>
+        <h3>タグ</h3>
+        <p>メールと担当者に付ける属性です(既定はリード、顧客、要注意など 6 個)。名前と色の変更、追加・削除、上下の矢印での並び替えができ、最大 20 個まで登録できます。並び順は、タグを選ぶときと一覧に表示されるときの順になります。</p>
+        <h3>行動の種類</h3>
+        <p>案件の「行動」で選ぶ種類です(既定は電話、メール、訪問、見積書作成、電話折り返し依頼、その他の 6 個)。名前とアイコン(14 種類から選択)の変更、追加、上下の矢印での並び替えができ、最大 20 個まで登録できます。並び順は、行動を登録するときの種類ボタンの順になります。すでに行動で使われている種類と、最後の 1 個は削除できません(名前とアイコンの変更はできます)。</p>
+        <h3>エラー記録と通知</h3>
+        <p>メールの送受信の失敗や定期処理のエラーは自動で記録され、「通知先メールアドレス」に登録したアドレスへ通知されます(同じ種類のエラーは 30 分に 1 回)。<span class="btn">テスト送信</span> で通知が届くか確認できます。記録は「設定 → ログ」で見られます。</p>
+      </section>
+
+      <section id="s3">
+        <h2><span class="n">03</span>メール</h2>
+        <h3>取り込み(同期)</h3>
+        <ul>
+          <li>画面上部の <span class="btn">メール同期</span> を押すと、連携した全アカウントの受信トレイと送信済みメールを取り込みます。前回の続きから差分だけ取り込むので、何度押しても重複しません。</li>
+          <li>毎朝 7 時(日本時間)にも自動で同期します。急ぎのメールを確認するときは手動で同期してください。</li>
+          <li>取り込みは読み取りだけです。メールサーバー側のメールを移動・削除することはありません。</li>
+        </ul>
+        <h3>一覧の見かた</h3>
+        <ul>
+          <li>スレッド(同じ話題のやり取り)ごとに 1 行で表示します。未読は青い点、添付ありはクリップで示します。</li>
+          <li>上部のボタンで「すべて / 未読 / 受信 / 送信 / 問い合わせ未登録」を切り替え、タグでも絞り込めます。</li>
+          <li>行のチェックを付けて、<span class="btn">問い合わせに登録</span>、タグの付け外し、削除をまとめて行えます。</li>
+        </ul>
+        <h3>スレッド画面</h3>
+        <ul>
+          <li>やり取りを新しい順に表示します。各メールの見出しをクリックすると本文と添付ファイルを開閉できます。</li>
+          <li>上部の返信欄からそのまま返信できます。差出人はこのスレッドを受信したアカウント、宛先は相手の担当者が初期値です(フォーム通知のスレッドは本文の問い合わせ者宛)。添付ファイルも付けられます。</li>
+          <li>右側の「関連情報」に、取引先・担当者・タグ・問い合わせ・案件へのリンクが並びます。ここから <span class="btn">担当者・取引先を変更</span> と <span class="btn">問い合わせに登録</span> ができます。</li>
+          <li>新しいメールは、担当者一覧や取引先詳細のメールアイコンから作成します。</li>
+        </ul>
+        <div class="note warn">
+          <p>削除はこのアプリ上の表示から消すだけで、メールサーバー側のメールは残ります。登録済みの問い合わせ・案件も残ります。</p>
+        </div>
+      </section>
+
+      <section id="s4">
+        <h2><span class="n">04</span>担当者・取引先の自動登録と修正</h2>
+        <h3>自動登録の仕組み</h3>
+        <ul>
+          <li>受信メールの差出人が未登録なら、担当者(取引先側の人)と取引先(会社)を自動で作ります。会社名・氏名・役職・電話番号は本文と署名から抽出します(AI による抽出。取れない項目は空欄になります)。</li>
+          <li>取引先はメールアドレスのドメインで判定します。同じドメインの人は同じ取引先にまとまります。Gmail など個人向けのフリーメールは「氏名(個人)」という取引先になります。</li>
+          <li>配送エラーや noreply などのシステム送信元は担当者として登録しません。</li>
+          <li>同じスレッドの以降のメールは、最初に決まった担当者・取引先・案件を引き継ぎます。</li>
+        </ul>
+        <h3>間違っていたときの直しかた</h3>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>状況</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>スレッドが違う担当者・取引先に紐付いた</td><td>スレッド画面の <span class="btn">担当者・取引先を変更</span>。登録済みの担当者を選ぶ、取引先だけ指定する、新しい担当者を登録する、紐付けを外す、のいずれか。スレッド内の全メールと、そのメールから登録した問い合わせに反映されます。</td></tr>
+            <tr><td>名前や会社名が間違っている</td><td>担当者一覧または取引先詳細の鉛筆アイコンで編集します。担当者の所属会社を変えると、その担当者のメールと問い合わせの取引先も追従します(案件は動きません)。</td></tr>
+            <tr><td>同じ会社が 2 つできた</td><td>不要なほうの取引先詳細で <span class="btn">統合</span> を押し、残す取引先を選びます。担当者・メール・問い合わせ・案件・売上が移り、空欄は統合元の値で埋まります。</td></tr>
+            <tr><td>同じ人が 2 人できた</td><td>担当者一覧または取引先詳細の統合アイコン(矢印が合流する形)で、残す担当者を選びます。メール・問い合わせ・案件・タグが移ります。</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note warn">
+          <p>統合は元に戻せません。担当者を統合すると、残す側に別のメールアドレスがある場合、統合元のアドレスは残らないため、今後そのアドレスから届いたメールは新しい担当者として登録されます。</p>
+        </div>
+      </section>
+
+      <section id="s5">
+        <h2><span class="n">05</span>問い合わせ</h2>
+        <ol>
+          <li>メール一覧で対応が必要なメールにチェックを付け、<span class="btn">問い合わせに登録</span> を押します(スレッド画面からも登録できます)。内容の要約と分類(見積依頼、資料請求、商談希望など)が自動で付きます。</li>
+          <li><span class="menu">問い合わせ</span> ページで、ステータス(新規 → 対応中 → 案件化 / 完了)を管理します。「メールを開く」で元のスレッドに戻れます。</li>
+          <li>アポイントが取れたら <span class="btn">案件化</span> を押します。取引先・担当者・件名を引き継いだ案件が「アポ取得」ステージで作られ、問い合わせは「案件化」になります。</li>
+        </ol>
+        <p>1 つのスレッドから登録できる問い合わせは 1 件です。登録済みのスレッドを再度選んでもスキップされます。</p>
+      </section>
+
+      <section id="s6">
+        <h2><span class="n">06</span>案件(カンバン)</h2>
+        <p><span class="menu">案件</span> ページはステージごとの列にカードが並ぶカンバンです。カードをドラッグして隣の列に落とすとステージが変わります。カードを開くと詳細画面です。</p>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>ステージ</th><th>意味</th><th>確度の初期値</th></tr></thead>
+          <tbody>
+            <tr><td>アポ取得</td><td>問い合わせから案件化した直後。打ち合わせ日程あり</td><td class="num">30%</td></tr>
+            <tr><td>提案書作成中</td><td>提案・見積を準備中</td><td class="num">40%</td></tr>
+            <tr><td>提案済み</td><td>提案・見積を提出した</td><td class="num">50%</td></tr>
+            <tr><td>検討中</td><td>先方が検討中</td><td class="num">60%</td></tr>
+            <tr><td>保留</td><td>一時停止。時期を改めて再開</td><td class="num">20%</td></tr>
+            <tr><td>成約</td><td>受注。月次売上の入力が必須</td><td class="num">100%</td></tr>
+            <tr><td>失注</td><td>失注理由を記録</td><td class="num">0%</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>案件の詳細画面</h3>
+        <ul>
+          <li><strong>行動</strong>: 電話・メール・訪問・見積書作成・電話折り返し依頼などの履歴と、期限付きの Todo。詳しくは次項。</li>
+          <li><strong>基本情報</strong>: 取引先、担当者、営業担当者(自社の担当)、見込み売上、確度、アポイント日時、受注予定日、メモ。鉛筆アイコンで編集します。アポイント日時と受注予定日の入れかたは「期限・日時の入れかた」を参照。</li>
+          <li><strong>メール履歴</strong>: この案件に紐付いたスレッド。担当者との進行中の案件があると、新しいメールは自動でその案件に紐付きます。</li>
+          <li><strong>商談メモ</strong>: 打ち合わせの記録を時系列で残します。</li>
+          <li><strong>売上計上</strong>: 成約後の月次売上の明細。あとから追加・修正できます。</li>
+        </ul>
+        <h3>行動(履歴と Todo)</h3>
+        <p>案件の詳細画面の「行動」タブで、営業活動の記録と次にやることを 1 か所で管理します。</p>
+        <ul>
+          <li><strong>登録</strong>: 種類(既定は電話、メール、訪問、見積書作成、電話折り返し依頼、その他。設定の「行動の種類」で追加・並び替えできます)をボタンで選び、内容を入力して <span class="btn">登録</span>。「期限」を入れると Todo になり、「済んだ行動として記録する」にチェックすると履歴として完了済みで登録されます。</li>
+          <li><strong>完了</strong>: 対応が終わったら行の左のチェックを付けます。外すと未完了に戻ります。</li>
+          <li><strong>期限超過の警告</strong>: 期限を過ぎた未完了の行動は赤く表示され、タブに「超過 n」のバッジ、案件カンバンのカードに「期限超過 n」、サイドバーの「行動」に赤い件数バッジが出ます。当日のものは「今日」、3 日以内は「まもなく」と表示します。</li>
+          <li><strong>行動の一覧</strong>: サイドバーの <span class="menu">行動</span> で、全案件の未完了の行動を「期限超過 / 今日 / 3 日以内 / それ以降 / 期限なし」に分けて表示します。ここでチェックを付けてそのまま完了にできます。「完了済みも表示」で直近の完了分も見られます。</li>
+          <li><strong>ダッシュボード</strong>: 「今日やること」カードに、期限超過と 7 日以内の行動を最大 8 件表示します。ここからも完了にできます。</li>
+          <li><strong>並び順</strong>: 未完了が上(期限超過 → 期限が近い順 → 期限なし)、完了済みが下です。鉛筆で内容・種類・期限を編集、ゴミ箱で削除できます。</li>
+        </ul>
+        <h3>期限・日時の入れかた</h3>
+        <p>行動の期限、案件のアポイント日時、受注予定日は同じ部品で入力します。年月日と時刻を 1 つずつ打ち込む必要はありません。</p>
+        <ol>
+          <li><strong>日付</strong>: 「今日・明日・明後日・来週◯曜・1 週間後」のボタンを押します(受注予定日は「今月末・来月末・再来月末」)。ボタンに無い日は <span class="btn">日付を選ぶ</span> を押すと 2 週間分のタイルが開くので、日をクリックします。‹ › で 1 週間ずつ先へ進み、「今日に戻る」で戻ります。土日と祝日は薄く表示されますが選べます。過去の日は選べません。</li>
+          <li><strong>時刻</strong>(行動の期限とアポイント日時): 「午前中 10:00・午後 14:00・夕方 17:00」(アポイント日時は 10:00・13:00・14:00・16:00)のボタンか、「時刻を指定…」のプルダウン(8:00〜19:00、30 分刻み)で選びます。行動の期限は「時刻なし(終日)」にすると、その日の終わりが期限になり、画面には日付だけが表示されます。</li>
+          <li>選んだ内容は「9月24日(木) 終日 · 10 日後」のようにすぐ下に表示されます。「クリア」で未設定に戻ります。</li>
+        </ol>
+        <h3>成約と失注</h3>
+        <ul>
+          <li>「成約」に動かすと売上の入力画面が開きます。売上が発生する月と金額を 1 行以上入れないと成約にできません(分割・月額の場合は複数行)。</li>
+          <li>「失注」に動かすと失注理由の入力画面が開きます。</li>
+        </ul>
+        <p>問い合わせを経ずに案件を作ることもできます。案件ページ、取引先詳細、問い合わせページの <span class="btn">案件を作成</span> から、取引先と案件名を入れて登録します。</p>
+      </section>
+
+      <section id="s7">
+        <h2><span class="n">07</span>売上</h2>
+        <p><span class="menu">売上</span> ページは、成約案件で計上した月次売上を年ごとに集計します。月別の一覧と年間合計を表示し、年を切り替えられます。ダッシュボードの「月次売上(直近 12 か月)」も同じデータです。金額を直すときは案件の詳細画面の「売上計上」タブで編集します。</p>
+      </section>
+
+      <section id="s8">
+        <h2><span class="n">08</span>取引先・担当者・タグ</h2>
+        <h3>取引先</h3>
+        <p><span class="menu">取引先</span> は会社の一覧です。詳細画面に、進行中案件数・成約額累計・メール件数と、案件・担当者・問い合わせ・メールのタブがあります。手動で登録するときは <span class="btn">取引先を登録</span> で会社名とドメインを入れます。ドメインを入れておくと、そのドメインからのメールが自動でこの取引先に紐付きます。</p>
+        <h3>担当者</h3>
+        <p><span class="menu">担当者</span> は取引先側の人の一覧です。名前・メール・役職で検索し、タグで絞り込めます。行のメールアイコンからその人宛の新規メールを作成できます。</p>
+        <h3>タグの使いかた</h3>
+        <ul>
+          <li><strong>メール一覧から</strong>: スレッドを選んでタグを付けると、スレッド内の全メールと、紐付いている担当者にも同じタグが付きます。</li>
+          <li><strong>担当者一覧から</strong>: 担当者を選んでまとめて付け外しできます。</li>
+          <li><strong>スレッド画面から</strong>: 関連情報のタグ欄で 1 件ずつ付け外しできます。</li>
+          <li>メール一覧・担当者一覧はタグで絞り込めます。</li>
+        </ul>
+        <h3>送信リスト(CSV)の出力</h3>
+        <p>担当者一覧でタグや検索で絞り込んだ状態で <span class="btn">CSV 出力</span> を押すと、表示中の担当者を CSV でダウンロードできます。メール配信ツールへの取り込みなどに使えます。</p>
+      </section>
+
+      <section id="s9">
+        <h2><span class="n">09</span>営業担当者(ログインユーザー)</h2>
+        <p><span class="menu">営業担当者</span> は自社のメンバーの一覧で、案件の「営業担当者」に指定する相手です。ログインしないメンバーも登録できます。</p>
+        <ol>
+          <li><span class="btn">追加</span> で名前とメールアドレスを登録します。</li>
+          <li><span class="btn">招待</span> を押すと、自社の既定のメールアカウントから招待メールが送られます。相手はメールのリンクからパスワードを設定するとログインできます。リンクの有効期限は 24 時間で、切れた場合は再度「招待」を押します。</li>
+        </ol>
+        <ul>
+          <li>ログインできるユーザーの数(招待中を含む)は契約の上限に含まれ、月額料金に影響します(<a href="#s10">10 章</a>)。</li>
+          <li>営業担当者を削除すると、そのログインも無効になります。担当していた案件は残ります(営業担当者は空欄になります)。</li>
+        </ul>
+      </section>
+
+      <section id="s10">
+        <h2><span class="n">10</span>ご契約とお支払い</h2>
+        <p>「設定 → ご契約・お支払い」で、契約状態、今月の料金、お支払い方法を確認できます。</p>
+        <dl class="kv">
+          <dt>料金の考え方</dt><dd>月額基本料金(ユーザー 1 名、メールアカウント 1 件、容量 1GB を含む)に、追加ユーザーと追加メールアカウントの分を足した金額を、毎月の実際の利用数で計算します。表示は税抜と税込の両方です。</dd>
+          <dt>お支払い方法の登録</dt><dd><span class="btn">お支払い方法を登録する</span> を押すと決済画面(Stripe)に移ります。お試し期間中に登録した場合、課金はお試し終了日から始まります。</dd>
+          <dt>支払い方法の変更・請求書・解約</dt><dd><span class="btn">お支払いの管理</span> でカスタマーポータルを開き、カードの変更、請求書の確認、解約ができます。</dd>
+          <dt>解約後</dt><dd>お支払い済みの期間の終了日まで利用でき、終了と同時にデータは削除されます。</dd>
+          <dt>お支払いが確認できないとき</dt><dd>閲覧のみの状態になり、登録・送信・同期ができなくなります。お支払い方法を更新すると解除されます。</dd>
+        </dl>
+        <p>上限(ユーザー数、メールアカウント数、容量)に達すると追加できません。上限の引き上げは運営にご連絡ください。</p>
+      </section>
+
+      <section id="s11">
+        <h2><span class="n">11</span>運営管理(運営者向け)</h2>
+        <p>運営者のアカウントでログインすると <span class="path">https://sfa.art-trading.net/admin</span> が使えます。運営専用のアカウントで招待された運営者はテナント側の画面には入れません。</p>
+        <dl class="kv">
+          <dt>テナント一覧</dt><dd>全社の契約状態と課金中の月額合計。各社の詳細で、利用状況、上限、契約状態(お試し / 契約中 / 停止 / 解約)、Stripe の状況、利用者の一覧を確認・変更できます。運営が手で「停止」にした会社は Stripe の状態で上書きされません。</dd>
+          <dt>テナント作成</dt><dd>Web 申し込みを使わずに運営が会社を作る場合。最初の管理者宛に招待メールを送ります。</dd>
+          <dt>料金・既定値</dt><dd>月額基本料金、追加ユーザー・追加メールアカウントの単価、新規テナントの既定の上限とお試し期間。申し込み画面と特定商取引法の表記の価格はここに連動します。</dd>
+          <dt>ユーザー管理</dt><dd>運営者の招待と削除。スーパーユーザーのみ操作できます。運営側の会社(自社)の利用者はそのままのログインで運営者にもなれ、テナント側の画面と運営管理の両方を使えます(サイドバーの下に「運営管理」が出ます)。まだ登録のないメールアドレスを招待すると運営専用のアカウントになります。他社の利用者は運営者にできません。</dd>
+          <dt>メールテンプレート</dt><dd>申し込み確認、招待、パスワード再設定などアプリが送るメールの件名と本文。<code>{{name}}</code> や <code>{{link}}</code> などの差し込みが使えます。</dd>
+        </dl>
+        <p>申し込み確認や運営からの招待メールは、運営側テナント(最初に作られた会社)の既定メールアカウントから送られます。</p>
+      </section>
+
+      <section id="s12">
+        <h2><span class="n">12</span>困ったときは</h2>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>症状</th><th>確認すること</th></tr></thead>
+          <tbody>
+            <tr><td>メールが取り込まれない</td><td>設定のメールアカウントで <span class="btn">接続テスト</span>。ログイン失敗なら、アプリパスワードの再発行(Gmail)、またはサーバー名・ポート・ログイン ID の見直し(その他)。Google Workspace は管理者が IMAP とアプリパスワードを許可している必要があります。</td></tr>
+            <tr><td>送信済みメールが取り込まれない</td><td>メールサーバーの設定で、送信済みフォルダが IMAP に表示されているか確認します。</td></tr>
+            <tr><td>担当者や会社名が違う</td><td><a href="#s4">4 章</a>の手順で付け替え・統合・編集します。フォーム通知が読めていない場合は「問い合わせフォームの通知メール」の設定を見直します。</td></tr>
+            <tr><td>招待・再設定メールが届かない</td><td>迷惑メールフォルダを確認。送信元アカウントの接続テストが失敗していないか確認。リンクの有効期限は 24 時間です。</td></tr>
+            <tr><td>登録・送信ができない</td><td>画面上部に契約状態の案内が出ていれば、お試し期限切れ・お支払い未確認・停止のいずれかです(<a href="#s10">10 章</a>)。</td></tr>
+            <tr><td>行動の種類を削除できない</td><td>その種類を使っている行動があるか、種類が残り 1 個です。名前とアイコンを変えて使い回すか、該当する行動の種類を変えてから削除します。</td></tr>
+            <tr><td>エラーの原因を調べたい</td><td>「設定 → ログ」に送受信の失敗や定期処理の結果が記録されています。通知先メールにも届きます。</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>解決しない場合は、運営(アートトレーディング株式会社 contact@art-trading.co.jp / 03-5422-3348、受付 10:00〜19:00 土日祝除く)までお問い合わせください。</p>
+      </section>
+
+      <footer class="end">
+        関連: <a href="https://sfa.art-trading.net/legal/terms">利用規約</a>、<a href="https://sfa.art-trading.net/legal/privacy">プライバシーポリシー</a>、<a href="https://sfa.art-trading.net/legal/tokushoho">特定商取引法に基づく表記</a>(いずれも sfa.art-trading.net 配下の公開ページ)。この文書は 2026年9月14日 時点の機能にもとづいています。
+      </footer>
+    </main>
+  </div>
+</div>

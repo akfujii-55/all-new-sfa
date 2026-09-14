@@ -1,0 +1,890 @@
+<title>SFA テスト仕様書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f5f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef1f4;
+    --ink: #1a2330;
+    --ink-2: #4a5665;
+    --ink-3: #7b8794;
+    --line: #d7dde4;
+    --line-2: #e6eaee;
+    --accent: #0f6e56;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3f1ec;
+    --warn: #9a6a0c;
+    --warn-soft: #fbf1d9;
+    --bad: #b42318;
+    --bad-soft: #fbe3e0;
+    --hold: #5b6b7c;
+    --hold-soft: #e7ebef;
+    --shadow: 0 1px 2px rgba(20, 30, 40, .06), 0 8px 24px -16px rgba(20, 30, 40, .25);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131a21;
+      --surface: #1a232c;
+      --surface-2: #212c37;
+      --ink: #e8edf2;
+      --ink-2: #b4bfca;
+      --ink-3: #7f8b97;
+      --line: #33404d;
+      --line-2: #283340;
+      --accent: #4fc0a0;
+      --accent-ink: #0d1a16;
+      --accent-soft: #1b3a32;
+      --warn: #e2b04a;
+      --warn-soft: #3a2f14;
+      --bad: #f08a80;
+      --bad-soft: #43201d;
+      --hold: #aab6c2;
+      --hold-soft: #2a3542;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131a21;
+    --surface: #1a232c;
+    --surface-2: #212c37;
+    --ink: #e8edf2;
+    --ink-2: #b4bfca;
+    --ink-3: #7f8b97;
+    --line: #33404d;
+    --line-2: #283340;
+    --accent: #4fc0a0;
+    --accent-ink: #0d1a16;
+    --accent-soft: #1b3a32;
+    --warn: #e2b04a;
+    --warn-soft: #3a2f14;
+    --bad: #f08a80;
+    --bad-soft: #43201d;
+    --hold: #aab6c2;
+    --hold-soft: #2a3542;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    font-size: 14.5px;
+    line-height: 1.75;
+    padding-block: 0 80px;
+    padding-inline: 16px;
+  }
+  h1, h2, h3, h4 { font-family: "Zen Kaku Gothic New", "Noto Sans JP", system-ui, sans-serif; text-wrap: balance; margin: 0; }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+  a { color: var(--accent); }
+  p { margin: 0; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  .masthead { padding-block: 40px 24px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 500; }
+  .masthead h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; margin-top: 8px; }
+  .lede { max-width: 66ch; color: var(--ink-2); margin-top: 12px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 18px; font-size: 13px; color: var(--ink-2); }
+  .meta b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- summary bar ---------- */
+  .tally {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin-top: 20px; padding: 10px 14px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  }
+  .tally .lab { font-size: 12px; color: var(--ink-3); letter-spacing: .06em; }
+  .tally .n { font-family: "IBM Plex Mono", monospace; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tally .n.ok { color: var(--accent); } .tally .n.ng { color: var(--bad); } .tally .n.hold { color: var(--warn); }
+  .bar { flex: 1 1 160px; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar .b-ok { background: var(--accent); } .bar .b-ng { background: var(--bad); } .bar .b-hold { background: var(--warn); }
+  .btn {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:focus-visible, .res button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- layout ---------- */
+  .grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 36px; margin-top: 28px; }
+  nav.toc { position: sticky; top: 76px; align-self: start; font-size: 13px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  nav.toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 4px 10px; border-left: 2px solid var(--line-2); }
+  nav.toc a:hover { color: var(--ink); border-color: var(--accent); }
+  nav.toc .toc-h { font-size: 11px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; margin: 14px 0 6px 12px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } nav.toc { position: static; } }
+
+  main { min-width: 0; display: flex; flex-direction: column; gap: 44px; }
+  section h2 { font-size: 22px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid var(--ink); display: flex; align-items: baseline; gap: 12px; }
+  section h2 .id { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--accent); font-weight: 500; letter-spacing: .04em; }
+  section > p.intro { color: var(--ink-2); max-width: 70ch; margin-top: 12px; }
+  h3 { font-size: 16px; font-weight: 700; margin-top: 26px; }
+  h3 + p { color: var(--ink-2); max-width: 70ch; margin-top: 4px; }
+
+  /* ---------- info blocks ---------- */
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin-top: 12px; font-size: 13.5px; }
+  .kv dt { color: var(--ink-3); } .kv dd { margin: 0; }
+  @media (max-width: 520px) { .kv { grid-template-columns: 1fr; gap: 2px; } .kv dt { margin-top: 8px; } }
+  .note { margin-top: 12px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; font-size: 13.5px; }
+  .note.warn { border-color: var(--warn); background: var(--warn-soft); }
+  ul.plain { margin: 8px 0 0; padding-left: 1.2em; }
+  ul.plain li { margin: 2px 0; }
+
+  table.rules { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13.5px; }
+  table.rules th, table.rules td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  table.rules th { font-weight: 500; color: var(--ink-3); font-size: 12px; letter-spacing: .04em; }
+  table.rules td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+
+  /* ---------- flow diagram ---------- */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .flow .step { flex: 1 1 150px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; position: relative; }
+  .flow .step b { display: block; font-size: 13px; color: var(--ink); }
+  .flow .step span { color: var(--ink-2); }
+  .flow .step .k { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--accent); }
+
+  /* ---------- test cases ---------- */
+  .cases { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .case { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 12px; display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; gap: 6px 14px; align-items: start; }
+  .case .cid { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--accent); font-weight: 500; padding-top: 3px; }
+  .case .pri { display: inline-block; margin-top: 4px; font-size: 10.5px; letter-spacing: .08em; padding: 1px 6px; border-radius: 4px; background: var(--surface-2); color: var(--ink-2); }
+  .case .pri.p1 { background: var(--bad-soft); color: var(--bad); }
+  .case .title { font-weight: 700; font-size: 14.5px; line-height: 1.5; }
+  .case .body { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-size: 13px; }
+  .case .body > div { min-width: 0; }
+  .case .body .l { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase; margin-bottom: 2px; }
+  .case .body ol, .case .body ul { margin: 0; padding-left: 1.3em; }
+  .case .body li { margin: 1px 0; }
+  .case .pre { grid-column: 1 / -1; color: var(--ink-2); }
+  .case .pre .l { display: inline; margin-right: 6px; }
+  .res { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 4px; }
+  .res button { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; min-width: 58px; }
+  .res button[aria-pressed="true"].ok { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .res button[aria-pressed="true"].ng { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .res button[aria-pressed="true"].hold { background: var(--warn); color: #fff; border-color: var(--warn); }
+  .case.is-ok { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .case.is-ng { border-color: var(--bad); }
+  .case .memo { grid-column: 2 / -1; }
+  .case .memo input { width: 100%; font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface-2); color: var(--ink); }
+  .case .memo input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  @media (max-width: 640px) {
+    .case { grid-template-columns: 1fr; }
+    .case .body { grid-column: 1; grid-template-columns: 1fr; }
+    .res { grid-column: 1; grid-row: auto; flex-direction: row; }
+    .case .memo { grid-column: 1; }
+  }
+  @media (prefers-reduced-motion: no-preference) { .res button, .btn { transition: background .12s, color .12s; } }
+  @media print {
+    .tally, .res, .memo { display: none !important; }
+    .grid { grid-template-columns: 1fr; } nav.toc { display: none; }
+    .case { break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Test Specification · v1.4 · 2026-09-14</div>
+    <h1>SFA テスト仕様書</h1>
+    <p class="lede">中小企業向け営業支援ツール「SFA」の受け入れテスト仕様。Web からの申し込みとテナントの自動作成、課金のルール、利用開始までの流れ、各機能の動作を、テスターが順に確認できるようにまとめています。各項目の右にある OK / NG / 保留 を押すと結果がこのブラウザに保存され、上部の集計に反映されます。v1.1 では、パスワード再設定、法務ページ、Gmail 以外のメールサーバー、担当者・取引先の付け替えと統合、フォーム通知の項目名設定の項目(ID の末尾が 07 以降と MS-04〜06)を追加しました。v1.4 では、行動の種類の設定(DL-06)、期限・日時の入力部品(DL-07)、タグの並び替え(MS-03)を追加し、DL-05 を新しい期限入力に合わせて修正しました。</p>
+    <div class="meta">
+      <span>対象: <b>Next.js 16 + Supabase + Stripe(テストモード)</b></span>
+      <span>テスト環境: <b><a href="https://sfa.art-trading.net/login">https://sfa.art-trading.net</a></b>(Vercel)</span>
+      <span>前提: <b>Stripe テストキー設定済み、運営側メールアカウント連携済み</b></span>
+    </div>
+    <div class="tally" id="tally">
+      <span class="lab">進捗</span>
+      <span class="n" id="t-done">0</span><span class="lab">/ <span id="t-total">0</span> 件</span>
+      <span class="n ok" id="t-ok">0</span><span class="lab">OK</span>
+      <span class="n ng" id="t-ng">0</span><span class="lab">NG</span>
+      <span class="n hold" id="t-hold">0</span><span class="lab">保留</span>
+      <div class="bar"><i class="b-ok" id="b-ok"></i><i class="b-ng" id="b-ng"></i><i class="b-hold" id="b-hold"></i></div>
+      <button class="btn" id="copy">結果をコピー</button>
+      <button class="btn" id="reset">結果をクリア</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <nav class="toc" aria-label="目次">
+      <div class="toc-h">準備</div>
+      <ol>
+        <li><a href="#env">0. テスト環境と準備</a></li>
+      </ol>
+      <div class="toc-h">シナリオ</div>
+      <ol>
+        <li><a href="#signup">1. 申し込みとテナント自動作成</a></li>
+        <li><a href="#onboard">2. 利用開始</a></li>
+        <li><a href="#billing">3. 課金のルール</a></li>
+      </ol>
+      <div class="toc-h">機能</div>
+      <ol>
+        <li><a href="#inbox">4. メール</a></li>
+        <li><a href="#inquiry">5. 問い合わせ</a></li>
+        <li><a href="#deals">6. 案件と売上</a></li>
+        <li><a href="#master">7. 取引先・担当者・タグ</a></li>
+        <li><a href="#members">8. 営業担当者</a></li>
+        <li><a href="#settings">9. 設定とログ</a></li>
+        <li><a href="#admin">10. 運営管理</a></li>
+        <li><a href="#isolation">11. テナント分離と権限</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <!-- ===================== 0 ===================== -->
+      <section id="env">
+        <h2><span class="id">§0</span>テスト環境と準備</h2>
+        <p class="intro">テストは本番 URL <code>https://sfa.art-trading.net</code> で行います(Stripe はテストモードのため実際の請求は発生しません)。画面の指示にあるパス(/signup など)はこの URL の配下です。以下をそろえてから開始してください。</p>
+        <dl class="kv">
+          <dt>テスト用メール</dt><dd>申し込み用に、まだこのシステムに登録されていないメールアドレスを 2 つ(会社 A 用・会社 B 用)。自社ドメインのエイリアス(<code>name+testa@…</code>)で可。</dd>
+          <dt>Gmail 連携用</dt><dd>受信テスト用の Gmail アカウントとアプリパスワード(<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">myaccount.google.com/apppasswords</a>)。</dd>
+          <dt>Stripe テストカード</dt><dd>成功: <code>4242 4242 4242 4242</code> / 拒否: <code>4000 0000 0000 0002</code> / 有効期限は未来の任意、CVC 任意、郵便番号任意。</dd>
+          <dt>運営アカウント</dt><dd>運営管理 <code>https://sfa.art-trading.net/admin</code> にログインできるスーパーユーザー(akfujii@art-trading.co.jp)。</dd>
+          <dt>Stripe ダッシュボード</dt><dd>テストモードで顧客・サブスクリプション・Webhook の配信状況を確認できること。</dd>
+        </dl>
+        <div class="note">
+          <b>結果の判定基準:</b> 期待結果がすべて満たされれば OK。ひとつでも違えば NG にし、メモ欄に画面のメッセージをそのまま書いてください。環境の都合で実施できない場合は保留。
+        </div>
+        <div class="note warn">
+          <b>お試し期限切れの再現:</b> お試し期間は 90 日なので、期限切れの動作は運営管理 → テナント詳細 → 契約・上限・課金状態の「お試し期限」を過去の日付に変えて再現します(テスト後に戻すこと)。
+        </div>
+      </section>
+
+      <!-- ===================== 1 ===================== -->
+      <section id="signup">
+        <h2><span class="id">§1</span>申し込みとテナント自動作成</h2>
+        <p class="intro">Web の申し込みフォームから、運営の手を介さずに会社(テナント)が作られるまで。カードの登録は不要で、90 日間のお試しが自動で始まります。</p>
+        <div class="flow">
+          <div class="step"><span class="k">https://sfa.art-trading.net/signup</span><b>申し込みフォーム</b><span>会社名・会社 ID・担当者・メール</span></div>
+          <div class="step"><span class="k">mail</span><b>確認メール</b><span>運営側 Gmail から 24 時間有効のリンク</span></div>
+          <div class="step"><span class="k">/signup/verify</span><b>内容確認</b><span>「アカウントを開設する」ボタン</span></div>
+          <div class="step"><span class="k">create_tenant</span><b>テナント作成</b><span>お試し 90 日、上限は運営の既定値</span></div>
+          <div class="step"><span class="k">/set-password</span><b>パスワード設定</b><span>そのままログイン状態に</span></div>
+        </div>
+
+        <h3>入力ルール</h3>
+        <table class="rules">
+          <thead><tr><th>項目</th><th>ルール</th></tr></thead>
+          <tbody>
+            <tr><td>会社 ID</td><td>英小文字・数字・ハイフン、3〜40 文字、先頭と末尾は英数字。会社名からの自動提案あり。既存テナントと重複不可。後から変更不可。</td></tr>
+            <tr><td>メールアドレス</td><td>既にログインできる利用者のアドレスは不可(別テナントに所属しているため)。</td></tr>
+            <tr><td>連投の抑制</td><td>同じメールアドレスは 24 時間に 3 回まで。同じ IP は 1 時間に 10 回まで。</td></tr>
+            <tr><td>確認リンク</td><td>有効期限 24 時間。1 回使うと無効。リンクを開いただけではテナントは作られない(ボタンを押した時点で作成)。</td></tr>
+          </tbody>
+        </table>
+
+        <div class="cases">
+          <div class="case" data-id="SU-01"><div><div class="cid">SU-01</div><span class="pri p1">必須</span></div><div class="title">正常な申し込みで確認メールが届く</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>未登録のメールアドレス(会社 A 用)を用意。</div>
+              <div><div class="l">手順</div><ol><li>ログイン画面の「無料で申し込む」を開く</li><li>会社名「テスト商事 A」を入力し、会社 ID が自動提案されることを確認</li><li>会社 ID を <code>test-a-〔日付〕</code> に変更</li><li>担当者名・メール・電話(任意)を入力、同意にチェック</li><li>「確認メールを送る」</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「確認メールを送りました」の画面に切り替わり、送信先アドレスが表示される</li><li>数分以内に【SFA】お申し込みの確認 というメールが運営側の Gmail から届く</li><li>本文に会社名・担当者名とリンクが差し込まれている</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ(NG の場合はメッセージを転記)"></div></div>
+
+          <div class="case" data-id="SU-02"><div><div class="cid">SU-02</div><span class="pri p1">必須</span></div><div class="title">確認リンクからテナントが自動作成され、パスワード設定に進む</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>SU-01 のメールを受信済み。</div>
+              <div><div class="l">手順</div><ol><li>メールのリンクを開く</li><li>会社名・会社 ID・担当者・メールが表示されることを確認</li><li>「アカウントを開設する」を押す</li><li>パスワード(8 文字以上)を設定</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>ボタンを押す前はテナントが作られていない(運営管理の一覧に無い)</li><li>押すとパスワード設定画面に遷移し、設定後にダッシュボードが開く</li><li>設定 → 会社(テナント)に会社名・会社 ID・「お試し期間」と 90 日後の期限が表示される</li><li>運営管理のテナント一覧に「Web 申し込み」経路で追加され、上限がユーザー 1 / メールアカウント 1 / 1GB になっている</li><li>運営の通知先メールに「新規申し込み」の通知が届く</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-03"><div><div class="cid">SU-03</div><span class="pri">通常</span></div><div class="title">使用済み・期限切れのリンクは拒否される</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>SU-02 で使ったリンクをもう一度開く</li><li>URL の token を適当に書き換えて開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>どちらも「リンクが無効です」と表示され、ログインと再申し込みへの案内が出る</li><li>テナントが二重に作られない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-04"><div><div class="cid">SU-04</div><span class="pri">通常</span></div><div class="title">会社 ID の形式と重複の検証</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>会社 ID に「ab」(2 文字)、「-abc」、「ABC 商事」を入れて送信</li><li>SU-02 で作った会社 ID をそのまま入れて送信</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>形式違反は送信前にブラウザの検証で止まるか、「英小文字・数字・ハイフンで 3〜40 文字」のエラーが出る</li><li>重複は「この会社 ID は既に使われています」と表示され、入力内容は保持される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-05"><div><div class="cid">SU-05</div><span class="pri">通常</span></div><div class="title">登録済みメールアドレスでは申し込めない</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>SU-02 でログインできるようになったアドレスで、別の会社名・会社 ID で申し込む</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「このメールアドレスは既に登録されています。ログイン画面からログインしてください」と表示される</li><li>確認メールは送られない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-06"><div><div class="cid">SU-06</div><span class="pri">任意</span></div><div class="title">同じメールアドレスからの連投は 1 日 3 回まで</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>未登録アドレスで申し込みを 4 回続けて送る(会社 ID は毎回変える)</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>3 回目までは確認メールが届く</li><li>4 回目は「本日の上限に達しました」と表示される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-08"><div><div class="cid">SU-08</div><span class="pri p1">必須</span></div><div class="title">法務ページ(利用規約・プライバシーポリシー・特定商取引法)の表示</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>未ログインのブラウザで <code>https://sfa.art-trading.net/legal/terms</code>、<code>https://sfa.art-trading.net/legal/privacy</code>、<code>https://sfa.art-trading.net/legal/tokushoho</code> を開く</li><li>ログイン画面と申し込み画面の下部リンクから各ページへ移動</li><li>運営管理 → 料金・既定値で基本料金を変更し、特定商取引法のページを再読み込み(確認後に戻す)</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>3 ページともログインなしで開け、ヘッダー・フッターのリンクで相互に移動できる</li><li>特定商取引法のページに事業者名(アートトレーディング株式会社)、代表者、住所、電話、メール、料金(税抜・税込)、お試し期間、解約とデータ削除の扱いが表示される</li><li>料金の変更が特定商取引法のページに反映される</li><li>プライバシーポリシーに委託先(Supabase・Vercel・Stripe・Anthropic・Google)と、データベースは東京リージョンに保管する旨がある</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-09"><div><div class="cid">SU-09</div><span class="pri">通常</span></div><div class="title">申し込みの同意チェック(規約・ポリシーへのリンク)</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>申し込み画面で同意チェックの文中の「利用規約」「プライバシーポリシー」を押す</li><li>チェックを外したまま送信する</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>リンクは別タブで各ページを開く</li><li>文言に「お試し期間の終了と同時にデータが削除される」旨が含まれる</li><li>未チェックはブラウザの必須チェックで止まるか、「利用規約とプライバシーポリシーへの同意が必要です」のエラーになる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="SU-07"><div><div class="cid">SU-07</div><span class="pri">通常</span></div><div class="title">申し込み画面の料金表示</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>PC 幅で /signup を開き、左側の料金表を確認</li><li>運営管理 → 料金・既定値で基本料金を変更して再読み込み</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>基本料金(税抜と税込)、ユーザー追加、メールアカウント追加、お試し日数が運営の設定と一致する</li><li>「表示価格は税抜、請求時に消費税 10% を加算」の注記がある</li><li>変更後に元の値へ戻す</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 2 ===================== -->
+      <section id="onboard">
+        <h2><span class="id">§2</span>利用開始</h2>
+        <p class="intro">開設直後の会社が、メールアカウントを連携してメールを取り込み、同僚を招待するまで。ログインは招待制で、自己登録はできません。パスワードを忘れたときは再設定メールで復旧します。</p>
+
+        <div class="cases">
+          <div class="case" data-id="ON-01"><div><div class="cid">ON-01</div><span class="pri p1">必須</span></div><div class="title">ログインとログアウト</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>ログアウトし、SU-02 のメールとパスワードでログイン</li><li>間違ったパスワードでログイン</li><li>ログイン状態で /login を直接開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>正しい認証情報でダッシュボードが開き、ヘッダーに会社名が出る</li><li>誤りはエラーメッセージが出て入力画面に留まる</li><li>ログイン中に /login を開くとダッシュボードへ戻される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-02"><div><div class="cid">ON-02</div><span class="pri p1">必須</span></div><div class="title">未ログインでは業務画面を開けない</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>ログアウトした状態で /inbox、/deals、/settings/billing を直接開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>いずれもログイン画面へリダイレクトされ、ログイン後に元のページへ戻る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-03"><div><div class="cid">ON-03</div><span class="pri p1">必須</span></div><div class="title">Gmail アカウントの連携と初回同期</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>テスト用 Gmail とアプリパスワード。受信トレイに数通のメールがあること。</div>
+              <div><div class="l">手順</div><ol><li>設定 → 「メールアカウントを追加」で「Gmail / Google Workspace」を選び、メールアドレスとアプリパスワードを登録</li><li>接続テストを実行</li><li>「今すぐ同期」を押す</li><li>メール一覧を開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>接続テストが成功し、「既定の差出人」バッジと「Gmail / Google Workspace」の表示が付く</li><li>同期後に最終同期日時が表示され、受信メールと送信済みメールが一覧に入る</li><li>差出人が担当者・取引先として自動登録される(担当者一覧で確認)</li><li>誤ったアプリパスワードでは接続テストが失敗し、原因が分かるメッセージが出る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-04"><div><div class="cid">ON-04</div><span class="pri p1">必須</span></div><div class="title">同僚を招待してログインできるようにする</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>運営管理でこの会社のユーザー上限を 2 に上げておく(既定は 1 で招待不可)。</div>
+              <div><div class="l">手順</div><ol><li>営業担当者 → 追加でメールアドレス付きの担当者を作る</li><li>「招待」を押す</li><li>届いた招待メールのリンクからパスワードを設定</li><li>別ブラウザでその人としてログイン</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>招待メールは自社(会社 A)の Gmail から送られ、招待者名が入っている</li><li>担当者の状態が「招待中」→ ログイン後に「ログイン可」に変わる</li><li>営業担当者ページの「N / 上限」が 2 / 2 になる</li><li>その人は同じ会社のデータだけが見える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-05"><div><div class="cid">ON-05</div><span class="pri">通常</span></div><div class="title">ユーザー上限に達すると招待できない</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>ON-04 の状態(2 / 2)でさらに担当者を追加して「招待」</li><li>招待済みの担当者に「再送」</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>新規招待は「ログインユーザー数の上限(2 名、招待中を含む)に達しています」で止まる</li><li>再送は枠を消費せず送れる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-07"><div><div class="cid">ON-07</div><span class="pri p1">必須</span></div><div class="title">パスワードの再設定</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>SU-02 のアカウント(会社 A)でログアウト済み。</div>
+              <div><div class="l">手順</div><ol><li>ログイン画面の「パスワードを忘れた方」を開き、SU-02 のメールアドレスを送信</li><li>未登録のアドレスでも送信</li><li>届いたメールのリンクを開き、新しいパスワードを設定</li><li>古いパスワードと新しいパスワードでそれぞれログイン</li><li>使用済みのリンクをもう一度開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>登録あり・なしのどちらも「登録されていれば再設定メールを送りました」の同じ文言になる(登録の有無が分からない)</li><li>【SFA】パスワード再設定のご案内 が会社 A の既定メールアカウント(無ければ運営側)から届く</li><li>リンク先は「新しいパスワードを設定」の画面で、設定後にダッシュボードが開く</li><li>古いパスワードは拒否され、新しいパスワードでログインできる</li><li>使用済みリンクは「パスワード再設定のリンクが無効か、有効期限が切れています」のログイン画面になる</li><li>同じアドレスに 4 回続けて送ると、4 回目はメールが届かない(画面の文言は同じ)</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-08"><div><div class="cid">ON-08</div><span class="pri p1">必須</span></div><div class="title">Gmail 以外の IMAP / SMTP サーバーの連携</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>レンタルサーバーなど、IMAP と SMTP が使えるメールアカウントとその設定値。メールアカウント上限 2 以上。</div>
+              <div><div class="l">手順</div><ol><li>「メールアカウントを追加」で「その他の IMAP / SMTP サーバー」を選ぶ</li><li>IMAP サーバー:993、SMTP サーバー:465(または 587)、必要ならログイン ID を入力して保存</li><li>接続テスト → 今すぐ同期</li><li>そのアカウントを差出人にしてメールを送信</li><li>SMTP ポートを 25 や暗号化なしの設定にして接続テスト</li><li>サーバー名に URL(https://…)を入れて保存</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>設定一覧に「その他の IMAP / SMTP サーバー · IMAP ホスト:ポート / SMTP ホスト:ポート」とログイン ID が表示される</li><li>接続テストが成功し、受信トレイと送信済み(Sent / Sent Items / 送信済み などの名前でも)が取り込まれる</li><li>587 は STARTTLS で送信できる。暗号化に対応しないポートは接続テストが失敗し、原因の分かるメッセージが出る</li><li>URL 形式のサーバー名は「ホスト名だけを入力してください」で保存できない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ON-06"><div><div class="cid">ON-06</div><span class="pri">通常</span></div><div class="title">営業担当者の削除でログインが無効になり枠が空く</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>ON-04 で招待した人を削除</li><li>その人のブラウザで画面を操作</li><li>自分自身を削除しようとする</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>削除後、その人は次の操作でログイン画面に戻され、再ログインできない</li><li>「N / 上限」が 1 / 2 に戻る</li><li>自分自身は「削除できません」のメッセージ</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 3 ===================== -->
+      <section id="billing">
+        <h2><span class="id">§3</span>課金のルール</h2>
+        <p class="intro">料金は上限ではなく実際の利用数で毎月計算し、Stripe のサブスクリプション数量に自動で反映します。お試し中はカード不要、期限が切れると閲覧のみになります。</p>
+
+        <h3>料金の計算</h3>
+        <p>基本料金にメールアカウント 1 件・ユーザー 1 名(招待中を含む)・容量 1GB が含まれ、超えた分がオプション料金になります。消費税 10% は外税で、円未満は切り捨てです。</p>
+        <div class="scroll"><table class="rules">
+          <thead><tr><th>項目</th><th>単価(税抜)</th><th>数え方</th></tr></thead>
+          <tbody>
+            <tr><td>基本料金</td><td class="num">10,000 円/月</td><td>常に 1</td></tr>
+            <tr><td>ユーザー追加</td><td class="num">1,000 円/名</td><td>ログインできる利用者 + 招待中 − 1</td></tr>
+            <tr><td>メールアカウント追加</td><td class="num">5,000 円/件</td><td>連携メールアカウント数 − 1</td></tr>
+            <tr><td>容量追加</td><td class="num">0 円/GB</td><td>使用容量を GB に切り上げ − 1(単価 0 のため Stripe には載らない)</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note"><b>検算例:</b> ユーザー 3 名、メールアカウント 2 件 → 10,000 + 2 × 1,000 + 1 × 5,000 = <b>17,000 円</b>、消費税 1,700 円、税込 <b>18,700 円</b>。</div>
+
+        <h3>契約状態の遷移</h3>
+        <p>Stripe からの Webhook で、テナントの契約状態と課金状態が自動更新されます。</p>
+        <div class="scroll"><table class="rules">
+          <thead><tr><th>Stripe の状態</th><th>契約状態</th><th>課金状態</th><th>利用</th></tr></thead>
+          <tbody>
+            <tr><td>(未登録)</td><td>お試し期間</td><td>お試し中</td><td>期限内は利用可、期限後は閲覧のみ</td></tr>
+            <tr><td>trialing</td><td>お試し期間</td><td>お試し中</td><td>利用可(カード登録済み、期限は Stripe と同期)</td></tr>
+            <tr><td>active</td><td>契約中</td><td>課金中</td><td>利用可</td></tr>
+            <tr><td>past_due</td><td>契約中</td><td>支払い遅延</td><td>利用可(警告表示、Stripe が再試行)</td></tr>
+            <tr><td>unpaid / paused</td><td>停止中</td><td>支払い遅延</td><td>閲覧のみ</td></tr>
+            <tr><td>canceled</td><td>解約</td><td>解約済み</td><td>閲覧のみ、「再開する」ボタン</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note warn">運営が手で「停止中」にしたテナントは、Stripe の状態で上書きされません(運営の停止が優先)。</div>
+
+        <div class="cases">
+          <div class="case" data-id="BL-01"><div><div class="cid">BL-01</div><span class="pri p1">必須</span></div><div class="title">ご契約・お支払い画面の料金内訳</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>会社 A: ユーザー 2 名(招待中を含む)、メールアカウント 1 件。</div>
+              <div><div class="l">手順</div><ol><li>設定 → 「ご契約・お支払い」を開く</li><li>Gmail アカウントをもう 1 件追加して再表示</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>基本 10,000 + ユーザー追加 1 × 1,000 = 小計 11,000、消費税 1,100、合計 12,100 円</li><li>メールアカウント追加後は 5,000 円増え、小計 16,000、税込 17,600 円</li><li>お試しの残り日数と期限、ご利用状況(N / 上限)が表示される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-02"><div><div class="cid">BL-02</div><span class="pri p1">必須</span></div><div class="title">お試し中にカードを登録すると、課金開始がお試し終了日になる</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>お試し残り 2 日以上。Stripe テストモード。</div>
+              <div><div class="l">手順</div><ol><li>「お支払い方法を登録して契約する」を押す</li><li>Stripe Checkout で 4242… のカードを入力して登録</li><li>戻った画面と Stripe ダッシュボードを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>Checkout は日本語表示で、明細に基本料金と追加分、消費税 10% が載る</li><li>戻ると「お支払い方法を登録しました」と出て、契約状態は「お試し期間」のまま、「お支払い方法は登録済み。お試し終了後に自動課金」の説明になる</li><li>Stripe のサブスクリプションが trialing で、トライアル終了日がテナントのお試し期限と一致</li><li>顧客のメタデータに tenant_id と会社 ID が入っている</li><li>「お支払い方法・請求書を管理」ボタンが表示される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-03"><div><div class="cid">BL-03</div><span class="pri p1">必須</span></div><div class="title">お試し期限切れで閲覧のみになり、カード登録で復帰する</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>会社 B(カード未登録)。運営管理でお試し期限を昨日に変更。</div>
+              <div><div class="l">手順</div><ol><li>会社 B でログインして各画面を開く</li><li>取引先の追加、メール送信、同期を試す</li><li>バナーのリンクから「ご契約・お支払い」→ カード登録</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>上部に「お試し期間が終了しました…閲覧のみ」のバナーとご契約・お支払いへのリンク。ご契約・お支払い画面には「登録がない場合、利用規約にもとづきデータは削除されます」の案内</li><li>書き込み操作はすべて「お試し期間が終了しました」のエラーで止まる。閲覧はできる</li><li>カード登録後は即時課金され、契約状態が「契約中」、課金状態が「課金中」になり、バナーが消えて操作できる</li><li>次回請求日が表示される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-04"><div><div class="cid">BL-04</div><span class="pri">通常</span></div><div class="title">お試し終了 7 日前からの案内バナー</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>カード未登録の会社。運営管理でお試し期限を 5 日後に変更。</div>
+              <div><div class="l">手順</div><ol><li>その会社でログイン</li><li>カードを登録して再表示</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「お試し期間はあと 5 日で終了します」の青いバナーとリンクが出る</li><li>カード登録後はバナーが消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-05"><div><div class="cid">BL-05</div><span class="pri p1">必須</span></div><div class="title">利用数の変化が Stripe の数量に自動反映される</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>契約中(または trialing)の会社。ユーザー上限 3、メールアカウント上限 2。</div>
+              <div><div class="l">手順</div><ol><li>営業担当者を招待する</li><li>Gmail アカウントを追加する</li><li>Stripe ダッシュボードでサブスクリプションの明細を確認</li><li>招待した担当者を削除、Gmail アカウントを削除して再確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>招待後に「ユーザー追加」の数量が 1 増え、アカウント追加後に「メールアカウント追加」の明細が数量 1 で加わる(反映は数秒〜1 分)</li><li>削除後は数量が減り、0 になった明細は消える</li><li>日割り(proration)の明細が次回請求に入る</li><li>失敗した場合は設定 → システムログに stripe.sync のエラーが残る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-06"><div><div class="cid">BL-06</div><span class="pri p1">必須</span></div><div class="title">カスタマーポータルで支払い方法の変更・請求書・解約</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「お支払い方法・請求書を管理」を押す</li><li>カードを別のテストカードに変更</li><li>請求書一覧を開く</li><li>「サブスクリプションをキャンセル」(期間末)を実行して戻る</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>Stripe のポータルが日本語で開き、戻るとご契約・お支払い画面に戻る</li><li>解約予約後、画面に「〔日付〕で解約する予定」の注意が出る。契約状態は「契約中」のまま</li><li>ポータルで解約を取り消すと注意が消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-07"><div><div class="cid">BL-07</div><span class="pri">通常</span></div><div class="title">支払い失敗時の表示と通知</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>Stripe ダッシュボード(テスト)で、対象サブスクリプションの支払い方法を「請求が失敗するカード(4000 0000 0000 0341)」に変えるか、テストクロックで請求を進める。</div>
+              <div><div class="l">手順</div><ol><li>Stripe で請求書の支払いを失敗させる</li><li>テナント側のご契約・お支払い画面と、運営の通知先メールを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>課金状態が「支払い遅延」になり、画面に黄色の警告(カード情報の確認案内)が出る。操作はまだできる</li><li>運営に「お支払いに失敗しました」の通知メールが届き、システムログに stripe.payment_failed が残る</li><li>Stripe 側で最終的に unpaid になると契約状態が「停止中」になり閲覧のみになる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-08"><div><div class="cid">BL-08</div><span class="pri">通常</span></div><div class="title">解約後の閲覧のみと再開</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>Stripe ダッシュボードでサブスクリプションを即時キャンセル。</div>
+              <div><div class="l">手順</div><ol><li>テナント側で画面を開く</li><li>「お支払い方法を登録して再開する」から再度 Checkout</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>契約状態「解約」、バナー「解約済みです。データの閲覧のみ可能」、書き込みは拒否</li><li>再開の Checkout 後に「契約中」に戻り操作できる。Stripe には新しいサブスクリプションができる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-09"><div><div class="cid">BL-09</div><span class="pri">通常</span></div><div class="title">Webhook の重複配信と署名検証</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>Stripe ダッシュボード → Webhooks で直近のイベントを「再送信」</li><li>署名なしで <code>/api/stripe/webhook</code> に POST する(curl 等)</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>再送は 200 で応答し、テナントの状態は変わらない(重複として無視)</li><li>署名なしは 400 で拒否され、システムログに warn が残る(通知メールは飛ばない)</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-10"><div><div class="cid">BL-10</div><span class="pri">通常</span></div><div class="title">運営の料金変更が新しい契約と数量同期に反映される</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>運営管理 → 料金・既定値でユーザー追加単価を 1,500 円に変更</li><li>契約中の会社で営業担当者を招待(数量同期を発生させる)</li><li>Stripe の明細を確認し、単価を 1,000 円に戻す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「ユーザー追加」の明細が 1,500 円の新しい価格に置き換わる(旧価格の明細は消える)</li><li>Stripe の商品は増えず、価格(Price)だけが増える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="BL-11"><div><div class="cid">BL-11</div><span class="pri">任意</span></div><div class="title">Stripe 未設定時の表示</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>プレビュー環境などで STRIPE_SECRET_KEY を外した環境がある場合のみ。</div>
+              <div><div class="l">手順</div><ol><li>ご契約・お支払いを開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「オンラインでのお支払い登録は準備中です」と表示され、ボタンが出ない</li><li>申し込みは通常どおり動く</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 4 ===================== -->
+      <section id="inbox">
+        <h2><span class="id">§4</span>メール</h2>
+        <p class="intro">連携したメールアカウントから取り込んだメールの閲覧、返信・新規作成、問い合わせ登録、タグ付け、担当者・取引先の付け替え。返信は受信したアカウントから送られます。</p>
+        <div class="cases">
+          <div class="case" data-id="MB-01"><div><div class="cid">MB-01</div><span class="pri p1">必須</span></div><div class="title">受信トレイの表示と既読管理</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>メール一覧で未読メールを確認</li><li>1 通開いてスレッドを表示</li><li>一覧に戻る</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>未読は太字とドットで区別され、サイドメニューの「メール」に未読数バッジが出る</li><li>開くと既読になりバッジが減る</li><li>スレッドは日時順に並び、自分の送信メールは区別して表示される</li><li>日時は日本時間</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-02"><div><div class="cid">MB-02</div><span class="pri">通常</span></div><div class="title">検索(送信者・件名・本文)と未読絞り込み</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>検索対象を「件名」にして既知の語で検索ボタン</li><li>「本文」「送信者」でも同様に</li><li>「未読」フィルタを切り替える</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>対象に応じて一致するメールだけが残る</li><li>該当なしの場合は空の案内が出る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-03"><div><div class="cid">MB-03</div><span class="pri p1">必須</span></div><div class="title">返信(署名・件名・差出人アカウント)</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>設定 → 署名に会社名などを入れておく。</div>
+              <div><div class="l">手順</div><ol><li>受信メールを開いて返信フォームを表示</li><li>本文に署名が初期表示されることを確認し、送信</li><li>相手側の受信と、スレッドへの追加を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>署名は「会社名・担当者名・メールアドレス・追記」の順で入り、担当者名はログイン中の営業担当者名</li><li>送信後にスレッドに自分の返信が付き、Gmail の送信済みにも残る</li><li>差出人は受信したアカウント</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-04"><div><div class="cid">MB-04</div><span class="pri p1">必須</span></div><div class="title">新規作成と添付ファイル(ドラッグ&ドロップ)</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「新規作成」で宛先を複数(カンマ区切り)入力</li><li>ファイルを選択で 1 件、ドラッグ&ドロップで 1 件添付</li><li>送信し、受信側で添付を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>添付欄に 2 件表示され、削除もできる</li><li>受信側に添付付きで届く</li><li>送信したメールが一覧に「送信」として残り、添付をダウンロードできる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-05"><div><div class="cid">MB-05</div><span class="pri">通常</span></div><div class="title">受信添付の保存と容量上限</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>運営管理でこの会社の容量上限を小さく(例: 0.01GB)して、大きめの添付を送る。</div>
+              <div><div class="l">手順</div><ol><li>テスト Gmail 宛に添付付きメールを送り、同期</li><li>設定 → 会社(テナント)の使用容量を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>上限内なら添付が一覧に表示されダウンロードできる</li><li>上限を超える添付は保存されず、システムログに容量超過が記録される(メール本文は取り込まれる)</li><li>テスト後に上限を戻す</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-06"><div><div class="cid">MB-06</div><span class="pri">通常</span></div><div class="title">自社サイトのフォーム通知メールの扱い(推奨フォーマット)</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>設定 → 「問い合わせフォームの通知メール」の推奨フォーマット(会社名: / お名前: / メールアドレス: / 電話番号: / お問い合わせ内容:)で書いた本文を、フォームツール役の別アドレスから連携アカウント宛に送る。</div>
+              <div><div class="l">手順</div><ol><li>フォーム通知メールを同期</li><li>担当者一覧と、そのメールの返信フォームを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>送信元ではなく本文の問い合わせ者(会社名・氏名・メール・電話)が担当者・取引先として登録される</li><li>返信の宛先が問い合わせ者になり、件名が設定の「返信件名」になる</li><li>問い合わせに登録すると、要約と分類(見積依頼など)が本文の内容から付く</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-07"><div><div class="cid">MB-07</div><span class="pri">通常</span></div><div class="title">選択してタグ付け・一括削除</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>メールを 2 通選択して「タグ」から「リード」を付ける</li><li>スレッド内の他のメールと、紐付く担当者のタグを確認</li><li>タグで検索し、選択して削除(確認ダイアログ)</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>タグはスレッド内の全メールと担当者にも付く</li><li>削除はスレッド単位で消え、件数がトーストに出る</li><li>削除したメールは次回同期で再取り込みされない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-09"><div><div class="cid">MB-09</div><span class="pri p1">必須</span></div><div class="title">スレッドの担当者・取引先の付け替え</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>担当者・取引先が付いたスレッドが 2 つ以上あり、そのうち 1 つは問い合わせ登録済みで、別の取引先の案件に紐付いている。</div>
+              <div><div class="l">手順</div><ol><li>スレッド画面の「担当者・取引先を変更」→「登録済みの担当者を選ぶ」で別の会社の担当者を検索して選び、変更</li><li>問い合わせページと、元の案件の「メール履歴」を確認</li><li>同じダイアログで「新しい担当者を登録する」→ 氏名・メール・「新しい取引先を登録する」で会社名を入れて変更</li><li>既存担当者と同じメールアドレスで「新しい担当者を登録する」</li><li>「取引先だけを指定する」と「紐付けを外す」も実行</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>関連情報の取引先・担当者が変わり、スレッド内の全メールに反映される(取引先詳細の「メール」タブで確認)</li><li>そのメールから登録した問い合わせの取引先・担当者も変わる</li><li>別の取引先の案件への紐付けは外れる(案件のメール履歴から消える)</li><li>新しい担当者・取引先が作られ、担当者一覧・取引先一覧に出る</li><li>重複するメールアドレスは「既に登録されています。一覧から選んでください」で止まる</li><li>「紐付けを外す」後は取引先・担当者が「未登録」になり、担当者・取引先そのものは残る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-10"><div><div class="cid">MB-10</div><span class="pri">通常</span></div><div class="title">フォーム通知の項目名と送信元の設定</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>MB-06 と同じ送り方で、項目名を「貴社名(必須):」「ご担当者様:」「連絡先メール:」のように標準に無いものにした通知メールを用意。</div>
+              <div><div class="l">手順</div><ol><li>設定なしで同期し、担当者一覧を確認</li><li>設定 → 問い合わせフォームの通知メールで、氏名の項目名に「ご担当者様」、メールアドレスの項目名に「連絡先メール」を追加して保存。届いたメールを削除して再同期(または新しい通知メールを送る)</li><li>「通知メールの送信元アドレス」にフォームツール役のアドレスを登録し、項目名が全く合わない本文の通知メールを同期</li><li>メールアドレスの形式でない値を送信元アドレスに入れて保存</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>設定なしでは本文を読み取れず、差出人(フォームツール役)が担当者として登録されるか、AI 抽出で問い合わせ者が登録される(どちらになったかメモ)</li><li>項目名を追加した後は本文の問い合わせ者が登録される</li><li>送信元アドレスを登録すると、読み取れなかった場合でもフォームツール役のアドレスは担当者として登録されず、スレッドの担当者は「未登録」になる</li><li>形式違反は「送信元アドレスの形式が正しくありません」で保存できない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MB-08"><div><div class="cid">MB-08</div><span class="pri">通常</span></div><div class="title">スレッドと案件の紐付け</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>案件が 1 件以上ある。</div>
+              <div><div class="l">手順</div><ol><li>スレッド画面の「案件を選択」で案件に紐付ける</li><li>案件詳細でメールが表示されることを確認し、紐付けを外す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>案件詳細の関連メールにスレッドが出る</li><li>外すと消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 5 ===================== -->
+      <section id="inquiry">
+        <h2><span class="id">§5</span>問い合わせ</h2>
+        <p class="intro">メール一覧で選んだメールを問い合わせとして登録し、状態(新規 → 対応中 → 案件化 / 完了)を管理します。同期で自動登録はされません。</p>
+        <div class="cases">
+          <div class="case" data-id="IQ-01"><div><div class="cid">IQ-01</div><span class="pri p1">必須</span></div><div class="title">メールから問い合わせを登録</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>メール一覧で受信メールを 2 通選択し「問い合わせに登録」</li><li>同じメールでもう一度登録</li><li>問い合わせ一覧を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>2 件が「新規」で登録され、件名・取引先・担当者・メール本文が表示される</li><li>登録済みのメールは重複登録されず、その旨が表示される</li><li>サイドメニューの「問い合わせ」に新規件数のバッジが出る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="IQ-02"><div><div class="cid">IQ-02</div><span class="pri p1">必須</span></div><div class="title">状態変更と案件化(アポ取得)</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>問い合わせを「対応中」にする</li><li>「アポ取得」で案件化し、案件名などを入力</li><li>案件カンバンを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>状態が順に変わり、案件化すると「案件化」になって案件へのリンクが付く</li><li>案件はステージ「アポ取得」に作られ、取引先・担当者が引き継がれる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="IQ-03"><div><div class="cid">IQ-03</div><span class="pri">通常</span></div><div class="title">手動登録と削除</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「追加」で件名なしで登録 → 件名ありで登録</li><li>削除ボタン → 確認ダイアログでキャンセル → 再度削除で確定</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>件名なしは「件名は必須です」</li><li>キャンセルでは消えず、確定で消える。紐付いていたメールは残る</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 6 ===================== -->
+      <section id="deals">
+        <h2><span class="id">§6</span>案件と売上</h2>
+        <p class="intro">ステージは アポ取得 → 提案書作成中 → 提案済み → 検討中 → 保留 → 成約 / 失注。成約には月次売上の入力が必須です。案件の「行動」タブで電話・メール・訪問などの履歴と期限付き Todo を管理し、期限超過は赤で警告します。行動の種類は設定画面で追加・並び替えでき、期限・アポイント日時・受注予定日は「今日・明日…」のボタンと 2 週間タイルのカレンダーで入力します(過去の日は選べません)。</p>
+        <div class="scroll"><table class="rules">
+          <thead><tr><th>ステージ</th><th>確度</th><th>備考</th></tr></thead>
+          <tbody>
+            <tr><td>アポ取得</td><td class="num">30%</td><td>問い合わせからの案件化時の初期ステージ</td></tr>
+            <tr><td>提案書作成中</td><td class="num">40%</td><td></td></tr>
+            <tr><td>提案済み</td><td class="num">50%</td><td></td></tr>
+            <tr><td>検討中</td><td class="num">60%</td><td></td></tr>
+            <tr><td>保留</td><td class="num">20%</td><td></td></tr>
+            <tr><td>成約</td><td class="num">100%</td><td>売上明細(金額と計上月)が 1 件以上必須。金額の合計が案件金額になる</td></tr>
+            <tr><td>失注</td><td class="num">0%</td><td>失注理由を入力</td></tr>
+          </tbody>
+        </table></div>
+        <div class="cases">
+          <div class="case" data-id="DL-01"><div><div class="cid">DL-01</div><span class="pri p1">必須</span></div><div class="title">案件の作成・編集・カンバン移動</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「追加」で取引先なし・案件名なしで保存</li><li>取引先と案件名、金額、営業担当を入れて保存</li><li>カードをドラッグして「提案済み」へ、同じ列内で並べ替え</li><li>詳細でメモを追加・削除</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>取引先と案件名が必須のエラーが出る</li><li>移動後に再読み込みしてもステージと並び順が保たれる</li><li>ダッシュボードの「ステージ別パイプライン」に反映される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-02"><div><div class="cid">DL-02</div><span class="pri p1">必須</span></div><div class="title">成約には売上入力が必須</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>案件を「成約」へ移動し、売上入力を空のまま確定</li><li>計上月 2 か月分(例: 今月 100,000 / 来月 50,000)を入れて確定</li><li>売上ページとダッシュボードを確認</li><li>成約の案件を「検討中」に戻す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>空のままは「売上明細を 1 件以上入力してください」で止まる</li><li>確定後、案件金額が 150,000 になり成約日が付く</li><li>売上ページの該当月に金額が計上され、年間合計が合う</li><li>戻すと成約日が消え、売上明細も消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-03"><div><div class="cid">DL-03</div><span class="pri">通常</span></div><div class="title">失注と失注理由</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>案件を「失注」へ移動し理由を入力</li><li>失注の案件を「提案済み」に戻す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>詳細に失注理由が表示される</li><li>戻すと理由が消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-05"><div><div class="cid">DL-05</div><span class="pri p1">必須</span></div><div class="title">行動の登録・完了・期限超過の警告</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>進行中の案件が 1 件ある。</div>
+              <div><div class="l">手順</div><ol><li>案件詳細の「行動」タブで、種類「電話」・内容を入れ、期限を「今日」+「時刻を指定…」で現在より前の時刻(例: 08:00)にして登録(過去の日付は選べないため、当日の過ぎた時刻で期限超過を作る)</li><li>種類「見積書作成」で期限「今日」+「時刻なし(終日)」、種類「電話折り返し依頼」で期限「日付を選ぶ」のタイルから 5 日後を選んで登録</li><li>種類「訪問」で「済んだ行動として記録する」にチェックして登録</li><li>案件一覧(カンバン)とダッシュボードを確認</li><li>期限を過ぎた行動にチェックを付けて完了にし、再度確認</li><li>鉛筆で内容と期限を編集、ゴミ箱で 1 件削除</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>期限を過ぎた行動は赤い背景と「期限超過」バッジ、タブに「超過 1」の赤いバッジ、上部に「期限を過ぎた行動が 1 件あります」の警告</li><li>終日の行動は黄色の「今日」で、期限は日付だけ(時刻なし)で表示される。5 日後は「予定」扱い(バッジなし)、済んだ行動は打ち消し線と完了日時で下に並ぶ</li><li>並び順は 期限超過 → 今日 → 5 日後 → 完了 の順</li><li>カンバンのカードに「期限超過 1」「今日 1」、サイドバーの「行動」に赤いバッジ「1」、ダッシュボードの「進行中の案件」に「期限超過の行動 1 件」、「今日やること」に 3 件(期限超過・今日・5 日後)が種類・内容・案件名・取引先付きで並ぶ</li>
+                <li>サイドバーの「行動」ページで、期限超過 / 今日 / それ以降 のグループに分かれて表示され、期限超過の行のチェックを付けると完了になり一覧から消える。「完了済みも表示」で完了分が見える</li><li>完了にすると警告とバッジが消え、カンバン・ダッシュボードからも減る</li><li>編集・削除が反映される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-06"><div><div class="cid">DL-06</div><span class="pri p1">必須</span></div><div class="title">行動の種類の設定(追加・編集・並び替え・削除の制限)</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>DL-05 で種類「電話」を使った行動がある。</div>
+              <div><div class="l">手順</div><ol><li>設定 → 「行動の種類」で既定の 6 個(電話・メール・訪問・見積書作成・電話折り返し依頼・その他)を確認</li><li>「オンライン商談」をアイコン「Web 会議」で追加</li><li>上下の矢印で「オンライン商談」を先頭に移動し、ページを再読み込み</li><li>「見積書作成」の名前を「見積提出」に、アイコンを「契約・書類」に変更</li><li>「電話」を削除 → 「オンライン商談」を削除</li><li>同じ名前「メール」で追加、21 個目を追加</li><li>案件詳細の「行動」タブを開き、種類ボタンの並びを確認。新規テナント(会社 B)の設定も確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>既定 6 個が最初から入っている(会社 B にも同じ 6 個)</li><li>追加した種類がアイコン付きで一覧に出て、並び替えは再読み込み後も保たれる</li><li>名前・アイコンの変更は、登録済みの行動の表示(行動タブ・行動一覧・ダッシュボード)にも反映される</li><li>使用中の「電話」は「この種類を使っている行動が 1 件あるため削除できません」で止まり、未使用の「オンライン商談」は削除できる。残り 1 個になったときは「最低 1 個必要」で削除できない</li><li>同名は「同じ名前の種類があります」、21 個目は上限エラー</li><li>行動タブの種類ボタンが設定の並び順どおりで、先頭の種類が最初から選ばれている</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-07"><div><div class="cid">DL-07</div><span class="pri p1">必須</span></div><div class="title">期限・アポイント日時・受注予定日の入力部品</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>進行中の案件が 1 件ある。PC とスマホ(または幅 400px 程度)の両方で確認。</div>
+              <div><div class="l">手順</div><ol><li>行動タブで「明日」を押し、続けて「午後 14:00」を押して登録</li><li>「日付を選ぶ」を押してタイルを開き、‹ › と「今日に戻る」で週を動かし、次の週の平日を選んで「時刻を指定…」で 09:30 を選び登録</li><li>「日付を選ぶ」で祝日(9 月なら 21〜23 日)と土日の表示、今日より前のタイルを押せるかを確認</li><li>日付を選んだあと「時刻なし(終日)」のまま登録し、「クリア」で未設定に戻して期限なしでも登録</li><li>登録済みの行動を鉛筆で開き、期限の初期表示が保存した日時と一致することを確認して別の日に変更</li><li>案件の編集(鉛筆)でアポイント日時を「来週◯曜」+「13:00」、受注予定日を「来月末」にして保存。案件の新規作成でも同じ部品が出ることを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>日付ボタンは 今日・明日・明後日・来週◯曜・1 週間後・日付を選ぶ の 6 個。押すと時刻ボタン(午前中 10:00・午後 14:00・夕方 17:00・時刻なし(終日)・時刻を指定…)が現れ、下に「9月16日(水) 14:00 · 明後日」のように確定内容が出る</li><li>タイルは 7 列 × 2 段の 14 日分。曜日と日付が大きく、月が変わる日に「◯月」、祝日は赤い「祝」と祝日名。土日祝は薄い背景で選べる。今日より前は薄く押せない。‹ は今日を含む週で無効</li><li>選んだ日がボタンに無い日のときは「日付を選ぶ」ボタンがその日付の表示に変わる</li><li>「時刻なし(終日)」で登録した行動は一覧で日付だけが表示され、その日のうちは「今日」、翌日になると「期限超過」になる</li><li>編集ダイアログの初期表示が保存内容と一致する(日付ボタンに該当する日はそのボタンが選択状態、時刻は該当ボタンまたはプルダウン)</li><li>アポイント日時には「時刻なし」が無く、時刻ボタンは 10:00・13:00・14:00・16:00。受注予定日は「今月末・来月末・再来月末・日付を選ぶ」で時刻なし。保存後の詳細画面・カンバンのカードに反映される</li><li>スマホ幅でもタイルが横にはみ出さず、ボタンが折り返して押せる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="DL-04"><div><div class="cid">DL-04</div><span class="pri">通常</span></div><div class="title">売上ページの年切り替えと削除の影響</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>売上ページで年を切り替える</li><li>成約案件を削除して売上ページを再確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>年ごとの月次表と年間合計が切り替わる</li><li>案件を削除すると売上も消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 7 ===================== -->
+      <section id="master">
+        <h2><span class="id">§7</span>取引先・担当者・タグ</h2>
+        <p class="intro">取引先(companies)と担当者(contacts)はメールから自動登録され、手動でも編集できます。重複して作られたものは統合でまとめます。タグは担当者の属性管理と CSV 出力に使います。</p>
+        <div class="cases">
+          <div class="case" data-id="MS-01"><div><div class="cid">MS-01</div><span class="pri">通常</span></div><div class="title">取引先の追加・編集・削除</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>取引先を追加し、詳細で担当者を追加</li><li>取引先名を編集</li><li>案件が紐付いている取引先を削除</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>詳細に担当者・案件・メールの一覧が出る</li><li>削除時は紐付くデータへの影響が案内され、削除後に案件側の取引先が外れる(または削除が止まる)。挙動をメモに記録</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-02"><div><div class="cid">MS-02</div><span class="pri p1">必須</span></div><div class="title">担当者のタグ絞り込みと CSV 出力</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>MB-07 で「リード」を付けた担当者がいる。</div>
+              <div><div class="l">手順</div><ol><li>担当者一覧でタグ「リード」で絞り込む</li><li>担当者を選択してタグ「顧客」を追加、「リード」を外す</li><li>「CSV ダウンロード」を実行し Excel で開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>絞り込みで該当者だけになる</li><li>タグの付け外しが即時反映される</li><li>CSV は絞り込み条件を反映し、文字化けせず(BOM 付き UTF-8)、氏名・会社・メール・タグ列がある</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-04"><div><div class="cid">MS-04</div><span class="pri p1">必須</span></div><div class="title">取引先の統合</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>取引先 X(ドメインあり、案件 1 件・売上あり・担当者 1 名・メールあり)と、同じ会社を指す取引先 Y(ドメインなし、担当者 1 名・問い合わせ 1 件)。</div>
+              <div><div class="l">手順</div><ol><li>取引先 Y の詳細で「統合」を押し、X を検索して「「X」に統合する」</li><li>X の詳細と、担当者一覧・問い合わせ・案件・売上ページを確認</li><li>X の詳細で「統合」を開き、X 自身が候補に出ないことを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>確認文に統合元・統合先の名前と「元に戻せません」が出て、統合後は X の詳細に遷移する</li><li>Y の担当者・メール・問い合わせが X に移り、Y は一覧から消える</li><li>X の案件・売上はそのまま。X のドメインなど埋まっている項目は上書きされず、空欄だけ Y の値で埋まる(メモは連結)</li><li>Y のドメインが X に無かった場合は引き継がれる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-05"><div><div class="cid">MS-05</div><span class="pri p1">必須</span></div><div class="title">担当者の統合</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>同じ人を指す担当者 P(メールあり、タグ「リード」、メール 2 通、問い合わせ 1 件)と Q(メールなし、電話あり、タグ「顧客」、案件 1 件の担当)。</div>
+              <div><div class="l">手順</div><ol><li>担当者一覧で Q の行の統合アイコン(矢印が合流する形)を押し、P を検索して統合</li><li>P の詳細(取引先詳細の担当者タブ)、メール一覧、問い合わせ、案件を確認</li><li>取引先詳細の担当者タブからも同じ操作ができることを確認(別の重複ペアで)</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>Q のメール・問い合わせ・案件の担当者が P になり、Q は消える</li><li>P のタグが「リード」「顧客」の両方になる(重複しない)</li><li>P の電話が空なら Q の電話で埋まる。P のメールアドレスは変わらない</li><li>確認文に、統合元のメールアドレスが残らない旨の注意が出る(統合元にメールがある場合)</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-06"><div><div class="cid">MS-06</div><span class="pri">通常</span></div><div class="title">担当者の所属変更がメール・問い合わせに波及する</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>担当者 R(取引先 X 所属、メール 2 通・問い合わせ 1 件・案件 1 件)。</div>
+              <div><div class="l">手順</div><ol><li>R を編集して会社を取引先 Z に変更</li><li>取引先 X と Z の詳細の「メール」「問い合わせ」「案件」タブを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>R のメールと問い合わせの取引先が Z に変わる(X のタブから消え、Z のタブに出る)</li><li>案件は X に残ったまま(案件は取引先に属するため動かさない)</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-03"><div><div class="cid">MS-03</div><span class="pri">通常</span></div><div class="title">タグ設定(既定 6 個、最大 20 個、並び替え)</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>設定 → タグで既定の 6 個(リード・セールス・パートナー・顧客・失注・要注意)を確認</li><li>名前と色を変更、新しいタグを追加</li><li>上下の矢印で「要注意」を先頭に移動し、ページを再読み込み</li><li>メール一覧のタグ絞り込み・選択時のタグメニュー、担当者一覧のタグ絞り込みを開く</li><li>合計 21 個目を追加</li><li>使用中のタグを削除</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>新規テナントにも既定 6 個が最初から入っている</li><li>並び替えは再読み込み後も保たれ、タグの選択肢と絞り込みの並びが設定の順になる</li><li>21 個目は上限エラー</li><li>削除するとメール・担当者からもそのタグが消える</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 8 ===================== -->
+      <section id="members">
+        <h2><span class="id">§8</span>営業担当者</h2>
+        <p class="intro">自社の営業担当者(members)。案件の担当と署名の名前に使われ、招待するとログインできます。招待・削除の詳細は §2 を参照。</p>
+        <div class="cases">
+          <div class="case" data-id="MM-01"><div><div class="cid">MM-01</div><span class="pri">通常</span></div><div class="title">担当者の追加・並び順・無効化と案件担当</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>メールアドレスなしで担当者を追加</li><li>その担当者を案件の担当に設定</li><li>担当者を無効にして案件の担当者選択を確認</li><li>担当者を削除して案件詳細を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>メールなしでも登録でき、「招待」は押せない(メール登録を促す)</li><li>無効な担当者は選択肢から外れる(既存の設定は残る)</li><li>削除すると案件の担当が「未設定」になる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 9 ===================== -->
+      <section id="settings">
+        <h2><span class="id">§9</span>設定とログ</h2>
+        <p class="intro">署名・返信件名、通知先、システムログ、ヘルスチェック。</p>
+        <div class="cases">
+          <div class="case" data-id="ST-01"><div><div class="cid">ST-01</div><span class="pri">通常</span></div><div class="title">署名と返信件名の保存</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>会社名・メール・追記・返信件名を変更して保存</li><li>返信フォームを開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>保存トーストが出て、再読み込み後も残る</li><li>返信フォームの署名と件名に反映される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ST-02"><div><div class="cid">ST-02</div><span class="pri">通常</span></div><div class="title">複数メールアカウントと既定の差出人</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>メールアカウント上限 2 以上。</div>
+              <div><div class="l">手順</div><ol><li>2 件目を追加し、既定を切り替える</li><li>新規作成で差出人を選んで送信</li><li>1 件目を無効にして同期</li><li>上限を超えて 3 件目を追加</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>新規作成の既定の差出人が切り替わる</li><li>無効なアカウントは同期・送信の対象外</li><li>3 件目は「連携メールアカウント数の上限」で止まる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ST-03"><div><div class="cid">ST-03</div><span class="pri">通常</span></div><div class="title">通知先メールとテスト通知、システムログ</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>通知先メールを 2 件(カンマ区切り)にして保存、「テスト通知を送る」</li><li>誤ったアプリパスワードで同期してエラーを起こす</li><li>設定 → システムログを開き、30 日より古いログの削除を実行</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>テスト通知が両方に届く</li><li>同期エラーがログに error で残り、通知メールが届く。同じ発生箇所は 30 分に 1 回しか通知されない</li><li>ログ一覧でレベル・発生箇所・日時が見え、削除件数が表示される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ST-04"><div><div class="cid">ST-04</div><span class="pri">任意</span></div><div class="title">ヘルスチェック</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>未ログインのブラウザで <code>https://sfa.art-trading.net/api/health</code> を開く</li><li>ログイン中のブラウザで開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>未ログインは DB の確認だけで ok: true</li><li>ログイン中は自社の IMAP / SMTP 接続も確認され、失敗があると 503</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 10 ===================== -->
+      <section id="admin">
+        <h2><span class="id">§10</span>運営管理</h2>
+        <p class="intro">運営者だけが開ける <code>/admin</code>。テナントの一覧・作成・詳細、料金、運営者の招待、メールテンプレート。</p>
+        <div class="cases">
+          <div class="case" data-id="AD-01"><div><div class="cid">AD-01</div><span class="pri p1">必須</span></div><div class="title">テナント一覧と月額合計</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>運営者でログインし /admin を開く</li><li>各テナントのユーザー・メールアカウント・容量・月額・お試し期限を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>利用数が実際と一致し、上限到達は赤字</li><li>月額合計は「課金中」かつ自社以外のテナントの合計</li><li>経路(Web 申し込み / 運営が作成)が見分けられる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="AD-02"><div><div class="cid">AD-02</div><span class="pri p1">必須</span></div><div class="title">運営からのテナント作成と招待</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>テナントを作成(上限・お試し日数を指定)</li><li>招待メールが届くこと、または失敗時にリンクが表示されることを確認</li><li>詳細から招待を再送</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>招待メールは運営側の Gmail から送られ、リンクからパスワード設定できる</li><li>指定した上限・お試し期限が詳細に反映される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="AD-03"><div><div class="cid">AD-03</div><span class="pri">通常</span></div><div class="title">テナント詳細の編集(契約状態・上限・連絡先)と Stripe 情報</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>契約状態を「停止中」にしてテナント側を確認、戻す</li><li>上限を変更してテナント側の「N / 上限」を確認</li><li>連絡先・運営メモを編集</li><li>Stripe カードの顧客・サブスクリプションのリンクと「今すぐ同期」</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>停止中はテナント側が閲覧のみになり、cron 同期の対象外</li><li>運営メモはテナント側に表示されない</li><li>Stripe のリンクがテストモードのダッシュボードを開く。同期後に数量が合う</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="AD-04"><div><div class="cid">AD-04</div><span class="pri">通常</span></div><div class="title">テナント削除</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>契約中(Stripe サブスクリプションあり)のテスト用テナント。</div>
+              <div><div class="l">手順</div><ol><li>削除で会社 ID を間違えて入力 → 正しく入力</li><li>自社テナントの削除を試す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>会社 ID が違うと削除されない</li><li>削除すると業務データ・添付・利用者の所属が消え、Stripe のサブスクリプションがキャンセルされる</li><li>自社テナントは「削除できません」</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="AD-05"><div><div class="cid">AD-05</div><span class="pri">通常</span></div><div class="title">運営者の招待と削除(スーパーユーザーのみ)</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>/admin/users から未登録のメールアドレスで新しい運営者を招待し、リンクからパスワード設定</li><li>その運営者でテナント側の画面(/ や /inbox)を開く</li><li>運営側の会社(art-trading)の利用者のメールで招待し、届いたリンクを開く。その人でテナント側の画面と /admin の両方を開く</li><li>他社(会社 A など)の利用者のメールで招待</li><li>手順 1 の運営者と手順 3 の運営者をそれぞれ削除し、手順 3 の人でテナント側にログインし直す</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>未登録メールで招待された運営者は /admin に入れ、テナント側の画面は開けず /admin に戻される</li><li>自社の利用者はエラーにならず招待でき、リンクを開くとログイン状態で /admin が開く。テナント側の画面も使え、サイドバーの下に「運営管理」が出る</li><li>他社の利用者は「他社(テナント)の利用者として登録されています」のエラーで招待できない。エラーは 15 秒表示され、× で閉じられる</li><li>運営専用の運営者は削除すると auth ユーザーごと消えてログインできない。自社の利用者は運営者から外れるだけで、テナント側には引き続きログインできる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="AD-06"><div><div class="cid">AD-06</div><span class="pri">通常</span></div><div class="title">メールテンプレートの編集</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「Web 申し込みの確認メール」の本文から {{link}} を消して保存</li><li>文言を変えて保存し、SU-01 を再実行</li><li>「パスワード再設定」の件名を変えて保存し、ON-07 を再実行</li><li>「既定に戻す」</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>{{link}} なしは保存を拒否される</li><li>変更した文言でメールが届き、差し込み項目が置き換わる</li><li>パスワード再設定メールも変更した件名で届く(5 種類すべて保存できる)</li><li>既定に戻せる</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+
+      <!-- ===================== 11 ===================== -->
+      <section id="isolation">
+        <h2><span class="id">§11</span>テナント分離と権限</h2>
+        <p class="intro">同じ URL・同じデータベースを複数の会社が使うため、他社のデータが見えないことが最重要です。</p>
+        <div class="cases">
+          <div class="case" data-id="IS-01"><div><div class="cid">IS-01</div><span class="pri p1">必須</span></div><div class="title">他社のデータが見えない・触れない</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>会社 A と会社 B にそれぞれデータ(取引先・案件・メール)がある。</div>
+              <div><div class="l">手順</div><ol><li>会社 A でログインし、各一覧・ダッシュボード・検索・CSV を確認</li><li>会社 B の案件 URL(/deals/〔ID〕)や添付 URL(/api/attachments/〔ID〕)を直接開く</li><li>会社 B の担当者 ID を指定してタグ付けなどの操作を試みる</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>会社 B のデータは一切表示されず、件数にも含まれない</li><li>直接 URL は「見つかりません」または 404</li><li>操作は対象なしとして何も変わらない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="IS-02"><div><div class="cid">IS-02</div><span class="pri p1">必須</span></div><div class="title">一般利用者は運営管理に入れない</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>会社 A の利用者で /admin を開く</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>運営管理は表示されず、テナント側の画面に戻されるか拒否される</li><li>サイドメニューに運営管理のリンクが出ない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="IS-03"><div><div class="cid">IS-03</div><span class="pri">通常</span></div><div class="title">どの会社にも所属しない利用者</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>運営管理でテナントを削除された利用者、または削除後に残った auth ユーザー。</div>
+              <div><div class="l">手順</div><ol><li>その利用者でログイン</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>「どの会社(テナント)にも所属していません」の案内とログアウトだけが表示され、データは見えない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="IS-04"><div><div class="cid">IS-04</div><span class="pri">通常</span></div><div class="title">日次 cron の対象</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>CRON_SECRET を知っている運営者が実施。</div>
+              <div><div class="l">手順</div><ol><li><code>Authorization: Bearer 〔CRON_SECRET〕</code> を付けて /api/mail/sync と /api/health を呼ぶ</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>お試し期限内・契約中のテナントだけが同期され、停止中・解約・期限切れは対象外(応答の tenants 一覧で確認)</li><li>シークレットなしは 401</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "sfa-test-results-v1";
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var cases = Array.prototype.slice.call(document.querySelectorAll(".case"));
+  var labels = { ok: "OK", ng: "NG", hold: "保留" };
+
+  cases.forEach(function (c) {
+    var id = c.getAttribute("data-id");
+    var res = c.querySelector(".res");
+    var memo = c.querySelector(".memo input");
+    if (memo) { memo.id = "memo-" + id; memo.setAttribute("aria-label", id + " のメモ"); }
+    ["ok", "ng", "hold"].forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = k; b.textContent = labels[k];
+      b.id = "res-" + id + "-" + k;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        var cur = state[id] && state[id].r;
+        state[id] = state[id] || {};
+        state[id].r = cur === k ? "" : k;
+        save(); render();
+      });
+      res.appendChild(b);
+    });
+    if (memo) {
+      memo.value = (state[id] && state[id].m) || "";
+      memo.addEventListener("input", function () { state[id] = state[id] || {}; state[id].m = memo.value; save(); });
+    }
+  });
+
+  function render() {
+    var n = { ok: 0, ng: 0, hold: 0 };
+    cases.forEach(function (c) {
+      var id = c.getAttribute("data-id"); var r = (state[id] && state[id].r) || "";
+      c.classList.remove("is-ok", "is-ng", "is-hold");
+      if (r) { c.classList.add("is-" + r); n[r]++; }
+      Array.prototype.forEach.call(c.querySelectorAll(".res button"), function (b) { b.setAttribute("aria-pressed", String(b.className === r)); });
+    });
+    var total = cases.length, done = n.ok + n.ng + n.hold;
+    document.getElementById("t-total").textContent = total;
+    document.getElementById("t-done").textContent = done;
+    document.getElementById("t-ok").textContent = n.ok;
+    document.getElementById("t-ng").textContent = n.ng;
+    document.getElementById("t-hold").textContent = n.hold;
+    document.getElementById("b-ok").style.width = (n.ok / total * 100) + "%";
+    document.getElementById("b-ng").style.width = (n.ng / total * 100) + "%";
+    document.getElementById("b-hold").style.width = (n.hold / total * 100) + "%";
+  }
+  render();
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var lines = ["SFA テスト結果 " + new Date().toLocaleString("ja-JP"), ""];
+    cases.forEach(function (c) {
+      var id = c.getAttribute("data-id"); var s = state[id] || {};
+      var title = c.querySelector(".title").textContent.trim();
+      lines.push([id, s.r ? labels[s.r] : "未実施", title, s.m || ""].join("\t"));
+    });
+    var text = lines.join("\n");
+    var btn = this;
+    function done(ok) { btn.textContent = ok ? "コピーしました" : "コピーできませんでした"; setTimeout(function () { btn.textContent = "結果をコピー"; }, 1800); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+    else done(false);
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    state = {}; save();
+    cases.forEach(function (c) { var m = c.querySelector(".memo input"); if (m) m.value = ""; });
+    render();
+  });
+})();
+</script>

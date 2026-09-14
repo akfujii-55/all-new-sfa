@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/forgot-password") ||
     path.startsWith("/legal") ||
     path.startsWith("/lp") ||
+    path.startsWith("/docs") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/mail") ||
     path.startsWith("/api/stripe") ||
