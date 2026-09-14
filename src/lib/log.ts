@@ -25,6 +25,8 @@ export interface LogInput {
   detail?: Record<string, unknown> | null;
   path?: string | null;
   userEmail?: string | null;
+  /** 発生したテナント。渡さなければ db(テナント付きクライアント)から調べる。システム全体のログで不明なら null */
+  tenant?: { name: string; slug?: string | null } | null;
   /** false にすると error でも通知しない(通知処理自体の失敗など) */
   notify?: boolean;
 }
@@ -157,9 +159,13 @@ async function notifyIfNeeded(logDb: SupabaseClient, logId: string, input: LogIn
   // 先に通知済みにして、並行して起きたエラーが二重に通知されないようにする
   await logDb.from("system_logs").update({ notified: true }).eq("id", logId);
 
-  const subject = `[SFA] エラー: ${input.source} ${input.message}`.slice(0, 120);
+  // どのテナントで起きたかを件名と本文に入れる(サポート時にすぐ分かるように)
+  const tenant = input.tenant ?? (tenantDb ? await currentTenantLabel(tenantDb) : null);
+  const tenantLabel = tenant ? `${tenant.name}${tenant.slug ? `(${tenant.slug})` : ""}` : null;
+  const subject = `[SFA]${tenantLabel ? `[${tenant!.name}]` : ""} エラー: ${input.source} ${input.message}`.slice(0, 120);
   const lines = [
     `発生日時: ${fmtDateTime(new Date())}`,
+    `テナント: ${tenantLabel ?? "不明(ログイン外の処理、または運営側)"}`,
     `発生箇所: ${input.source}`,
     `内容: ${input.message}`,
     input.path ? `パス: ${input.path}` : null,
@@ -171,6 +177,15 @@ async function notifyIfNeeded(logDb: SupabaseClient, logId: string, input: LogIn
   const body = lines.join("\n");
 
   await sendAlert(settingsDb, { subject, body, targets });
+}
+
+async function currentTenantLabel(db: SupabaseClient): Promise<{ name: string; slug: string | null } | null> {
+  try {
+    const { data } = await db.from("tenants").select("name, slug").maybeSingle();
+    return data ? { name: data.name as string, slug: (data.slug as string | null) ?? null } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 通知を送る(メールと Webhook)。失敗は warn として記録し、例外は投げない。db が null ならメールは送れない(Webhook のみ) */

@@ -16,11 +16,22 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
   if (isLoggedError(err)) return;
 
   const userFacing = context.routeType === "action" && isUserFacingError(message);
+  // 誰が・どのテナントで起きたかを Cookie から調べて添える(通知メールの件名・本文と、ログ一覧の詳細に出る)
+  const { requestContextFromCookies } = await import("@/lib/supabase/request-context");
+  const ctx = userFacing ? { userEmail: null, tenant: null } : await requestContextFromCookies(request.headers.cookie);
   await logSystem({
     level: userFacing ? "warn" : "error",
     source: context.routeType,
     message,
-    detail: { ...errorDetail(err), routePath: context.routePath, method: request.method, renderSource: context.renderSource },
+    detail: {
+      ...errorDetail(err),
+      routePath: context.routePath,
+      method: request.method,
+      renderSource: context.renderSource,
+      tenant: ctx.tenant ? `${ctx.tenant.name}(${ctx.tenant.slug})` : null,
+    },
     path: request.path,
+    userEmail: ctx.userEmail,
+    tenant: ctx.tenant,
   });
 };
