@@ -265,14 +265,22 @@ export interface Inquiry {
   summary: string | null;
   category: string | null;
   status: InquiryStatus;
+  /** 自社の営業担当(members)。付けると「新規」は「対応中」に進む */
+  owner_id: string | null;
+  /** 単一欄のメモ(案件化時に案件のメモへ引き継ぐ) */
+  memo: string | null;
+  memo_updated_at: string | null;
+  memo_updated_by: string | null;
   received_at: string;
   created_at: string;
   updated_at: string;
   company?: Pick<Company, "id" | "name"> | null;
   contact?: Pick<Contact, "id" | "name" | "email"> | null;
   deal?: Pick<Deal, "id" | "title"> | null;
-  /** このスレッドのメール(emails.inquiry_id で紐付け) */
-  emails?: Pick<Email, "id" | "direction" | "from_address" | "from_name" | "subject" | "text_body" | "received_at">[];
+  owner?: Pick<Member, "id" | "name"> | null;
+  memo_author?: Pick<Profile, "id" | "full_name"> | null;
+  /** このスレッドのメール(emails.inquiry_id で紐付け)。tags は email_tags の埋め込み */
+  emails?: (Pick<Email, "id" | "direction" | "from_address" | "from_name" | "subject" | "text_body" | "received_at"> & { tags?: { tag: Tag | Tag[] | null }[] })[];
 }
 
 /** 案件の行動の種類(テナントごとに設定画面で追加・並び替え。既定は電話・メール・訪問・見積書作成・電話折り返し依頼・その他) */

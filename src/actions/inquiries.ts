@@ -7,6 +7,7 @@ import { loadFormProfile } from "@/lib/mail/form-profile";
 import type { InquiryStatus } from "@/lib/types";
 
 import { userError } from "@/lib/errors";
+import { assertTenantWritable } from "@/lib/tenant-quota";
 import { DELETE_LIST_TAG_NAME } from "@/lib/tag-rules";
 export async function updateInquiryStatus(id: string, status: InquiryStatus) {
   const supabase = await createClient();
@@ -14,6 +15,39 @@ export async function updateInquiryStatus(id: string, status: InquiryStatus) {
   if (error) throw userError(error.message);
   revalidatePath("/inquiries");
   revalidatePath("/");
+}
+
+/**
+ * 問い合わせの担当者(自社の営業担当 members)を変える。
+ * 担当者を付けたとき、ステータスが「新規」なら「対応中」に進める(外したときは戻さない)。
+ */
+export async function updateInquiryOwner(id: string, ownerId: string | null) {
+  const supabase = await createClient();
+  await assertTenantWritable(supabase);
+  const { data: inq } = await supabase.from("inquiries").select("id, status").eq("id", id).maybeSingle();
+  if (!inq) throw userError("問い合わせが見つかりません(すでに削除されている可能性があります)");
+  const patch: { owner_id: string | null; status?: InquiryStatus } = { owner_id: ownerId };
+  if (ownerId && inq.status === "new") patch.status = "in_progress";
+  const { error } = await supabase.from("inquiries").update(patch).eq("id", id);
+  if (error) throw userError(error.message);
+  revalidatePath("/inquiries");
+  revalidatePath("/");
+  return { status: patch.status ?? (inq.status as InquiryStatus) };
+}
+
+/** 問い合わせのメモ(単一欄)を保存する。空にすると消す */
+export async function updateInquiryMemo(id: string, memo: string) {
+  const supabase = await createClient();
+  await assertTenantWritable(supabase);
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw userError("ログインが必要です");
+  const body = memo.trim();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ memo: body || null, memo_updated_at: body ? new Date().toISOString() : null, memo_updated_by: body ? auth.user.id : null })
+    .eq("id", id);
+  if (error) throw userError(error.message);
+  revalidatePath("/inquiries");
 }
 
 export async function createInquiry(formData: FormData) {

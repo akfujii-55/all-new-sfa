@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     monthlyRevenueSeries(supabase, 12),
     supabase
       .from("inquiries")
-      .select("*, company:companies(id,name), contact:contacts(id,name,email)")
+      .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name)")
       .order("received_at", { ascending: false })
       .limit(5),
     supabase
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
                       {q.subject}
                     </Link>
                     <p className="text-xs text-muted-foreground line-clamp-1">
-                      {q.company?.name ?? "-"}{q.contact ? ` / ${q.contact.name}` : ""}
+                      {q.company?.name ?? "-"}{q.contact ? ` / ${q.contact.name}` : ""}{q.owner ? ` · 担当: ${q.owner.name}` : ""}
                     </p>
                   </div>
                   <div className="text-right shrink-0">

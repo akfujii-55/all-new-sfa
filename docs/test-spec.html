@@ -580,6 +580,12 @@
               <div><div class="l">期待結果</div><ul><li>状態が順に変わり、案件化すると「案件化」になって案件へのリンクが付く</li><li>案件はステージ「アポ取得」に作られ、取引先・担当者が引き継がれる</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
+          <div class="case" data-id="IQ-04"><div><div class="cid">IQ-04</div><span class="pri p1">必須</span></div><div class="title">担当者・メモ・タグ</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>「新規」の問い合わせで「担当者」に営業担当を選ぶ</li><li>担当者を「担当者なし」に戻す</li><li>「メモを追加」で経過を書いて保存 → 鉛筆で編集 → 空にして保存</li><li>「タグを付ける」でタグを付け、メール画面で同じスレッドを開く</li><li>上部の「担当者:」とタグで絞り込む</li><li>担当者とメモを付けた問い合わせを「案件化」</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>担当者を付けるとステータスが「対応中」に変わり、その旨のトーストが出る。外してもステータスは戻らない</li><li>メモは保存後に日時と更新者付きで表示され、空にすると「メモを追加」に戻る</li><li>スレッド画面の関連情報にも同じタグが付いている(メール側で外すと問い合わせ側からも消える)</li><li>「未割当」は担当者なしだけ、営業担当名はその人の分だけ、タグはそのタグのメールが属する問い合わせだけになる</li><li>案件作成ダイアログの営業担当とメモに問い合わせの値が入っている</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
           <div class="case" data-id="IQ-03"><div><div class="cid">IQ-03</div><span class="pri">通常</span></div><div class="title">手動登録と削除</div>
             <div class="body">
               <div><div class="l">手順</div><ol><li>「追加」で件名なしで登録 → 件名ありで登録</li><li>削除ボタン → 確認ダイアログでキャンセル → 再度削除で確定</li></ol></div>

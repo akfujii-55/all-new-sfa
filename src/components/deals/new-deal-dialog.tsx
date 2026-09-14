@@ -29,6 +29,8 @@ export interface NewDealDefaults {
   email_id?: string;
   stage?: DealStage;
   owner_id?: string;
+  /** 問い合わせから案件化するときに引き継ぐメモ */
+  memo?: string;
 }
 
 export function NewDealDialog({
@@ -160,7 +162,7 @@ export function NewDealDialog({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>
-            <Textarea id="memo" name="memo" rows={3} />
+            <Textarea id="memo" name="memo" rows={3} defaultValue={defaults?.memo ?? ""} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
