@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck, CalendarCheck,
+  LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck, CalendarCheck, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -58,14 +58,19 @@ export function Sidebar({ counts, isOperator = false }: { counts: NavCounts; isO
           );
         })}
       </nav>
-      {isOperator && (
-        <div className="border-t p-3">
+      <div className="border-t p-3 space-y-1">
+        {/* マニュアルは全利用者向け(公開ページ。別タブで開く) */}
+        <a href="/docs/manual" target="_blank" rel="noopener" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground">
+          <BookOpen className="size-4" />
+          <span className="flex-1">マニュアル</span>
+        </a>
+        {isOperator && (
           <Link href="/admin" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground">
             <ShieldCheck className="size-4" />
             <span className="flex-1">運営管理</span>
           </Link>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 }

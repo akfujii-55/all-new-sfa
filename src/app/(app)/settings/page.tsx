@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText, CreditCard } from "lucide-react";
+import { CheckCircle2, XCircle, Mail, Plus, Pencil, ScrollText, CreditCard, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { getMyUsage } from "@/lib/tenant-quota";
@@ -59,7 +59,12 @@ export default async function SettingsPage() {
       <PageHeader
         title="設定"
         description="メールアカウント連携、署名、通知の設定"
-        actions={<MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />}
+        actions={
+          <>
+            <Button asChild size="sm" variant="outline"><a href="/docs/manual" target="_blank" rel="noopener"><BookOpen className="size-4" /> マニュアル</a></Button>
+            <MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />
+          </>
+        }
       />
 
       <div className="space-y-4">
