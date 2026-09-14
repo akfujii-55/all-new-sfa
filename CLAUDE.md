@@ -29,6 +29,8 @@
 
 - 案件の行動(0019・0020): `deal_activities`(種類 `kind_id` → `activity_kinds`、本文、期限 due_at、完了 done_at)。種類はテナントごとに `activity_kinds`(名前・アイコンキー `icon`・sort_order、最大 20 個、既定 6 個はテナント作成時にトリガーで投入)で、設定画面の「行動の種類」から追加・編集・削除(使用中と最後の 1 個は不可)・上下の並び替え(`src/actions/activity-kinds.ts`、アイコン一覧は `src/lib/activity-kinds.ts`)。タグも同じ `reorder-buttons.tsx` で並び替え(`reorderTags`)。行動の埋め込みは `kind:activity_kinds(id,name,icon)`。`src/actions/activities.ts` で登録・編集・完了・削除、期限超過の判定は `src/lib/activities.ts` の `dueState`(今日の判定は日本時間)。案件詳細の「行動」タブ、カンバンのカード(期限超過・今日の件数)、ダッシュボードの「今日やること」、一覧ページ `/activities`(期限の状態ごとにグループ)、サイドバー「行動」の期限超過バッジに表示。共通の 1 行は `activity-row.tsx`(完了チェック付き)。
 
+- 日付入力: 行動の期限・案件のアポイント日時・受注予定日は `src/components/date-picker/date-picker.tsx`(日付ボタン + 「日付を選ぶ」で 2 週間タイル + 時刻ボタン。hidden input で datetime-local と同じ形式を渡すのでサーバーの `parseLocalInput` はそのまま)。「時刻なし(終日)」は 23:59 で保存し `fmtDue` で日付だけ表示。祝日は `src/lib/holidays.ts`(固定表、2028 年まで。毎年足す)。新しく日時を入力する画面を作るときは `<input type="datetime-local">` ではなくこの部品を使う。
+
 - LP(紹介ページ): 未ログインで `/` を開くと `src/lib/supabase/proxy.ts` が `/lp` に rewrite(URL は / のまま)。文言・構成・開発者写真は `src/content/lp.ts`、見た目は `src/app/lp/lp.css`(`.lp` にスコープ)、料金は operator_settings から自動。写真は public/lp/ に置いて lp.ts の verdict.founder を設定。
 
 ## ドメインの流れ
