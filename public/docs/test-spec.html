@@ -202,9 +202,9 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Test Specification · v1.4 · 2026-09-14</div>
+    <div class="eyebrow">Test Specification · v1.5 · 2026-09-14</div>
     <h1>SFA テスト仕様書</h1>
-    <p class="lede">中小企業向け営業支援ツール「SFA」の受け入れテスト仕様。Web からの申し込みとテナントの自動作成、課金のルール、利用開始までの流れ、各機能の動作を、テスターが順に確認できるようにまとめています。各項目の右にある OK / NG / 保留 を押すと結果がこのブラウザに保存され、上部の集計に反映されます。v1.1 では、パスワード再設定、法務ページ、Gmail 以外のメールサーバー、担当者・取引先の付け替えと統合、フォーム通知の項目名設定の項目(ID の末尾が 07 以降と MS-04〜06)を追加しました。v1.4 では、行動の種類の設定(DL-06)、期限・日時の入力部品(DL-07)、タグの並び替え(MS-03)を追加し、DL-05 を新しい期限入力に合わせて修正しました。</p>
+    <p class="lede">中小企業向け営業支援ツール「SFA」の受け入れテスト仕様。Web からの申し込みとテナントの自動作成、課金のルール、利用開始までの流れ、各機能の動作を、テスターが順に確認できるようにまとめています。各項目の右にある OK / NG / 保留 を押すと結果がこのブラウザに保存され、上部の集計に反映されます。v1.1 では、パスワード再設定、法務ページ、Gmail 以外のメールサーバー、担当者・取引先の付け替えと統合、フォーム通知の項目名設定の項目(ID の末尾が 07 以降と MS-04〜06)を追加しました。v1.4 では、行動の種類の設定(DL-06)、期限・日時の入力部品(DL-07)、タグの並び替え(MS-03)を追加し、DL-05 を新しい期限入力に合わせて修正しました。v1.5 では、取引先一覧からの複数統合(MS-07)と、フリーメールの相手の取引先判定(MS-08)を追加しました。</p>
     <div class="meta">
       <span>対象: <b>Next.js 16 + Supabase + Stripe(テストモード)</b></span>
       <span>テスト環境: <b><a href="https://sfa.art-trading.net/login">https://sfa.art-trading.net</a></b>(Vercel)</span>
@@ -678,7 +678,7 @@
 
           <div class="case" data-id="MS-04"><div><div class="cid">MS-04</div><span class="pri p1">必須</span></div><div class="title">取引先の統合</div>
             <div class="body"><div class="pre"><span class="l">前提</span>取引先 X(ドメインあり、案件 1 件・売上あり・担当者 1 名・メールあり)と、同じ会社を指す取引先 Y(ドメインなし、担当者 1 名・問い合わせ 1 件)。</div>
-              <div><div class="l">手順</div><ol><li>取引先 Y の詳細で「統合」を押し、X を検索して「「X」に統合する」</li><li>X の詳細と、担当者一覧・問い合わせ・案件・売上ページを確認</li><li>X の詳細で「統合」を開き、X 自身が候補に出ないことを確認</li></ol></div>
+              <div><div class="l">手順</div><ol><li>取引先 Y の詳細で「統合」を押し、X を検索して「「X」に統合する」(一覧からの統合は MS-07)</li><li>X の詳細と、担当者一覧・問い合わせ・案件・売上ページを確認</li><li>X の詳細で「統合」を開き、X 自身が候補に出ないことを確認</li></ol></div>
               <div><div class="l">期待結果</div><ul><li>確認文に統合元・統合先の名前と「元に戻せません」が出て、統合後は X の詳細に遷移する</li><li>Y の担当者・メール・問い合わせが X に移り、Y は一覧から消える</li><li>X の案件・売上はそのまま。X のドメインなど埋まっている項目は上書きされず、空欄だけ Y の値で埋まる(メモは連結)</li><li>Y のドメインが X に無かった場合は引き継がれる</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
@@ -686,6 +686,18 @@
             <div class="body"><div class="pre"><span class="l">前提</span>同じ人を指す担当者 P(メールあり、タグ「リード」、メール 2 通、問い合わせ 1 件)と Q(メールなし、電話あり、タグ「顧客」、案件 1 件の担当)。</div>
               <div><div class="l">手順</div><ol><li>担当者一覧で Q の行の統合アイコン(矢印が合流する形)を押し、P を検索して統合</li><li>P の詳細(取引先詳細の担当者タブ)、メール一覧、問い合わせ、案件を確認</li><li>取引先詳細の担当者タブからも同じ操作ができることを確認(別の重複ペアで)</li></ol></div>
               <div><div class="l">期待結果</div><ul><li>Q のメール・問い合わせ・案件の担当者が P になり、Q は消える</li><li>P のタグが「リード」「顧客」の両方になる(重複しない)</li><li>P の電話が空なら Q の電話で埋まる。P のメールアドレスは変わらない</li><li>確認文に、統合元のメールアドレスが残らない旨の注意が出る(統合元にメールがある場合)</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-07"><div><div class="cid">MS-07</div><span class="pri p1">必須</span></div><div class="title">取引先一覧からの複数統合</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>同じ会社を指す取引先が 3 件(A: 担当者 2 名・案件 1 件、B: 担当者 1 名・ドメインあり、C: 担当者 0 名・問い合わせ 1 件)。</div>
+              <div><div class="l">手順</div><ol><li>取引先一覧で A だけにチェックを付け、上部の「統合」ボタンが押せない(2 社以上の案内)ことを確認</li><li>A・B・C にチェックを付けて「統合」を押す</li><li>ダイアログで最初に選ばれている会社を確認し、そのまま「「A」に 2 社を統合する」を押す</li><li>一覧・A の詳細・担当者一覧・問い合わせを確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>1 社だけでは統合ボタンが無効。2 社以上で有効になる</li><li>ダイアログには選んだ 3 社が並び、担当者・案件の多い A が「残す」として最初から選ばれている。別の会社を押すとそちらが「残す」に切り替わる</li><li>統合後、B・C は一覧から消え、B の担当者と C の問い合わせが A に移る。A のドメインが空なら B のドメインが引き継がれる</li><li>チェックが解除され、一覧が更新される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="MS-08"><div><div class="cid">MS-08</div><span class="pri p1">必須</span></div><div class="title">フリーメールの相手の取引先判定(会社名・表記ゆれ・格上げ)</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>Gmail のアドレス 2 つ(G1・G2)と、プロバイダーのアドレス 1 つ(P1、例: xxx@ocn.ne.jp)から自社の受信アカウントへメールを送れること。</div>
+              <div><div class="l">手順</div><ol><li>G1 から署名に「株式会社テスト商事」と書いたメールを送り、同期</li><li>G2 から署名に「テスト商事(株)」と書いたメールを送り、同期</li><li>P1 から署名なしのメールを送り、同期</li><li>P1 から署名に「株式会社テスト商事」と書いた別件のメール(返信ではない新規)を送り、同期</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>手順 1 で取引先「株式会社テスト商事」(ドメインなし)と G1 の担当者ができる</li><li>手順 2 で G2 の担当者は同じ「株式会社テスト商事」に入り、「テスト商事(株)」という取引先は作られない</li><li>手順 3 で P1 は「氏名(個人)」の取引先になる。「Ocn」のようなプロバイダー名の取引先は作られない</li><li>手順 4 で P1 の担当者が「株式会社テスト商事」に移り、それまでのメールも同じ取引先に付く。「氏名(個人)」は空になって一覧から消える</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
           <div class="case" data-id="MS-06"><div><div class="cid">MS-06</div><span class="pri">通常</span></div><div class="title">担当者の所属変更がメール・問い合わせに波及する</div>

@@ -145,14 +145,32 @@ export function parseFormNotification(text: string, customLabels?: Partial<FormL
   };
 }
 
+/**
+ * 会社を特定できない「共有ドメイン」(フリーメール・携帯キャリア・プロバイダー)。
+ * これらのドメインは取引先の手がかりにせず、本文・署名の会社名で取引先を決める。
+ * 一覧に無くても `.ne.jp` で終わるドメイン(回線・メールサービス)は共有扱い。
+ */
 export const FREE_MAIL_DOMAINS = new Set([
-  "gmail.com", "yahoo.co.jp", "yahoo.com", "hotmail.com", "hotmail.co.jp", "outlook.com",
-  "outlook.jp", "live.jp", "icloud.com", "me.com", "docomo.ne.jp", "ezweb.ne.jp", "au.com",
-  "softbank.ne.jp", "i.softbank.jp", "nifty.com", "excite.co.jp", "protonmail.com", "proton.me",
+  // フリーメール
+  "gmail.com", "googlemail.com", "yahoo.co.jp", "yahoo.com", "ymail.ne.jp", "hotmail.com", "hotmail.co.jp", "outlook.com",
+  "outlook.jp", "live.jp", "live.com", "msn.com", "icloud.com", "me.com", "mac.com", "aol.com", "aol.jp",
+  "protonmail.com", "proton.me", "pm.me", "gmx.com", "gmx.net", "yandex.com", "mail.com", "zoho.com",
+  "excite.co.jp", "excite.com", "goo.jp", "mail.goo.ne.jp", "infoseek.jp", "rakuten.jp", "rakumail.jp",
+  // 携帯キャリア
+  "docomo.ne.jp", "ezweb.ne.jp", "au.com", "uqmobile.jp", "softbank.ne.jp", "i.softbank.jp", "ymobile.ne.jp", "mineo.jp",
+  // 国内プロバイダー(.ne.jp 以外)
+  "nifty.com", "nifty.ne.jp", "plala.or.jp", "asahi-net.or.jp", "iij4u.or.jp", "wakwak.com", "jcom.home.ne.jp",
+  "jcom.zaq.ne.jp", "zaq.ne.jp", "eonet.ne.jp", "ocn.ne.jp", "so-net.ne.jp", "biglobe.ne.jp", "dion.ne.jp",
+  "ybb.ne.jp", "hi-ho.ne.jp", "dti.ne.jp", "odn.ne.jp", "sannet.ne.jp", "cyberhome.ne.jp", "kcn.ne.jp",
 ]);
 
 export function isFreeMail(domain: string) {
-  return FREE_MAIL_DOMAINS.has(domain.toLowerCase());
+  const d = domain.toLowerCase();
+  if (FREE_MAIL_DOMAINS.has(d)) return true;
+  // 「abc.ocn.ne.jp」のようなサブドメイン、および .ne.jp 全般(企業は .co.jp / .jp / .com を使う)
+  if (d.endsWith(".ne.jp")) return true;
+  for (const f of FREE_MAIL_DOMAINS) if (d.endsWith(`.${f}`)) return true;
+  return false;
 }
 
 const CATEGORY_RULES: [RegExp, string][] = [

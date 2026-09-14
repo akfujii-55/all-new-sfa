@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { companyNameKey, isPersonalPlaceholder } from "@/lib/company-name";
+import { propagateContactCompany } from "@/lib/relink";
 import { extractFromEmail, isFreeMail, parseFormNotification, type Extracted, type FormProfile } from "./extract";
 
 type Db = SupabaseClient;
@@ -87,6 +89,11 @@ export async function findOrCreateContact(
 
   const { data: existing } = await db.from("contacts").select("id, company_id").eq("email", counterpart.address).maybeSingle();
   if (existing) {
+    // 会社名が分からず「氏名(個人)」で登録した相手が、今回のメールで会社名を名乗っていれば、その会社に格上げする
+    if (opts.direction === "inbound" && !companyId) {
+      const upgraded = await upgradePlaceholderCompany(db, existing.id, existing.company_id, opts);
+      if (upgraded) return { contactId: existing.id, companyId: upgraded.companyId, extracted: upgraded.extracted };
+    }
     return { contactId: existing.id, companyId: companyId ?? existing.company_id, extracted: opts.extracted ?? null };
   }
 
@@ -118,6 +125,56 @@ export async function findOrCreateContact(
   return { contactId: created?.id ?? null, companyId, extracted };
 }
 
+/**
+ * 「氏名(個人)」の仮の取引先に居る担当者について、メール本文から会社名が取れたらその会社へ移す。
+ * 会社名が取れない・既に同じ会社なら null。移したあと、仮の取引先に何も残っていなければ削除する。
+ */
+async function upgradePlaceholderCompany(
+  db: Db,
+  contactId: string,
+  currentCompanyId: string | null,
+  opts: { counterpart: Counterpart; subject: string | null; text: string; extracted?: Extracted | null; form?: FormProfile | null },
+): Promise<{ companyId: string; extracted: Extracted | null } | null> {
+  if (!currentCompanyId) return null;
+  const { data: current } = await db.from("companies").select("id, name, domain").eq("id", currentCompanyId).maybeSingle();
+  if (!current || !isPersonalPlaceholder(current)) return null;
+
+  const extracted =
+    opts.extracted ??
+    (await extractFromEmail({
+      fromName: opts.counterpart.name || null,
+      fromAddress: opts.counterpart.address,
+      subject: opts.subject,
+      text: opts.text,
+      form: opts.form,
+    }));
+  const name = extracted?.company_name?.trim();
+  if (!name || !companyNameKey(name)) return null;
+
+  const domain = opts.counterpart.address.split("@")[1] ?? "";
+  const companyId = await findOrCreateCompany(db, domain, name, null);
+  if (!companyId || companyId === current.id) return null;
+
+  const { error } = await db.from("contacts").update({ company_id: companyId }).eq("id", contactId);
+  if (error) return null;
+  try {
+    await propagateContactCompany(db, contactId, current.id, companyId);
+  } catch {
+    // メール・問い合わせの付け替えに失敗しても担当者の所属は変わっているので続ける
+  }
+  await deleteCompanyIfEmpty(db, current.id);
+  return { companyId, extracted };
+}
+
+/** 担当者・案件・売上・メール・問い合わせのどれも紐付いていなければ取引先を削除する */
+async function deleteCompanyIfEmpty(db: Db, companyId: string) {
+  for (const table of ["contacts", "deals", "revenues", "emails", "inquiries"] as const) {
+    const { count } = await db.from(table).select("id", { count: "exact", head: true }).eq("company_id", companyId);
+    if ((count ?? 0) > 0) return;
+  }
+  await db.from("companies").delete().eq("id", companyId);
+}
+
 export async function findOrCreateCompany(db: Db, domain: string, extractedName: string | null, personName: string | null) {
   const free = !domain || isFreeMail(domain);
   if (!free) {
@@ -125,10 +182,10 @@ export async function findOrCreateCompany(db: Db, domain: string, extractedName:
     if (byDomain) return byDomain.id;
   }
   if (extractedName) {
-    const { data: byName } = await db.from("companies").select("id").eq("name", extractedName).maybeSingle();
+    const byName = await findCompanyByName(db, extractedName);
     if (byName) {
-      if (!free) await db.from("companies").update({ domain }).eq("id", byName.id).is("domain", null);
-      return byName.id;
+      if (!free) await db.from("companies").update({ domain }).eq("id", byName).is("domain", null);
+      return byName;
     }
   }
   const name = extractedName || (free ? `${personName ?? domain}(個人)` : domainToName(domain));
@@ -138,6 +195,20 @@ export async function findOrCreateCompany(db: Db, domain: string, extractedName:
     .select("id")
     .single();
   return created?.id ?? null;
+}
+
+/**
+ * 会社名で既存の取引先を探す。完全一致を優先し、無ければ表記ゆれを吸収したキー(companyNameKey)で照合する。
+ * 「株式会社◯◯」「◯◯(株)」「◯◯ 株式会社」を同じ会社とみなす。
+ */
+export async function findCompanyByName(db: Db, name: string): Promise<string | null> {
+  const { data: exact } = await db.from("companies").select("id").eq("name", name).limit(1).maybeSingle();
+  if (exact) return exact.id;
+  const key = companyNameKey(name);
+  if (!key) return null;
+  const { data: all } = await db.from("companies").select("id, name").limit(5000);
+  const hit = (all ?? []).find((c) => companyNameKey(c.name) === key);
+  return hit?.id ?? null;
 }
 
 function domainToName(domain: string) {

@@ -148,6 +148,30 @@ export async function mergeContacts(sourceId: string, targetId: string): Promise
 export async function mergeCompanies(sourceId: string, targetId: string): Promise<void> {
   if (sourceId === targetId) throw userError("同じ取引先は統合できません");
   const db = await requireUser();
+  await mergeCompanyInto(db, sourceId, targetId);
+  revalidateCompanyPaths(targetId);
+}
+
+/** 一覧で選んだ複数の取引先を、その中の 1 社(targetId)にまとめる。target 以外を順に統合する */
+export async function mergeManyCompanies(sourceIds: string[], targetId: string): Promise<{ merged: number }> {
+  const sources = Array.from(new Set(sourceIds)).filter((id) => id && id !== targetId);
+  if (sources.length === 0) throw userError("統合する取引先を 2 社以上選んでください");
+  const db = await requireUser();
+  for (const sourceId of sources) await mergeCompanyInto(db, sourceId, targetId);
+  revalidateCompanyPaths(targetId);
+  return { merged: sources.length };
+}
+
+function revalidateCompanyPaths(targetId: string) {
+  revalidatePath("/companies");
+  revalidatePath(`/companies/${targetId}`);
+  revalidatePath("/contacts");
+  revalidatePath("/inbox");
+  revalidatePath("/inquiries");
+  revalidatePath("/deals");
+}
+
+async function mergeCompanyInto(db: Awaited<ReturnType<typeof requireUser>>, sourceId: string, targetId: string): Promise<void> {
   const [{ data: source }, { data: target }] = await Promise.all([
     db.from("companies").select("*").eq("id", sourceId).maybeSingle(),
     db.from("companies").select("*").eq("id", targetId).maybeSingle(),
@@ -171,10 +195,4 @@ export async function mergeCompanies(sourceId: string, targetId: string): Promis
     const { error } = await db.from("companies").update(patch).eq("id", targetId);
     fail(error);
   }
-  revalidatePath("/companies");
-  revalidatePath(`/companies/${targetId}`);
-  revalidatePath("/contacts");
-  revalidatePath("/inbox");
-  revalidatePath("/inquiries");
-  revalidatePath("/deals");
 }

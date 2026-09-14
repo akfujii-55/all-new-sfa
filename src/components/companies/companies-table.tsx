@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Merge, Pencil, Trash2 } from "lucide-react";
 import { deleteCompanies } from "@/actions/companies";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CompanyDialog } from "@/components/companies/company-dialog";
+import { MergeSelectedDialog } from "@/components/companies/merge-selected-dialog";
 import { actionErrorMessage } from "@/lib/errors";
 import { fmtDate, yen } from "@/lib/format";
 import type { Company } from "@/lib/types";
@@ -52,12 +53,30 @@ export function CompaniesTable({ rows }: { rows: CompanyRow[] }) {
         {selectedIds.length > 0 ? (
           <>
             <span className="text-sm text-muted-foreground">{selectedIds.length}社選択</span>
+            <MergeSelectedDialog
+              companies={rows
+                .filter((r) => selected.has(r.id))
+                .map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  domain: r.domain,
+                  contactCount: r.contacts[0]?.count ?? 0,
+                  dealCount: r.deals.length,
+                  created_at: r.created_at,
+                }))}
+              onDone={() => setSelected(new Set())}
+              trigger={
+                <Button size="sm" variant="outline" disabled={pending || selectedIds.length < 2} title={selectedIds.length < 2 ? "2 社以上選ぶと統合できます" : "選んだ取引先を 1 社にまとめる"}>
+                  <Merge className="size-4" /> 統合
+                </Button>
+              }
+            />
             <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={removeSelected}>
               <Trash2 className="size-4" /> {pending ? "削除中..." : "削除"}
             </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">取引先を選択してまとめて削除できます</span>
+          <span className="text-sm text-muted-foreground">取引先を選択して、まとめて統合・削除できます</span>
         )}
       </div>
       <Table>
