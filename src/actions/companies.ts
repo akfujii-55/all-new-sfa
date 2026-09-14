@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { propagateContactCompany } from "@/lib/relink";
 
+import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
   return t === "" ? null : t;
@@ -13,7 +14,7 @@ function s(v: FormDataEntryValue | null) {
 export async function createCompany(formData: FormData) {
   const supabase = await createClient();
   const name = s(formData.get("name"));
-  if (!name) throw new Error("会社名は必須です");
+  if (!name) throw userError("会社名は必須です");
   const { data, error } = await supabase
     .from("companies")
     .insert({
@@ -27,7 +28,7 @@ export async function createCompany(formData: FormData) {
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/companies");
   redirect(`/companies/${data.id}`);
 }
@@ -46,7 +47,7 @@ export async function updateCompany(id: string, formData: FormData) {
       memo: s(formData.get("memo")),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath(`/companies/${id}`);
   revalidatePath("/companies");
 }
@@ -54,7 +55,7 @@ export async function updateCompany(id: string, formData: FormData) {
 export async function deleteCompany(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("companies").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/companies");
   redirect("/companies");
 }
@@ -62,7 +63,7 @@ export async function deleteCompany(id: string) {
 export async function createContact(formData: FormData) {
   const supabase = await createClient();
   const name = s(formData.get("name"));
-  if (!name) throw new Error("氏名は必須です");
+  if (!name) throw userError("氏名は必須です");
   const companyId = s(formData.get("company_id"));
   const { error } = await supabase.from("contacts").insert({
     company_id: companyId,
@@ -72,7 +73,7 @@ export async function createContact(formData: FormData) {
     title: s(formData.get("title")),
     memo: s(formData.get("memo")),
   });
-  if (error) throw new Error(error.code === "23505" ? "このメールアドレスは既に登録されています" : error.message);
+  if (error) throw userError(error.code === "23505" ? "このメールアドレスは既に登録されています" : error.message);
   revalidatePath("/contacts");
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }
@@ -92,7 +93,7 @@ export async function updateContact(id: string, formData: FormData) {
       memo: s(formData.get("memo")),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   // 所属が変わったら、この担当者のメール・問い合わせの取引先も合わせる(旧所属のものだけ。案件は動かさない)
   if (before && before.company_id !== companyId) {
     await propagateContactCompany(supabase, id, before.company_id, companyId);
@@ -107,7 +108,7 @@ export async function updateContact(id: string, formData: FormData) {
 export async function deleteContact(id: string, companyId?: string | null) {
   const supabase = await createClient();
   const { error } = await supabase.from("contacts").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/contacts");
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }

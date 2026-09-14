@@ -6,6 +6,7 @@ import { PlugZap, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { setDefaultMailAccount, testMailAccount } from "@/actions/mail-accounts";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function MailAccountActions({ id, isDefault }: { id: string; isDefault: boolean }) {
   const [pending, start] = useTransition();
   return (
@@ -28,7 +29,7 @@ export function MailAccountActions({ id, isDefault }: { id: string; isDefault: b
           onClick={() =>
             start(async () => {
               try { await setDefaultMailAccount(id); toast.success("既定の差出人にしました"); }
-              catch (e) { toast.error((e as Error).message); }
+              catch (e) { toast.error(actionErrorMessage(e)); }
             })
           }
         >

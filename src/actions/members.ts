@@ -12,6 +12,7 @@ import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertCanAddUser, assertTenantWritable } from "@/lib/tenant-quota";
 import { syncTenantBilling } from "@/lib/stripe";
 
+import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
   return t === "" ? null : t;
@@ -25,7 +26,7 @@ function revalidate() {
 export async function createMember(formData: FormData) {
   const supabase = await createClient();
   const name = s(formData.get("name"));
-  if (!name) throw new Error("氏名は必須です");
+  if (!name) throw userError("氏名は必須です");
   const { count } = await supabase.from("members").select("id", { count: "exact", head: true });
   const { data, error } = await supabase
     .from("members")
@@ -38,7 +39,7 @@ export async function createMember(formData: FormData) {
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate();
   // 「招待メールを送る」にチェックがあれば続けて招待
   if (formData.get("invite") === "true") {
@@ -51,7 +52,7 @@ export async function createMember(formData: FormData) {
 export async function updateMember(id: string, formData: FormData) {
   const supabase = await createClient();
   const name = s(formData.get("name"));
-  if (!name) throw new Error("氏名は必須です");
+  if (!name) throw userError("氏名は必須です");
   const { error } = await supabase
     .from("members")
     .update({
@@ -61,7 +62,7 @@ export async function updateMember(id: string, formData: FormData) {
       is_active: formData.get("is_active") !== "false",
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate();
 }
 
@@ -72,10 +73,10 @@ export async function updateMember(id: string, formData: FormData) {
 export async function deleteMember(id: string) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
   const { data: member } = await supabase.from("members").select("id, profile_id").eq("id", id).maybeSingle();
-  if (!member) throw new Error("営業担当者が見つかりません");
-  if (member.profile_id === auth.user.id) throw new Error("自分自身は削除できません。他の営業担当者に削除してもらってください");
+  if (!member) throw userError("営業担当者が見つかりません");
+  if (member.profile_id === auth.user.id) throw userError("自分自身は削除できません。他の営業担当者に削除してもらってください");
   const tenantId = await tenantIdOf(supabase);
   // 利用ユーザー数は課金対象なので、削除後に Stripe の数量を合わせる(応答後に実行)
   if (member.profile_id) after(() => syncTenantBilling(tenantId));
@@ -83,10 +84,10 @@ export async function deleteMember(id: string) {
   if (member.profile_id) {
     // auth ユーザーの削除だけは service role が必要。profiles は cascade で消え、セッションも無効になる
     const { error: delErr } = await createAdminClient().auth.admin.deleteUser(member.profile_id);
-    if (delErr && !/not found/i.test(delErr.message)) throw new Error(`ログインの無効化に失敗しました: ${delErr.message}`);
+    if (delErr && !/not found/i.test(delErr.message)) throw userError(`ログインの無効化に失敗しました: ${delErr.message}`);
   }
   const { error } = await supabase.from("members").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate();
 }
 
@@ -94,7 +95,7 @@ export async function deleteMember(id: string) {
 export async function setDealOwner(dealId: string, memberId: string | null) {
   const supabase = await createClient();
   const { error } = await supabase.from("deals").update({ owner_id: memberId }).eq("id", dealId);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/deals");
   revalidatePath(`/deals/${dealId}`);
 }
@@ -107,13 +108,13 @@ export async function setDealOwner(dealId: string, memberId: string | null) {
 export async function inviteMember(memberId: string): Promise<{ message: string }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
   const inviterName = (await supabase.from("members").select("name").eq("profile_id", auth.user.id).maybeSingle()).data?.name ?? auth.user.email ?? "管理者";
 
   const { data: member } = await supabase.from("members").select("id, name, email, profile_id, invited_at").eq("id", memberId).maybeSingle();
-  if (!member) throw new Error("営業担当者が見つかりません");
-  if (!member.email) throw new Error("招待するにはメールアドレスを登録してください");
-  if (member.profile_id) throw new Error("この営業担当者は既にログインできます");
+  if (!member) throw userError("営業担当者が見つかりません");
+  if (!member.email) throw userError("招待するにはメールアドレスを登録してください");
+  if (member.profile_id) throw userError("この営業担当者は既にログインできます");
   const email = member.email.toLowerCase();
   // 招待中の営業担当者もユーザー数に数える。再送は枠を消費しない
   if (member.invited_at) await assertTenantWritable(supabase);
@@ -134,15 +135,15 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
     options: { data: { full_name: member.name, member_id: member.id, tenant_id: tenantId } },
   });
   if (first.error) {
-    if (!/already|exists|registered/i.test(first.error.message)) throw new Error(first.error.message);
+    if (!/already|exists|registered/i.test(first.error.message)) throw userError(first.error.message);
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
-    if (again.error) throw new Error(again.error.message);
+    if (again.error) throw userError(again.error.message);
     tokenHash = again.data.properties.hashed_token;
     type = "magiclink";
   } else {
     tokenHash = first.data.properties.hashed_token;
   }
-  if (!tokenHash) throw new Error("招待リンクを作成できませんでした");
+  if (!tokenHash) throw userError("招待リンクを作成できませんでした");
 
   const origin = await siteOrigin();
   const link = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent("/set-password")}`;

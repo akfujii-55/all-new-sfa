@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DEAL_STAGES, type DealStage } from "@/lib/types";
 import { DatePicker } from "@/components/date-picker/date-picker";
 
+import { actionErrorMessage } from "@/lib/errors";
 /** アポイント日時の時刻ボタン */
 export const APPOINTMENT_TIMES: [string, string][] = [
   ["10:00", "10:00"],
@@ -83,7 +84,7 @@ export function NewDealDialog({
               } catch (e) {
                 // redirect() は例外として投げられるため NEXT_REDIRECT は無視
                 if ((e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) return;
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }

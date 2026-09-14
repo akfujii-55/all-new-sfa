@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertTenantWritable } from "@/lib/tenant-quota";
 
+import { userError } from "@/lib/errors";
 /**
  * 自動登録の誤りを直すための操作。
  * - relinkThread: メールスレッドの担当者・取引先を付け替える(スレッド内の全メールと、そのメールから作った問い合わせに反映)
@@ -19,13 +20,13 @@ function s(v: unknown) {
 async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("ログインが必要です");
+  if (!data.user) throw userError("ログインが必要です");
   await assertTenantWritable(supabase);
   return supabase;
 }
 
 function fail(error: { message: string; code?: string } | null) {
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
 }
 
 export type RelinkTarget =
@@ -38,25 +39,25 @@ export type RelinkTarget =
 export async function relinkThread(emailId: string, target: RelinkTarget): Promise<{ contactId: string | null; companyId: string | null }> {
   const db = await requireUser();
   const { data: root } = await db.from("emails").select("thread_key").eq("id", emailId).maybeSingle();
-  if (!root) throw new Error("メールが見つかりません");
+  if (!root) throw userError("メールが見つかりません");
 
   let contactId: string | null = null;
   let companyId: string | null = null;
 
   if (target.kind === "contact") {
     const { data: c } = await db.from("contacts").select("id, company_id").eq("id", target.contactId).maybeSingle();
-    if (!c) throw new Error("担当者が見つかりません");
+    if (!c) throw userError("担当者が見つかりません");
     contactId = c.id;
     companyId = c.company_id;
   } else if (target.kind === "company") {
     const { data: c } = await db.from("companies").select("id").eq("id", target.companyId).maybeSingle();
-    if (!c) throw new Error("取引先が見つかりません");
+    if (!c) throw userError("取引先が見つかりません");
     companyId = c.id;
   } else if (target.kind === "new") {
     const name = s(target.name);
-    if (!name) throw new Error("担当者の氏名を入力してください");
+    if (!name) throw userError("担当者の氏名を入力してください");
     const email = s(target.email)?.toLowerCase() ?? null;
-    if (email && !email.includes("@")) throw new Error("メールアドレスの形式が正しくありません");
+    if (email && !email.includes("@")) throw userError("メールアドレスの形式が正しくありません");
     companyId = s(target.companyId);
     const newCompanyName = s(target.newCompanyName);
     if (!companyId && newCompanyName) {
@@ -66,7 +67,7 @@ export async function relinkThread(emailId: string, target: RelinkTarget): Promi
     }
     if (email) {
       const { data: dup } = await db.from("contacts").select("id").eq("email", email).maybeSingle();
-      if (dup) throw new Error("このメールアドレスの担当者は既に登録されています。一覧から選んでください");
+      if (dup) throw userError("このメールアドレスの担当者は既に登録されています。一覧から選んでください");
     }
     const { data: created, error } = await db.from("contacts").insert({ name, email, company_id: companyId }).select("id").single();
     fail(error);
@@ -100,13 +101,13 @@ export async function relinkThread(emailId: string, target: RelinkTarget): Promi
 
 /** 担当者を統合する。source の紐付きデータを target に移し、target の空欄を source で埋めて source を削除する */
 export async function mergeContacts(sourceId: string, targetId: string): Promise<void> {
-  if (sourceId === targetId) throw new Error("同じ担当者は統合できません");
+  if (sourceId === targetId) throw userError("同じ担当者は統合できません");
   const db = await requireUser();
   const [{ data: source }, { data: target }] = await Promise.all([
     db.from("contacts").select("*").eq("id", sourceId).maybeSingle(),
     db.from("contacts").select("*").eq("id", targetId).maybeSingle(),
   ]);
-  if (!source || !target) throw new Error("担当者が見つかりません");
+  if (!source || !target) throw userError("担当者が見つかりません");
 
   for (const table of ["emails", "inquiries", "deals"] as const) {
     const { error } = await db.from(table).update({ contact_id: targetId }).eq("contact_id", sourceId);
@@ -145,13 +146,13 @@ export async function mergeContacts(sourceId: string, targetId: string): Promise
 
 /** 取引先を統合する。担当者・メール・問い合わせ・案件・売上を target に移し、target の空欄を source で埋めて source を削除する */
 export async function mergeCompanies(sourceId: string, targetId: string): Promise<void> {
-  if (sourceId === targetId) throw new Error("同じ取引先は統合できません");
+  if (sourceId === targetId) throw userError("同じ取引先は統合できません");
   const db = await requireUser();
   const [{ data: source }, { data: target }] = await Promise.all([
     db.from("companies").select("*").eq("id", sourceId).maybeSingle(),
     db.from("companies").select("*").eq("id", targetId).maybeSingle(),
   ]);
-  if (!source || !target) throw new Error("取引先が見つかりません");
+  if (!source || !target) throw userError("取引先が見つかりません");
 
   for (const table of ["contacts", "emails", "inquiries", "deals", "revenues"] as const) {
     const { error } = await db.from(table).update({ company_id: targetId }).eq("company_id", sourceId);

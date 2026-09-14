@@ -3,6 +3,7 @@ import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { fmtGb } from "@/lib/pricing";
 import type { Tenant, TenantUsage } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 /**
  * テナントの利用可否と上限。
  * - 利用可否: status が suspended / cancelled、または trial の期限切れなら書き込み系の操作を止める(閲覧は可)。
@@ -29,7 +30,7 @@ export function trialDaysLeft(t: Pick<Tenant, "status" | "trial_ends_at">, now: 
 
 export async function getMyUsage(db: SupabaseClient): Promise<TenantUsage> {
   const { data, error } = await db.rpc("my_tenant_usage").single();
-  if (error) throw new Error(`利用量を取得できません: ${error.message}`);
+  if (error) throw userError(`利用量を取得できません: ${error.message}`);
   const u = data as Record<string, number | string>;
   return {
     users: Number(u.users ?? 0),
@@ -42,7 +43,7 @@ export async function getMyUsage(db: SupabaseClient): Promise<TenantUsage> {
 
 async function requireTenant(db: SupabaseClient): Promise<Tenant> {
   const t = await getCurrentTenant(db);
-  if (!t) throw new Error("所属する会社(テナント)を確認できません");
+  if (!t) throw userError("所属する会社(テナント)を確認できません");
   return t;
 }
 
@@ -50,7 +51,7 @@ async function requireTenant(db: SupabaseClient): Promise<Tenant> {
 export async function assertTenantWritable(db: SupabaseClient): Promise<Tenant> {
   const t = await requireTenant(db);
   const a = tenantAccess(t);
-  if (!a.writable) throw new Error(a.reason);
+  if (!a.writable) throw userError(a.reason);
   return t;
 }
 
@@ -59,7 +60,7 @@ export async function assertCanAddUser(db: SupabaseClient) {
   const t = await assertTenantWritable(db);
   const u = await getMyUsage(db);
   if (u.users >= t.max_users) {
-    throw new Error(`ログインユーザー数の上限(${t.max_users} 名、招待中を含む)に達しています。ユーザーを追加するには運営にお問い合わせください`);
+    throw userError(`ログインユーザー数の上限(${t.max_users} 名、招待中を含む)に達しています。ユーザーを追加するには運営にお問い合わせください`);
   }
 }
 
@@ -68,7 +69,7 @@ export async function assertCanAddMailAccount(db: SupabaseClient) {
   const t = await assertTenantWritable(db);
   const u = await getMyUsage(db);
   if (u.mail_accounts >= t.max_mail_accounts) {
-    throw new Error(`連携メールアカウント数の上限(${t.max_mail_accounts} 件)に達しています。追加するには運営にお問い合わせください`);
+    throw userError(`連携メールアカウント数の上限(${t.max_mail_accounts} 件)に達しています。追加するには運営にお問い合わせください`);
   }
 }
 
@@ -77,7 +78,7 @@ export async function assertStorageAvailable(db: SupabaseClient, extraBytes: num
   const t = await requireTenant(db);
   const u = await getMyUsage(db);
   if (u.storage_bytes + extraBytes > t.max_storage_bytes) {
-    throw new Error(
+    throw userError(
       `使用容量の上限(${fmtGb(t.max_storage_bytes)})を超えるため保存できません(現在 ${fmtGb(u.storage_bytes)})。不要なメールを削除するか、運営に容量の追加をお問い合わせください`,
     );
   }

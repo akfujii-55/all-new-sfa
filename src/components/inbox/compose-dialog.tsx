@@ -16,6 +16,7 @@ import { useSignature } from "@/components/mail/signature-provider";
 import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import type { MailAccountOption } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ComposeDialog({
   trigger,
   defaults,
@@ -64,7 +65,7 @@ export function ComposeDialog({
       } catch (e) {
         setUploading(false);
         await discardUploads(attachments);
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

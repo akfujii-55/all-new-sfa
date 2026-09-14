@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { fmtDateTime, initials } from "@/lib/format";
 import type { DealNote } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function DealNotes({ dealId, notes }: { dealId: string; notes: DealNote[] }) {
   const [pending, start] = useTransition();
   const ref = useRef<HTMLFormElement>(null);
@@ -24,7 +25,7 @@ export function DealNotes({ dealId, notes }: { dealId: string; notes: DealNote[]
               await addDealNote(dealId, fd);
               ref.current?.reset();
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

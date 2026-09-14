@@ -17,6 +17,7 @@ import type { Tag } from "@/lib/types";
 import { fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { actionErrorMessage } from "@/lib/errors";
 export interface InboxThread {
   id: string;
   direction: "inbound" | "outbound";
@@ -74,7 +75,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
         else toast.info("選択したメールはすべて問い合わせ登録済みです");
         setSelected(new Set());
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }
@@ -86,7 +87,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
         toast.success(`${selectedIds.length}件のスレッドのタグを更新しました${r.contacts ? `(担当者 ${r.contacts}名にも付与)` : ""}`);
         setSelected(new Set());
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }
@@ -99,7 +100,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
         setSelected(new Set());
         setConfirmDelete(false);
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function AlertSettingsForm({ settings, webhookConfigured }: { settings: AlertSettings; webhookConfigured: boolean }) {
   const [emails, setEmails] = useState(settings.alert_emails);
   const [pending, start] = useTransition();
@@ -23,7 +24,7 @@ export function AlertSettingsForm({ settings, webhookConfigured }: { settings: A
             await saveAlertSettings(fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }
@@ -46,7 +47,7 @@ export function AlertSettingsForm({ settings, webhookConfigured }: { settings: A
                 if (r.ok) toast.success(`テスト通知を送りました(${r.message})`);
                 else toast.error(`テスト通知に失敗: ${r.message}`);
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }

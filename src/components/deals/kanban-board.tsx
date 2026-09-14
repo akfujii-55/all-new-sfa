@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { WonDialog, LostDialog } from "./stage-dialogs";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
   const [deals, setDeals] = useState(initial);
   const [prevInitial, setPrevInitial] = useState(initial);
@@ -46,7 +47,7 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
         await moveDealStage(dealId, stage);
       } catch (err) {
         setDeals(before);
-        toast.error((err as Error).message);
+        toast.error(actionErrorMessage(err));
       }
     });
   }

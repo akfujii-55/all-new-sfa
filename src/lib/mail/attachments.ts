@@ -5,6 +5,7 @@ import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertStorageAvailable } from "@/lib/tenant-quota";
 import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, OUTBOX_PREFIX, extOf, fmtBytes, type OutgoingAttachmentRef } from "./attachment-shared";
 
+import { userError } from "@/lib/errors";
 export { ATTACHMENT_BUCKET, MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_TOTAL, OUTBOX_PREFIX, fmtBytes, outboxPath, type OutgoingAttachmentRef } from "./attachment-shared";
 
 /**
@@ -31,7 +32,7 @@ export async function saveAttachments(db: SupabaseClient, emailId: string, attac
     const contentType = a.contentType || "application/octet-stream";
 
     const { error: upErr } = await storage().upload(storagePath, a.content, { contentType, upsert: true });
-    if (upErr) throw new Error(`添付ファイルの保存に失敗しました(${filename}): ${upErr.message}`);
+    if (upErr) throw userError(`添付ファイルの保存に失敗しました(${filename}): ${upErr.message}`);
 
     const { error } = await db.from("email_attachments").insert({
       email_id: emailId,
@@ -42,7 +43,7 @@ export async function saveAttachments(db: SupabaseClient, emailId: string, attac
       content_id: a.cid ?? null,
       is_inline: a.contentDisposition === "inline" && Boolean(a.cid),
     });
-    if (error) throw new Error(`添付ファイルの登録に失敗しました(${filename}): ${error.message}`);
+    if (error) throw userError(`添付ファイルの登録に失敗しました(${filename}): ${error.message}`);
     saved++;
   }
   return saved;
@@ -75,15 +76,15 @@ const OUTBOX_PATH_RE = /^([0-9a-f-]{36})\/outbox\/[0-9a-f-]{36}\/\d{2}(\.[a-z0-9
 /** Server Action に渡された添付情報を検証する(パスの形式・自テナント配下か・件数・合計サイズ) */
 export function validateOutgoingRefs(refs: OutgoingAttachmentRef[] | undefined, tenantId: string): OutgoingAttachmentRef[] {
   const list = refs ?? [];
-  if (list.length > MAX_ATTACHMENT_COUNT) throw new Error(`添付ファイルは ${MAX_ATTACHMENT_COUNT} 件までです`);
+  if (list.length > MAX_ATTACHMENT_COUNT) throw userError(`添付ファイルは ${MAX_ATTACHMENT_COUNT} 件までです`);
   let total = 0;
   for (const r of list) {
     const m = OUTBOX_PATH_RE.exec(r.storagePath);
-    if (!m || m[1] !== tenantId) throw new Error("添付ファイルの指定が不正です");
-    if (!r.filename?.trim()) throw new Error("添付ファイルの名前が不正です");
+    if (!m || m[1] !== tenantId) throw userError("添付ファイルの指定が不正です");
+    if (!r.filename?.trim()) throw userError("添付ファイルの名前が不正です");
     total += Number(r.size) || 0;
   }
-  if (total > MAX_ATTACHMENT_TOTAL) throw new Error(`添付ファイルの合計は ${fmtBytes(MAX_ATTACHMENT_TOTAL)} までです`);
+  if (total > MAX_ATTACHMENT_TOTAL) throw userError(`添付ファイルの合計は ${fmtBytes(MAX_ATTACHMENT_TOTAL)} までです`);
   return list;
 }
 
@@ -92,7 +93,7 @@ export async function loadOutgoingAttachments(refs: OutgoingAttachmentRef[]) {
   const out: { filename: string; content: Buffer; contentType?: string }[] = [];
   for (const r of refs) {
     const { data, error } = await storage().download(r.storagePath);
-    if (error || !data) throw new Error(`添付ファイルを読み込めませんでした(${r.filename}): ${error?.message ?? "not found"}`);
+    if (error || !data) throw userError(`添付ファイルを読み込めませんでした(${r.filename}): ${error?.message ?? "not found"}`);
     out.push({ filename: r.filename, content: Buffer.from(await data.arrayBuffer()), contentType: r.contentType || undefined });
   }
   return out;

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { PricingSettings } from "@/lib/pricing";
 
+import { actionErrorMessage } from "@/lib/errors";
 const FIELDS: { key: keyof PricingSettings; label: string; hint?: string; step?: number }[] = [
   { key: "price_base_monthly", label: "月額基本料金", hint: "メールアカウント 1、ユーザー 1、容量 1GB を含む" },
   { key: "price_per_extra_mail_account", label: "メールアカウント 1 件追加", hint: "円/月" },
@@ -30,7 +31,7 @@ export function PricingForm({ pricing }: { pricing: PricingSettings }) {
             await savePricingSettings(fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

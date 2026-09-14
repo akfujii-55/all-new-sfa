@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { createInquiriesFromEmails } from "@/actions/inquiries";
 import { deleteEmailThreads } from "@/actions/emails";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInquiry: boolean }) {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -22,7 +23,7 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
         else toast.info("このスレッドは問い合わせ登録済みです");
         router.refresh();
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }
@@ -34,7 +35,7 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
         toast.success("メールを削除しました");
         router.push("/inbox");
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

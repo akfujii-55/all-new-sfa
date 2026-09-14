@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteOldSystemLogs } from "@/actions/settings";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function DeleteOldLogsButton({ days = 30 }: { days?: number }) {
   const [pending, start] = useTransition();
   return (
@@ -17,7 +18,7 @@ export function DeleteOldLogsButton({ days = 30 }: { days?: number }) {
             const r = await deleteOldSystemLogs(days);
             toast.success(`${days} 日より前のログを ${r.deleted} 件削除しました`);
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

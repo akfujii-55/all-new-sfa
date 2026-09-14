@@ -6,6 +6,7 @@ import { MailPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { inviteMember } from "@/actions/members";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function InviteButton({ memberId, resend }: { memberId: string; resend?: boolean }) {
   const [pending, start] = useTransition();
   return (
@@ -14,7 +15,7 @@ export function InviteButton({ memberId, resend }: { memberId: string; resend?: 
       onClick={() =>
         start(async () => {
           try { const r = await inviteMember(memberId); toast.success(r.message); }
-          catch (e) { toast.error((e as Error).message); }
+          catch (e) { toast.error(actionErrorMessage(e)); }
         })
       }
     >

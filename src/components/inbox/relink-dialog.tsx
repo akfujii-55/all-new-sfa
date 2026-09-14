@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PickerList } from "@/components/links/picker-list";
 
+import { actionErrorMessage } from "@/lib/errors";
 type Mode = "contact" | "company" | "new" | "none";
 const MODE_LABEL: Record<Mode, string> = {
   contact: "登録済みの担当者を選ぶ",
@@ -66,7 +67,7 @@ export function RelinkDialog({
         setOpen(false);
         router.refresh();
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

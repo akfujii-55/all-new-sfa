@@ -7,6 +7,7 @@ import { deleteInquiry } from "@/actions/inquiries";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function DeleteInquiryButton({ id, subject, hasDeal }: { id: string; subject: string; hasDeal: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -18,7 +19,7 @@ export function DeleteInquiryButton({ id, subject, hasDeal }: { id: string; subj
         toast.success("問い合わせを削除しました");
         setOpen(false);
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

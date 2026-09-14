@@ -6,6 +6,7 @@ import { updateInquiryStatus } from "@/actions/inquiries";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { INQUIRY_STATUS_LABEL, type InquiryStatus } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function InquiryStatusSelect({ id, status }: { id: string; status: InquiryStatus }) {
   const [pending, start] = useTransition();
   return (
@@ -14,7 +15,7 @@ export function InquiryStatusSelect({ id, status }: { id: string; status: Inquir
       disabled={pending}
       onValueChange={(v) =>
         start(async () => {
-          try { await updateInquiryStatus(id, v as InquiryStatus); } catch (e) { toast.error((e as Error).message); }
+          try { await updateInquiryStatus(id, v as InquiryStatus); } catch (e) { toast.error(actionErrorMessage(e)); }
         })
       }
     >

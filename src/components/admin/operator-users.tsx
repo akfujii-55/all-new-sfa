@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDate } from "@/lib/format";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function OperatorUsers({ operators, currentUserId, isSuper }: { operators: OperatorRow[]; currentUserId: string; isSuper: boolean }) {
   const [pending, start] = useTransition();
   const [link, setLink] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
                     toast.success("保存しました");
                     setEditing(null);
                   } catch (e) {
-                    toast.error((e as Error).message);
+                    toast.error(actionErrorMessage(e));
                   }
                 })
               }
@@ -90,7 +91,7 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
                             await removeOperator(o.user_id);
                             toast.success("運営者を削除しました");
                           } catch (e) {
-                            toast.error((e as Error).message);
+                            toast.error(actionErrorMessage(e));
                           }
                         })
                       }
@@ -118,7 +119,7 @@ export function OperatorUsers({ operators, currentUserId, isSuper }: { operators
                 setLink(r.inviteLink);
                 (document.getElementById("operator-invite-form") as HTMLFormElement | null)?.reset();
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }

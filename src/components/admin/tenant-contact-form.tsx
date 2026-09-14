@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Tenant } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function TenantContactForm({ tenant }: { tenant: Tenant }) {
   const [pending, start] = useTransition();
   return (
@@ -20,7 +21,7 @@ export function TenantContactForm({ tenant }: { tenant: Tenant }) {
             await updateTenantContact(tenant.id, fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

@@ -10,6 +10,7 @@ import { sendMail } from "@/lib/mail/smtp";
 import { buildMail } from "@/lib/mail/templates";
 import { errorMessage, logSystem } from "@/lib/log";
 
+import { userError } from "@/lib/errors";
 export type AuthState = { error?: string; message?: string } | undefined;
 
 /** 同じメールアドレスへの再設定メールは 1 時間に何通まで送るか(いたずら防止) */
@@ -74,7 +75,7 @@ export async function requestPasswordReset(_: AuthState, formData: FormData): Pr
 
 /** 再設定メールの送信元: 利用者のテナント(メールアカウントがあれば)→ 運営側テナント */
 async function senderFor(tenantId: string | null): Promise<{ db: SupabaseClient; company: string }> {
-  if (!hasTenantClientSupport()) throw new Error("SUPABASE_JWT_SECRET が未設定のためメールアカウントを使えません");
+  if (!hasTenantClientSupport()) throw userError("SUPABASE_JWT_SECRET が未設定のためメールアカウントを使えません");
   if (tenantId) {
     const db = createTenantClient(tenantId);
     const { data: tenant } = await db.from("tenants").select("name").eq("id", tenantId).maybeSingle();
@@ -82,7 +83,7 @@ async function senderFor(tenantId: string | null): Promise<{ db: SupabaseClient;
     if ((count ?? 0) > 0) return { db, company: (tenant?.name as string | undefined) ?? "" };
   }
   const operator = await operatorTenantClient();
-  if (!operator) throw new Error("運営側のメールアカウントを使えません");
+  if (!operator) throw userError("運営側のメールアカウントを使えません");
   return { db: operator, company: "" };
 }
 

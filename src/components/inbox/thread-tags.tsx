@@ -9,6 +9,7 @@ import { TagBadges } from "@/components/tags/tag-badge";
 import { Button } from "@/components/ui/button";
 import type { Tag } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 /** スレッド画面の「関連情報」に出すタグ(表示 + 付け外し) */
 export function ThreadTags({ emailId, tags, current }: { emailId: string; tags: Tag[]; current: Tag[] }) {
   const [pending, start] = useTransition();
@@ -32,7 +33,7 @@ export function ThreadTags({ emailId, tags, current }: { emailId: string; tags: 
                   await setEmailTags([emailId], change);
                   toast.success("タグを更新しました");
                 } catch (e) {
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               })
             }

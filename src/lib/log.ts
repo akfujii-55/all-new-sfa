@@ -5,6 +5,7 @@ import { getAlertSettings, splitAlertEmails } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import type { SystemLogLevel } from "@/lib/types";
 
+import { markUserError } from "@/lib/errors";
 /**
  * システムログ(system_logs)への記録と、エラー時の通知。
  *
@@ -36,6 +37,7 @@ export class LoggedError extends Error {
   constructor(message: string, cause?: unknown) {
     super(message, cause instanceof Error ? { cause } : undefined);
     this.name = "LoggedError";
+    markUserError(this);
   }
 }
 

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 import { ActivityKindIcon } from "./activity-kind-icon";
 
+import { actionErrorMessage } from "@/lib/errors";
 const DUE_LABEL: Record<DueState, { text: string; className: string } | null> = {
   overdue: { text: "期限超過", className: "bg-rose-600 text-white" },
   today: { text: "今日", className: "bg-amber-500 text-white" },
@@ -78,7 +79,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
         await fn();
         if (ok) toast.success(ok);
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }
@@ -103,7 +104,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
               setFormKey((k) => k + 1);
               toast.success("行動を登録しました");
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }
@@ -184,7 +185,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
                     setEditing(null);
                     toast.success("保存しました");
                   } catch (e) {
-                    toast.error((e as Error).message);
+                    toast.error(actionErrorMessage(e));
                   }
                 })
               }

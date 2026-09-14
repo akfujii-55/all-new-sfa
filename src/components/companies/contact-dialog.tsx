@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Contact } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ContactDialog({
   trigger,
   contact,
@@ -44,7 +45,7 @@ export function ContactDialog({
                 toast.success("保存しました");
                 setOpen(false);
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }
@@ -92,7 +93,7 @@ export function ContactDialog({
                 onClick={() => {
                   if (!confirm("この担当者を削除しますか?")) return;
                   start(async () => {
-                    try { await deleteContact(contact.id, contact.company_id); setOpen(false); } catch (e) { toast.error((e as Error).message); }
+                    try { await deleteContact(contact.id, contact.company_id); setOpen(false); } catch (e) { toast.error(actionErrorMessage(e)); }
                   });
                 }}
               >

@@ -16,6 +16,7 @@ import { useReplySubject, useSignature } from "@/components/mail/signature-provi
 import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import type { MailAccountOption } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ReplyForm({
   replyToEmailId,
   to,
@@ -112,7 +113,7 @@ export function ReplyForm({
                 } catch (e) {
                   setUploading(false);
                   await discardUploads(attachments);
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               });
             }}

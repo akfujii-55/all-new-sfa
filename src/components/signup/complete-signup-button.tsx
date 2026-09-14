@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { completeSignup } from "@/actions/signup";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { actionErrorMessage } from "@/lib/errors";
 
 export function CompleteSignupButton({ token }: { token: string }) {
   const [pending, start] = useTransition();
@@ -21,10 +22,9 @@ export function CompleteSignupButton({ token }: { token: string }) {
               const r = await completeSignup(token);
               if (r && "error" in r) setError(r.error);
             } catch (e) {
-              // redirect() は例外として伝わるので、それ以外だけ表示する
-              const msg = (e as Error)?.message ?? "";
-              if (!/NEXT_REDIRECT/.test(msg)) setError(msg || "アカウントを作成できませんでした");
-              else throw e;
+              // redirect() は例外として伝わるので、それ以外だけ表示する(本番では message が伏せられるので digest で判定)
+              if ((e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
+              setError(actionErrorMessage(e, "アカウントを作成できませんでした"));
             }
           })
         }

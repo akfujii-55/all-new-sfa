@@ -12,6 +12,7 @@ import { ACTIVITY_ICONS, MAX_ACTIVITY_KINDS } from "@/lib/activity-kinds";
 import { cn } from "@/lib/utils";
 import type { ActivityKind } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 function IconSelect({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -53,7 +54,7 @@ function KindRow({ kind, index, total, busy, onMove }: { kind: ActivityKind; ind
           {confirm ? (
             <>
               <span className="text-xs text-muted-foreground">使われていない種類だけ削除できます</span>
-              <Button size="sm" variant="destructive" disabled={pending} onClick={() => start(async () => { try { await deleteActivityKind(kind.id); toast.success("削除しました"); } catch (e) { toast.error((e as Error).message); setConfirm(false); } })}>削除する</Button>
+              <Button size="sm" variant="destructive" disabled={pending} onClick={() => start(async () => { try { await deleteActivityKind(kind.id); toast.success("削除しました"); } catch (e) { toast.error(actionErrorMessage(e)); setConfirm(false); } })}>削除する</Button>
               <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>やめる</Button>
             </>
           ) : (
@@ -76,7 +77,7 @@ function KindRow({ kind, index, total, busy, onMove }: { kind: ActivityKind; ind
             toast.success("保存しました");
             setEditing(false);
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }
@@ -112,7 +113,7 @@ export function ActivityKindSettings({ kinds }: { kinds: ActivityKind[] }) {
       try {
         await reorderActivityKinds(next.map((k) => k.id));
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
         setOrder(kinds);
       }
     });
@@ -135,7 +136,7 @@ export function ActivityKindSettings({ kinds }: { kinds: ActivityKind[] }) {
               (document.getElementById("activity-kind-create-form") as HTMLFormElement | null)?.reset();
               setIcon("other");
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

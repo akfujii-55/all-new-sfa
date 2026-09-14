@@ -6,23 +6,24 @@ import { ALERT_SETTING_KEYS, FORM_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEma
 import { getAlertTargets, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
 
+import { userError } from "@/lib/errors";
 /** メール署名・返信件名の設定を保存する */
 export async function saveMailSettings(formData: FormData) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const rows = MAIL_SETTING_KEYS.map((key) => ({ key, value: String(formData.get(key) ?? "").replace(/\r\n/g, "\n").trim() }));
   const email = rows.find((r) => r.key === "signature_email")?.value ?? "";
-  if (email && !email.includes("@")) throw new Error("署名のメールアドレスの形式が正しくありません");
+  if (email && !email.includes("@")) throw userError("署名のメールアドレスの形式が正しくありません");
 
   // tenant_id は insert トリガーが補う(主キーは tenant_id + key)
   const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
   if (error) {
     if (error.code === "PGRST205" || /app_settings/.test(error.message)) {
-      throw new Error("設定テーブルがありません。supabase/migrations/0004_app_settings.sql を適用してください");
+      throw userError("設定テーブルがありません。supabase/migrations/0004_app_settings.sql を適用してください");
     }
-    throw new Error(error.message);
+    throw userError(error.message);
   }
   revalidatePath("/", "layout");
 }
@@ -31,14 +32,14 @@ export async function saveMailSettings(formData: FormData) {
 export async function saveFormSettings(formData: FormData) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const rows = FORM_SETTING_KEYS.map((key) => ({ key, value: splitList(String(formData.get(key) ?? "").replace(/\r\n/g, "\n")).join("\n") }));
   const senders = splitList(rows.find((r) => r.key === "form_senders")?.value ?? "");
   const bad = senders.find((a) => !a.includes("@"));
-  if (bad) throw new Error(`送信元アドレスの形式が正しくありません: ${bad}`);
+  if (bad) throw userError(`送信元アドレスの形式が正しくありません: ${bad}`);
   const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/settings");
 }
 
@@ -46,15 +47,15 @@ export async function saveFormSettings(formData: FormData) {
 export async function saveAlertSettings(formData: FormData) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const raw = String(formData.get("alert_emails") ?? "");
   const invalid = raw.split(/[,;\s]+/).map((a) => a.trim()).filter((a) => a && !a.includes("@"));
-  if (invalid.length) throw new Error(`メールアドレスの形式が正しくありません: ${invalid.join(", ")}`);
+  if (invalid.length) throw userError(`メールアドレスの形式が正しくありません: ${invalid.join(", ")}`);
 
   const rows = ALERT_SETTING_KEYS.map((key) => ({ key, value: key === "alert_emails" ? splitAlertEmails(raw).join(", ") : String(formData.get(key) ?? "").trim() }));
   const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/settings");
 }
 
@@ -62,7 +63,7 @@ export async function saveAlertSettings(formData: FormData) {
 export async function sendTestAlert(): Promise<{ ok: boolean; message: string }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const targets = await getAlertTargets(supabase);
   if (targets.emails.length === 0 && !targets.webhook) return { ok: false, message: "通知先が設定されていません" };
@@ -83,10 +84,10 @@ export async function sendTestAlert(): Promise<{ ok: boolean; message: string }>
 export async function deleteOldSystemLogs(days = 30): Promise<{ deleted: number }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
   const before = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const { count, error } = await supabase.from("system_logs").delete({ count: "exact" }).lt("created_at", before);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/settings/logs");
   return { deleted: count ?? 0 };
 }

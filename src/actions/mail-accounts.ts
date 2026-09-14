@@ -11,6 +11,7 @@ import { verifySmtp } from "@/lib/mail/smtp";
 import { verifyImap } from "@/lib/mail/sync";
 import { assertCanAddMailAccount, assertTenantWritable } from "@/lib/tenant-quota";
 
+import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
   return t === "" ? null : t;
@@ -24,7 +25,7 @@ function port(v: FormDataEntryValue | null, fallback: number) {
 async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("ログインが必要です");
+  if (!data.user) throw userError("ログインが必要です");
   return supabase;
 }
 
@@ -42,11 +43,11 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
   const email = s(formData.get("email"))?.toLowerCase();
   const label = s(formData.get("label")) ?? email;
   const password = String(formData.get("password") ?? "").replace(/\s+/g, "");
-  if (!email || !email.includes("@")) throw new Error("メールアドレスを入力してください");
-  if (!id && !password) throw new Error("パスワードを入力してください");
+  if (!email || !email.includes("@")) throw userError("メールアドレスを入力してください");
+  if (!id && !password) throw userError("パスワードを入力してください");
   const imapHost = s(formData.get("imap_host"))?.toLowerCase() ?? "imap.gmail.com";
   const smtpHost = s(formData.get("smtp_host"))?.toLowerCase() ?? "smtp.gmail.com";
-  if (!/^[a-z0-9.-]+$/.test(imapHost) || !/^[a-z0-9.-]+$/.test(smtpHost)) throw new Error("サーバー名はホスト名だけを入力してください(例: imap.example.jp)");
+  if (!/^[a-z0-9.-]+$/.test(imapHost) || !/^[a-z0-9.-]+$/.test(smtpHost)) throw userError("サーバー名はホスト名だけを入力してください(例: imap.example.jp)");
   const loginUser = s(formData.get("login_user"));
 
   const values: Record<string, unknown> = {
@@ -70,8 +71,8 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
     ? await db.from("mail_accounts").update(values).eq("id", id)
     : await db.from("mail_accounts").insert(values);
   if (error) {
-    if (error.code === "23505") throw new Error("このメールアドレスは既に登録されています");
-    throw new Error(error.message);
+    if (error.code === "23505") throw userError("このメールアドレスは既に登録されています");
+    throw userError(error.message);
   }
   // メールアカウント数は課金対象なので、追加後に Stripe の数量を合わせる(応答後に実行)
   if (!id) {
@@ -85,7 +86,7 @@ export async function deleteMailAccount(id: string) {
   const db = await requireUser();
   const { data: target } = await db.from("mail_accounts").select("is_default").eq("id", id).maybeSingle();
   const { error } = await db.from("mail_accounts").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   const tenantId = await tenantIdOf(db);
   after(() => syncTenantBilling(tenantId));
   // 既定アカウントを消したら、残りの先頭を既定にする
@@ -100,7 +101,7 @@ export async function setDefaultMailAccount(id: string) {
   const db = await requireUser();
   await db.from("mail_accounts").update({ is_default: false }).neq("id", id);
   const { error } = await db.from("mail_accounts").update({ is_default: true, is_active: true }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate();
 }
 

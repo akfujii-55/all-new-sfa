@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { linkEmailThreadToDeal } from "@/actions/emails";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function LinkDealSelect({ emailId, dealId, deals }: { emailId: string; dealId: string | null; deals: { id: string; title: string }[] }) {
   const [pending, start] = useTransition();
   return (
@@ -17,7 +18,7 @@ export function LinkDealSelect({ emailId, dealId, deals }: { emailId: string; de
             await linkEmailThreadToDeal(emailId, v === "none" ? null : v);
             toast.success("案件への紐付けを更新しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient, type SupabaseClient } from "@supa
 import { createAdminClient } from "./server";
 import type { Tenant } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 /**
  * マルチテナントの土台。
  *
@@ -48,7 +49,7 @@ export function hasTenantClientSupport() {
 export function createTenantClient(tenantId: string): SupabaseClient {
   const secret = process.env.SUPABASE_JWT_SECRET;
   if (!secret) {
-    throw new Error(
+    throw userError(
       "SUPABASE_JWT_SECRET が設定されていません。Supabase の Project Settings → JWT Keys → Legacy JWT Secret の値を環境変数に登録してください",
     );
   }
@@ -66,8 +67,8 @@ export async function tenantIdOf(db: SupabaseClient): Promise<string> {
   const cached = tenantIdCache.get(db);
   if (cached) return cached;
   const { data, error } = await db.rpc("current_tenant_id");
-  if (error) throw new Error(`テナントを特定できません: ${error.message}`);
-  if (!data) throw new Error("このユーザーはどの会社(テナント)にも所属していません。管理者に招待を依頼してください");
+  if (error) throw userError(`テナントを特定できません: ${error.message}`);
+  if (!data) throw userError("このユーザーはどの会社(テナント)にも所属していません。管理者に招待を依頼してください");
   tenantIdCache.set(db, data as string);
   return data as string;
 }
@@ -85,7 +86,7 @@ export async function listActiveTenants(): Promise<Tenant[]> {
     .select("*")
     .in("status", ["trial", "active"])
     .order("created_at");
-  if (error) throw new Error(`テナント一覧の取得に失敗しました: ${error.message}`);
+  if (error) throw userError(`テナント一覧の取得に失敗しました: ${error.message}`);
   const now = Date.now();
   return ((data ?? []) as Tenant[]).filter((t) => t.status === "active" || !t.trial_ends_at || Date.parse(t.trial_ends_at) >= now);
 }

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { PricingSettings } from "@/lib/pricing";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function TenantCreateForm({ pricing }: { pricing: PricingSettings }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<CreateTenantResult | null>(null);
@@ -45,7 +46,7 @@ export function TenantCreateForm({ pricing }: { pricing: PricingSettings }) {
             setResult(await createTenant(fd));
             toast.success("テナントを作成しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

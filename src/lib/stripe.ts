@@ -4,6 +4,7 @@ import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 import { pricingFromRows, TAX_PERCENT, type PricingSettings } from "@/lib/pricing";
 import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsage } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 /**
  * Stripe Billing 連携。
  *
@@ -26,7 +27,7 @@ export function stripeWebhookConfigured() {
 let client: Stripe | null = null;
 export function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY が設定されていないため、オンライン決済を利用できません。運営にお問い合わせください");
+  if (!key) throw userError("STRIPE_SECRET_KEY が設定されていないため、オンライン決済を利用できません。運営にお問い合わせください");
   if (!client) client = new Stripe(key, { typescript: true });
   return client;
 }
@@ -184,7 +185,7 @@ export async function ensureCustomer(tenant: Pick<Tenant, "id" | "name" | "slug"
     metadata: { tenant_id: tenant.id, tenant_slug: tenant.slug, contact_name: tenant.contact_name ?? "" },
   });
   const { error } = await admin.from("tenants").update({ stripe_customer_id: c.id }).eq("id", tenant.id);
-  if (error) throw new Error(`Stripe の顧客 ID を保存できません: ${error.message}`);
+  if (error) throw userError(`Stripe の顧客 ID を保存できません: ${error.message}`);
   return c.id;
 }
 
@@ -218,7 +219,7 @@ export async function createCheckoutSession(tenant: Tenant, usage: TenantUsage, 
     success_url: `${origin}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/settings/billing?checkout=cancel`,
   });
-  if (!session.url) throw new Error("Stripe の決済ページを作成できませんでした");
+  if (!session.url) throw userError("Stripe の決済ページを作成できませんでした");
   return session.url;
 }
 
@@ -292,7 +293,7 @@ export async function applySubscriptionToTenant(sub: Stripe.Subscription): Promi
     delete values.status;
   }
   const { error } = await admin.from("tenants").update(values).eq("id", tenantId);
-  if (error) throw new Error(`tenants の更新に失敗しました: ${error.message}`);
+  if (error) throw userError(`tenants の更新に失敗しました: ${error.message}`);
   return tenantId;
 }
 
@@ -309,7 +310,7 @@ export async function syncTenantBilling(tenantId: string): Promise<void> {
     const { data: tenant } = await admin.from("tenants").select("id, slug, stripe_subscription_id").eq("id", tenantId).maybeSingle();
     if (!tenant?.stripe_subscription_id) return;
     const { data: usageRow, error: usageErr } = await admin.rpc("tenant_usage_of", { p_tenant: tenantId }).single();
-    if (usageErr) throw new Error(usageErr.message);
+    if (usageErr) throw userError(usageErr.message);
     const u = usageRow as Record<string, number | string>;
     const usage = { users: Number(u.users ?? 0), mail_accounts: Number(u.mail_accounts ?? 0), storage_bytes: Number(u.storage_bytes ?? 0) };
     const pricing = await loadPricing();

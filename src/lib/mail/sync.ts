@@ -9,6 +9,7 @@ import { listMailAccounts, type MailAccountConfig } from "./accounts";
 import { cleanupOutbox, saveAttachments } from "./attachments";
 import { errorDetail, logSystem } from "@/lib/log";
 
+import { userError } from "@/lib/errors";
 type Db = SupabaseClient;
 
 type Mailbox = { key: string; path: string; direction: "inbound" | "outbound" };
@@ -67,7 +68,7 @@ export interface SyncResult {
 export async function syncMail(db: Db, opts: { initialDays?: number; accountId?: string } = {}): Promise<SyncResult[]> {
   let accounts = await listMailAccounts(db);
   if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
-  if (accounts.length === 0) throw new Error("メールアカウントが設定されていません。設定画面から追加してください。");
+  if (accounts.length === 0) throw userError("メールアカウントが設定されていません。設定画面から追加してください。");
   const selves = accounts.map((a) => a.email);
   const form = await loadFormProfile(db);
 
@@ -123,12 +124,12 @@ async function connectOrThrow(client: ImapFlow) {
   } catch (e) {
     const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
     if (err.authenticationFailed) {
-      throw new Error(
+      throw userError(
         `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
           "ログイン ID とパスワードを確認してください。Gmail はアプリパスワード(2 段階認証が必要)、Google Workspace は管理者が IMAP / アプリパスワードを許可している必要があります。ログイン ID がメールアドレスと違うサーバーでは「ログイン ID」欄に入力してください。",
       );
     }
-    throw new Error(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
+    throw userError(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
   }
 }
 

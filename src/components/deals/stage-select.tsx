@@ -8,6 +8,7 @@ import { DEAL_STAGES, type DealStage } from "@/lib/types";
 import { WonDialog, LostDialog } from "./stage-dialogs";
 import { cn } from "@/lib/utils";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function StageSelect({ deal }: { deal: { id: string; title: string; amount: number; stage: DealStage } }) {
   const [pending, start] = useTransition();
   const [won, setWon] = useState(false);
@@ -28,7 +29,7 @@ export function StageSelect({ deal }: { deal: { id: string; title: string; amoun
               await moveDealStage(deal.id, stage);
               toast.success(`ステージを「${DEAL_STAGES.find((s) => s.key === stage)?.label}」に変更しました`);
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           });
         }}

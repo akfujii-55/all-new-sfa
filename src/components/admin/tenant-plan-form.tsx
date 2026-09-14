@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BILLING_STATUS_LABEL, GIB, TENANT_STATUS_LABEL, type BillingStatus, type Tenant, type TenantStatus } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 /** `<input type="date">` 用に日本時間の yyyy-MM-dd にする */
 function toDateInput(iso: string | null) {
   if (!iso) return "";
@@ -25,7 +26,7 @@ export function TenantPlanForm({ tenant }: { tenant: Tenant }) {
             await updateTenantPlan(tenant.id, fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

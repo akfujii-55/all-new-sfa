@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { runMailSync } from "@/actions/emails";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function MailSyncButton({ label = "メール同期" }: { label?: string }) {
   const [pending, start] = useTransition();
   return (
@@ -22,7 +23,7 @@ export function MailSyncButton({ label = "メール同期" }: { label?: string }
             if (errors.length) toast.error(`同期エラー: ${errors.map((e) => `${e.account} ${e.mailbox}: ${e.error}`).join(" / ")}`);
             else toast.success(`同期完了: ${inserted}件の新着メールを取り込みました`);
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

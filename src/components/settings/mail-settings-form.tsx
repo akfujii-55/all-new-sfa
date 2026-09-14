@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function MailSettingsForm({ settings, memberName }: { settings: MailSettings; memberName: string }) {
   const [form, setForm] = useState(settings);
   const [pending, start] = useTransition();
@@ -25,7 +26,7 @@ export function MailSettingsForm({ settings, memberName }: { settings: MailSetti
             await saveMailSettings(fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

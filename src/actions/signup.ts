@@ -11,6 +11,7 @@ import { buildMail } from "@/lib/mail/templates";
 import { errorDetail, errorMessage, getAlertTargets, logSystem, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
 
+import { userError } from "@/lib/errors";
 /**
  * Web からの申し込み(自動開設)。
  * 1. /signup のフォーム → requestSignup: 内容を signup_requests に保存し、確認メール(トークン付きリンク)を運営側のメールアカウントから送る。
@@ -116,7 +117,7 @@ export async function requestSignup(_: SignupState, formData: FormData): Promise
   const link = `${await siteOrigin()}/signup/verify?token=${encodeURIComponent(token)}`;
   try {
     const operator = await operatorTenantClient();
-    if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
+    if (!operator) throw userError("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
     const mail = await buildMail("signup_confirm", { name: values.contact_name, company: values.company_name, inviter: "", link, expires: `${TOKEN_TTL_HOURS} 時間` });
     await sendMail(account, { to: [values.email], subject: mail.subject, text: mail.text });

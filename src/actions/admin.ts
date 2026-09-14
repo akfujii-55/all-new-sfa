@@ -11,6 +11,7 @@ import { errorMessage } from "@/lib/log";
 import { PRICING_KEYS, pricingFromRows, type PricingSettings } from "@/lib/pricing";
 import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsage } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 /**
  * 運営管理(/admin)の Server Actions。
  * 運営者(operators)だけが実行でき、テナント横断のため service role で読み書きする。
@@ -21,17 +22,17 @@ import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsa
 export async function requireOperator() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
   const admin = createAdminClient();
   const { data: op } = await admin.from("operators").select("user_id, is_super").eq("user_id", auth.user.id).maybeSingle();
-  if (!op) throw new Error("運営者のみ操作できます");
+  if (!op) throw userError("運営者のみ操作できます");
   return { admin, user: auth.user, isSuper: Boolean(op.is_super) };
 }
 
 /** スーパーユーザー(運営者の招待・削除ができる)であることを確認する */
 async function requireSuperOperator() {
   const ctx = await requireOperator();
-  if (!ctx.isSuper) throw new Error("この操作はスーパーユーザーのみ行えます");
+  if (!ctx.isSuper) throw userError("この操作はスーパーユーザーのみ行えます");
   return ctx;
 }
 
@@ -41,12 +42,12 @@ function s(v: FormDataEntryValue | null) {
 }
 function int(v: FormDataEntryValue | null, min: number, label: string) {
   const n = Number(String(v ?? "").trim());
-  if (!Number.isInteger(n) || n < min) throw new Error(`${label}は ${min} 以上の整数で入力してください`);
+  if (!Number.isInteger(n) || n < min) throw userError(`${label}は ${min} 以上の整数で入力してください`);
   return n;
 }
 function gbToBytes(v: FormDataEntryValue | null) {
   const n = Number(String(v ?? "").trim());
-  if (!Number.isFinite(n) || n <= 0) throw new Error("容量は 0 より大きい数(GB)で入力してください");
+  if (!Number.isFinite(n) || n <= 0) throw userError("容量は 0 より大きい数(GB)で入力してください");
   return Math.round(n * GIB);
 }
 
@@ -105,8 +106,8 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   const { admin, user } = await requireSuperOperator();
   const email = s(formData.get("email"))?.toLowerCase();
   const name = s(formData.get("name"));
-  if (!email || !email.includes("@")) throw new Error("メールアドレスを入力してください");
-  if (!name) throw new Error("氏名を入力してください");
+  if (!email || !email.includes("@")) throw userError("メールアドレスを入力してください");
+  if (!name) throw userError("氏名を入力してください");
   const note = s(formData.get("note"));
 
   const [{ data: existing }, { data: opTenant }] = await Promise.all([
@@ -118,12 +119,12 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   let type: "invite" | "magiclink";
 
   if (existing?.tenant_id && existing.tenant_id !== opTenant?.id) {
-    throw new Error("このメールアドレスは他社(テナント)の利用者として登録されています。運営者にできるのは運営側の会社の利用者か、まだ登録のないメールアドレスです");
+    throw userError("このメールアドレスは他社(テナント)の利用者として登録されています。運営者にできるのは運営側の会社の利用者か、まだ登録のないメールアドレスです");
   }
   if (userId) {
     // 既にログインできる利用者(運営側テナントの利用者)、または招待済みで未ログインの運営者への再送。ログイン用のリンクを送る
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
-    if (again.error) throw new Error(again.error.message);
+    if (again.error) throw userError(again.error.message);
     tokenHash = again.data.properties.hashed_token;
     type = "magiclink";
   } else {
@@ -133,14 +134,14 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
       email,
       options: { data: { full_name: name, operator: "true" } },
     });
-    if (first.error) throw new Error(first.error.message);
+    if (first.error) throw userError(first.error.message);
     tokenHash = first.data.properties.hashed_token;
     type = "invite";
     userId = first.data.user.id;
   }
 
   const { error } = await admin.from("operators").upsert({ user_id: userId, name, note, is_super: false }, { onConflict: "user_id" });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
 
   const origin = await siteOrigin();
   const inviteLink = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent(type === "invite" ? "/set-password" : "/admin")}`;
@@ -149,7 +150,7 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   let mailError: string | null = null;
   try {
     const operator = await operatorTenantClient();
-    if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
+    if (!operator) throw userError("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
     const mail = await buildMail("operator_invite", { name, company: opTenant?.name ?? "", inviter: user.email ?? "", link: inviteLink });
     await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
@@ -164,15 +165,15 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
 /** 運営者の氏名・メモを変更する。自分自身は誰でも、他の運営者はスーパーユーザーのみ変更できる */
 export async function updateOperator(userId: string, formData: FormData): Promise<void> {
   const { admin, user, isSuper } = await requireOperator();
-  if (userId !== user.id && !isSuper) throw new Error("他の運営者の変更はスーパーユーザーのみ行えます");
+  if (userId !== user.id && !isSuper) throw userError("他の運営者の変更はスーパーユーザーのみ行えます");
   const name = String(formData.get("name") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim() || null;
-  if (!name) throw new Error("氏名を入力してください");
-  if (name.length > 50) throw new Error("氏名は 50 文字以内にしてください");
+  if (!name) throw userError("氏名を入力してください");
+  if (name.length > 50) throw userError("氏名は 50 文字以内にしてください");
   const { data: target } = await admin.from("operators").select("user_id").eq("user_id", userId).maybeSingle();
-  if (!target) throw new Error("運営者が見つかりません");
+  if (!target) throw userError("運営者が見つかりません");
   const { error } = await admin.from("operators").update({ name, note }).eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   // 一覧の表示名の元になる profiles.full_name も合わせる(profiles は運営者本人の行なので service role で更新してよい)
   await admin.from("profiles").update({ full_name: name }).eq("id", userId);
   await admin.auth.admin.updateUserById(userId, { user_metadata: { full_name: name } }).catch(() => {});
@@ -182,17 +183,17 @@ export async function updateOperator(userId: string, formData: FormData): Promis
 /** 運営者を削除する(スーパーユーザーのみ)。運営専用アカウントはログインごと削除する。スーパーユーザーは削除できない */
 export async function removeOperator(userId: string): Promise<void> {
   const { admin, user } = await requireSuperOperator();
-  if (userId === user.id) throw new Error("スーパーユーザー自身は削除できません");
+  if (userId === user.id) throw userError("スーパーユーザー自身は削除できません");
   const { data: target } = await admin.from("operators").select("is_super").eq("user_id", userId).maybeSingle();
-  if (!target) throw new Error("運営者が見つかりません");
-  if (target.is_super) throw new Error("スーパーユーザーは削除できません");
+  if (!target) throw userError("運営者が見つかりません");
+  if (target.is_super) throw userError("スーパーユーザーは削除できません");
   const { error } = await admin.from("operators").delete().eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   // どのテナントにも所属しない運営専用アカウントなら、auth ユーザーも消してログインできなくする
   const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
   if (!profile?.tenant_id) {
     const { error: delErr } = await admin.auth.admin.deleteUser(userId);
-    if (delErr && !/not found/i.test(delErr.message)) throw new Error(`ログインの削除に失敗しました: ${delErr.message}`);
+    if (delErr && !/not found/i.test(delErr.message)) throw userError(`ログインの削除に失敗しました: ${delErr.message}`);
   }
   revalidatePath("/admin/users");
 }
@@ -220,15 +221,15 @@ export async function listMailTemplates(): Promise<MailTemplateRow[]> {
 
 export async function saveMailTemplate(key: MailTemplateKey, formData: FormData): Promise<void> {
   const { admin } = await requireOperator();
-  if (!MAIL_TEMPLATE_KEYS.includes(key)) throw new Error("テンプレートの種類が不正です");
+  if (!MAIL_TEMPLATE_KEYS.includes(key)) throw userError("テンプレートの種類が不正です");
   const t: MailTemplate = {
     subject: String(formData.get("subject") ?? "").replace(/\r\n/g, "\n").trim(),
     body: String(formData.get("body") ?? "").replace(/\r\n/g, "\n").trim(),
   };
   const err = validateTemplate(t);
-  if (err) throw new Error(err);
+  if (err) throw userError(err);
   const { error } = await admin.from("mail_templates").upsert({ key, ...t }, { onConflict: "key" });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin/mail-templates");
 }
 
@@ -236,7 +237,7 @@ export async function saveMailTemplate(key: MailTemplateKey, formData: FormData)
 export async function resetMailTemplate(key: MailTemplateKey): Promise<void> {
   const { admin } = await requireOperator();
   const { error } = await admin.from("mail_templates").delete().eq("key", key);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin/mail-templates");
 }
 
@@ -266,7 +267,7 @@ export async function listTenantsWithUsage(): Promise<TenantWithUsage[]> {
     admin.from("tenants").select("*").order("created_at"),
     admin.from("tenant_usage").select("*"),
   ]);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   const byId = new Map((usage ?? []).map((u) => [u.tenant_id as string, u]));
   return ((tenants ?? []) as Tenant[]).map((t, i) => ({ ...t, usage: toUsage(byId.get(t.id)), is_self: i === 0 }));
 }
@@ -309,11 +310,11 @@ export async function savePricingSettings(formData: FormData) {
   const { admin } = await requireOperator();
   const rows = PRICING_KEYS.map((key) => {
     const n = Number(String(formData.get(key) ?? "").trim());
-    if (!Number.isFinite(n) || n < 0) throw new Error(`${key} は 0 以上の数で入力してください`);
+    if (!Number.isFinite(n) || n < 0) throw userError(`${key} は 0 以上の数で入力してください`);
     return { key, value: String(n) };
   });
   const { error } = await admin.from("operator_settings").upsert(rows, { onConflict: "key" });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin", "layout");
 }
 
@@ -333,9 +334,9 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
   const slug = s(formData.get("slug"))?.toLowerCase() ?? null;
   const ownerName = s(formData.get("contact_name"));
   const ownerEmail = s(formData.get("contact_email"))?.toLowerCase() ?? null;
-  if (!name) throw new Error("会社名を入力してください");
-  if (!slug || !SLUG_RE.test(slug)) throw new Error("会社 ID は英小文字・数字・ハイフンで 3〜40 文字(先頭と末尾は英数字)にしてください");
-  if (!ownerEmail || !ownerEmail.includes("@")) throw new Error("担当者のメールアドレスを入力してください");
+  if (!name) throw userError("会社名を入力してください");
+  if (!slug || !SLUG_RE.test(slug)) throw userError("会社 ID は英小文字・数字・ハイフンで 3〜40 文字(先頭と末尾は英数字)にしてください");
+  if (!ownerEmail || !ownerEmail.includes("@")) throw userError("担当者のメールアドレスを入力してください");
 
   const { data: tenantId, error } = await admin.rpc("create_tenant", {
     p_name: name,
@@ -351,8 +352,8 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
     p_source: "operator",
   });
   if (error) {
-    if (error.code === "23505") throw new Error("この会社 ID は既に使われています");
-    throw new Error(error.message);
+    if (error.code === "23505") throw userError("この会社 ID は既に使われています");
+    throw userError(error.message);
   }
   const note = s(formData.get("note"));
   if (note) await admin.from("tenants").update({ note }).eq("id", tenantId);
@@ -373,8 +374,8 @@ async function issueInvite(tenantId: string, memberId: string): Promise<Omit<Cre
     admin.from("tenants").select("name").eq("id", tenantId).single(),
     admin.from("members").select("id, name, email, profile_id").eq("id", memberId).eq("tenant_id", tenantId).single(),
   ]);
-  if (!member?.email) throw new Error("招待先のメールアドレスがありません");
-  if (member.profile_id) throw new Error("この利用者は既にログインできます");
+  if (!member?.email) throw userError("招待先のメールアドレスがありません");
+  if (member.profile_id) throw userError("この利用者は既にログインできます");
   const email = (member.email as string).toLowerCase();
 
   let tokenHash: string | null = null;
@@ -385,9 +386,9 @@ async function issueInvite(tenantId: string, memberId: string): Promise<Omit<Cre
     options: { data: { full_name: member.name, member_id: member.id, tenant_id: tenantId } },
   });
   if (first.error) {
-    if (!/already|exists|registered/i.test(first.error.message)) throw new Error(first.error.message);
+    if (!/already|exists|registered/i.test(first.error.message)) throw userError(first.error.message);
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
-    if (again.error) throw new Error(again.error.message);
+    if (again.error) throw userError(again.error.message);
     tokenHash = again.data.properties.hashed_token;
     type = "magiclink";
   } else {
@@ -401,7 +402,7 @@ async function issueInvite(tenantId: string, memberId: string): Promise<Omit<Cre
   let mailError: string | null = null;
   try {
     const operator = await operatorTenantClient();
-    if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
+    if (!operator) throw userError("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
     const mail = await buildMail("tenant_invite", { name: member.name as string, company: (tenant?.name as string) ?? "", inviter: "", link: inviteLink });
     await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
@@ -431,9 +432,9 @@ async function siteOrigin() {
 export async function updateTenantContact(id: string, formData: FormData) {
   const { admin } = await requireOperator();
   const name = s(formData.get("name"));
-  if (!name) throw new Error("会社名を入力してください");
+  if (!name) throw userError("会社名を入力してください");
   const email = s(formData.get("contact_email"))?.toLowerCase() ?? null;
-  if (email && !email.includes("@")) throw new Error("担当者のメールアドレスの形式が正しくありません");
+  if (email && !email.includes("@")) throw userError("担当者のメールアドレスの形式が正しくありません");
   const { error } = await admin
     .from("tenants")
     .update({
@@ -445,7 +446,7 @@ export async function updateTenantContact(id: string, formData: FormData) {
       note: s(formData.get("note")),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin", "layout");
 }
 
@@ -456,8 +457,8 @@ export async function updateTenantPlan(id: string, formData: FormData) {
   const { admin } = await requireOperator();
   const status = String(formData.get("status") ?? "") as TenantStatus;
   const billing = String(formData.get("billing_status") ?? "") as BillingStatus;
-  if (!TENANT_STATUSES.includes(status)) throw new Error("契約状態が不正です");
-  if (!BILLING_STATUSES.includes(billing)) throw new Error("課金状態が不正です");
+  if (!TENANT_STATUSES.includes(status)) throw userError("契約状態が不正です");
+  if (!BILLING_STATUSES.includes(billing)) throw userError("課金状態が不正です");
   const trialEnds = s(formData.get("trial_ends_at"));
   const { error } = await admin
     .from("tenants")
@@ -470,7 +471,7 @@ export async function updateTenantPlan(id: string, formData: FormData) {
       trial_ends_at: trialEnds ? new Date(`${trialEnds}T23:59:59+09:00`).toISOString() : null,
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin", "layout");
 }
 
@@ -486,10 +487,10 @@ export async function syncTenantBillingNow(id: string): Promise<void> {
 export async function deleteTenant(id: string, confirmSlug: string) {
   const { admin } = await requireOperator();
   const { data: t } = await admin.from("tenants").select("slug, created_at, stripe_subscription_id").eq("id", id).single();
-  if (!t) throw new Error("テナントが見つかりません");
-  if (t.slug !== confirmSlug) throw new Error("確認のため会社 ID を正しく入力してください");
+  if (!t) throw userError("テナントが見つかりません");
+  if (t.slug !== confirmSlug) throw userError("確認のため会社 ID を正しく入力してください");
   const { data: first } = await admin.from("tenants").select("id").order("created_at").limit(1).single();
-  if (first?.id === id) throw new Error("運営側のテナント(自社)は削除できません");
+  if (first?.id === id) throw userError("運営側のテナント(自社)は削除できません");
   // Stripe の契約が残っていれば先に解約する(請求が続かないように)
   if (t.stripe_subscription_id) {
     const { getStripe, stripeConfigured } = await import("@/lib/stripe");
@@ -497,7 +498,7 @@ export async function deleteTenant(id: string, confirmSlug: string) {
       try {
         await getStripe().subscriptions.cancel(t.stripe_subscription_id as string);
       } catch (e) {
-        if (!/No such subscription|already been canceled/i.test(errorMessage(e))) throw new Error(`Stripe の契約を解約できませんでした: ${errorMessage(e)}`);
+        if (!/No such subscription|already been canceled/i.test(errorMessage(e))) throw userError(`Stripe の契約を解約できませんでした: ${errorMessage(e)}`);
       }
     }
   }
@@ -508,6 +509,6 @@ export async function deleteTenant(id: string, confirmSlug: string) {
     await admin.storage.from("email-attachments").remove(paths.slice(i, i + 100));
   }
   const { error } = await admin.from("tenants").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/admin", "layout");
 }

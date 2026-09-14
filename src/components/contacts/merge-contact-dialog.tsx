@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PickerList } from "@/components/links/picker-list";
 
+import { actionErrorMessage } from "@/lib/errors";
 export interface MergeContactCandidate {
   id: string;
   name: string;
@@ -60,7 +61,7 @@ export function MergeContactDialog({ trigger, contact, contacts, companies }: { 
                   setOpen(false);
                   router.refresh();
                 } catch (e) {
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               })
             }

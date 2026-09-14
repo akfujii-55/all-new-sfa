@@ -15,6 +15,7 @@ import { toLocalInput } from "@/lib/format";
 import { DatePicker } from "@/components/date-picker/date-picker";
 import { APPOINTMENT_TIMES } from "@/components/deals/new-deal-dialog";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function DealEditDialog({
   deal,
   contacts,
@@ -46,7 +47,7 @@ export function DealEditDialog({
                 toast.success("保存しました");
                 setOpen(false);
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }
@@ -108,7 +109,7 @@ export function DealEditDialog({
                 if (!confirm("この案件を削除しますか?メール履歴の紐付けとメモ・売上も削除されます。")) return;
                 start(async () => {
                   try { await deleteDeal(deal.id); } catch (e) {
-                    if (!(e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) toast.error((e as Error).message);
+                    if (!(e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) toast.error(actionErrorMessage(e));
                   }
                 });
               }}

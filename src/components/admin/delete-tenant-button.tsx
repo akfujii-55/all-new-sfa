@@ -7,6 +7,7 @@ import { deleteTenant } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function DeleteTenantButton({ tenantId, slug }: { tenantId: string; slug: string }) {
   const [confirm, setConfirm] = useState("");
   const [pending, start] = useTransition();
@@ -26,7 +27,7 @@ export function DeleteTenantButton({ tenantId, slug }: { tenantId: string; slug:
               toast.success("テナントを削除しました");
               router.push("/admin");
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { GMAIL_HOSTS, PROVIDER_EXAMPLES, PROVIDER_LABEL, providerOf, type MailProvider } from "@/lib/mail/providers";
 import type { MailAccount } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 type AccountRow = Omit<MailAccount, "password_enc">;
 
 export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; account?: AccountRow }) {
@@ -49,7 +50,7 @@ export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; ac
                 toast.success("保存しました");
                 setOpen(false);
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }
@@ -154,7 +155,7 @@ export function MailAccountDialog({ trigger, account }: { trigger: ReactNode; ac
                   onClick={() =>
                     start(async () => {
                       try { await deleteMailAccount(account.id); toast.success("削除しました"); setOpen(false); }
-                      catch (e) { toast.error((e as Error).message); }
+                      catch (e) { toast.error(actionErrorMessage(e)); }
                     })
                   }
                 >

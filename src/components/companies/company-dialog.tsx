@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Company } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function CompanyDialog({ trigger, company }: { trigger: ReactNode; company?: Company }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -35,7 +36,7 @@ export function CompanyDialog({ trigger, company }: { trigger: ReactNode; compan
                 }
               } catch (e) {
                 if ((e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) return;
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }

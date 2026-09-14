@@ -17,6 +17,7 @@ import {
 } from "@/lib/mail/attachments";
 import { LoggedError, errorDetail, errorMessage, logSystem } from "@/lib/log";
 
+import { userError } from "@/lib/errors";
 export interface SendEmailInput {
   to: string;
   cc?: string;
@@ -42,13 +43,13 @@ function splitAddrs(v?: string) {
 export async function sendEmail(input: SendEmailInput) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   await assertTenantWritable(supabase);
   const to = splitAddrs(input.to);
   const cc = splitAddrs(input.cc);
-  if (to.length === 0) throw new Error("宛先を入力してください");
-  if (!input.subject.trim()) throw new Error("件名を入力してください");
+  if (to.length === 0) throw userError("宛先を入力してください");
+  if (!input.subject.trim()) throw userError("件名を入力してください");
   const attachmentRefs = validateOutgoingRefs(input.attachments, await tenantIdOf(supabase));
   const bodyBytes = Buffer.byteLength(input.body, "utf8");
   const attachmentBytes = attachmentRefs.reduce((a, r) => a + (Number(r.size) || 0), 0);
@@ -207,7 +208,7 @@ export async function linkEmailThreadToDeal(emailId: string, dealId: string | nu
 export async function runMailSync() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
   await assertTenantWritable(supabase);
   // ログインユーザーのセッションで実行する(RLS で自テナントに絞られる)
   const results = await syncMail(supabase);
@@ -222,13 +223,13 @@ export async function runMailSync() {
 export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted: number }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const ids = Array.from(new Set(emailIds.filter(Boolean)));
   if (ids.length === 0) return { deleted: 0 };
 
   const { data: seeds, error: seedErr } = await supabase.from("emails").select("thread_key").in("id", ids);
-  if (seedErr) throw new Error(seedErr.message);
+  if (seedErr) throw userError(seedErr.message);
   const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key)));
   if (threadKeys.length === 0) return { deleted: 0 };
 
@@ -237,7 +238,7 @@ export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted:
   await removeAttachmentObjects(supabase, (members ?? []).map((m) => m.id));
 
   const { count, error } = await supabase.from("emails").delete({ count: "exact" }).in("thread_key", threadKeys);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
 
   revalidatePath("/inbox");
   revalidatePath("/inquiries");

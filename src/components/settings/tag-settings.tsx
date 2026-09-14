@@ -12,6 +12,7 @@ import { MAX_TAGS, TAG_COLORS, tagColorClass } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import type { Tag } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 function ColorSelect({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -45,7 +46,7 @@ function TagRow({ tag, index, total, busy, onMove }: { tag: Tag; index: number; 
           {confirm ? (
             <>
               <span className="text-xs text-muted-foreground">付いているメール・担当者からも外れます</span>
-              <Button size="sm" variant="destructive" disabled={pending} onClick={() => start(async () => { try { await deleteTag(tag.id); toast.success("削除しました"); } catch (e) { toast.error((e as Error).message); } })}>削除する</Button>
+              <Button size="sm" variant="destructive" disabled={pending} onClick={() => start(async () => { try { await deleteTag(tag.id); toast.success("削除しました"); } catch (e) { toast.error(actionErrorMessage(e)); } })}>削除する</Button>
               <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>やめる</Button>
             </>
           ) : (
@@ -68,7 +69,7 @@ function TagRow({ tag, index, total, busy, onMove }: { tag: Tag; index: number; 
             toast.success("保存しました");
             setEditing(false);
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }
@@ -104,7 +105,7 @@ export function TagSettings({ tags }: { tags: Tag[] }) {
       try {
         await reorderTags(next.map((t) => t.id));
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
         setOrder(tags);
       }
     });
@@ -127,7 +128,7 @@ export function TagSettings({ tags }: { tags: Tag[] }) {
               (document.getElementById("tag-create-form") as HTMLFormElement | null)?.reset();
               setColor("gray");
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

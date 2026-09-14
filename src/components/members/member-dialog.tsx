@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Member } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?: Member }) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -46,7 +47,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
                 }
                 setOpen(false);
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }
@@ -96,7 +97,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
                         toast.success("削除しました");
                         setOpen(false);
                       } catch (e) {
-                        toast.error((e as Error).message);
+                        toast.error(actionErrorMessage(e));
                       }
                     })
                   }

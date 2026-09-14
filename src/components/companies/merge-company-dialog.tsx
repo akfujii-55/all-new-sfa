@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PickerList } from "@/components/links/picker-list";
 
+import { actionErrorMessage } from "@/lib/errors";
 /** 重複して作られた取引先を別の取引先にまとめる。この取引先(source)を選んだ取引先(target)に統合して削除する */
 export function MergeCompanyDialog({ trigger, company, companies }: { trigger: ReactNode; company: { id: string; name: string }; companies: { id: string; name: string; domain?: string | null }[] }) {
   const router = useRouter();
@@ -48,7 +49,7 @@ export function MergeCompanyDialog({ trigger, company, companies }: { trigger: R
                   setOpen(false);
                   router.push(`/companies/${targetId}`);
                 } catch (e) {
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               })
             }

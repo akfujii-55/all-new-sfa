@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RevenueLinesEditor } from "./revenue-lines-editor";
 import { monthStart } from "@/lib/format";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function WonDialog({
   deal,
   open,
@@ -56,7 +57,7 @@ export function WonDialog({
                   onOpenChange(false);
                   onDone?.();
                 } catch (e) {
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               })
             }
@@ -109,7 +110,7 @@ export function LostDialog({
                   onOpenChange(false);
                   onDone?.();
                 } catch (e) {
-                  toast.error((e as Error).message);
+                  toast.error(actionErrorMessage(e));
                 }
               })
             }

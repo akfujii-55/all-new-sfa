@@ -13,6 +13,7 @@ import { fmtDue } from "@/lib/format";
 import type { DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { actionErrorMessage } from "@/lib/errors";
 const DUE_CHIP: Record<DueState, { text: string; className: string } | null> = {
   overdue: { text: "期限超過", className: "bg-rose-600 text-white" },
   today: { text: "今日", className: "bg-amber-500 text-white" },
@@ -45,7 +46,7 @@ export function ActivityRow({ activity: a, showDeal = true }: { activity: DealAc
               await setActivityDone(a.id, a.deal_id, v === true);
               toast.success(v === true ? "完了にしました" : "未完了に戻しました");
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

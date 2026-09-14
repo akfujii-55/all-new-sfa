@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { STAGE_PROBABILITY, type DealStage } from "@/lib/types";
 import { parseLocalInput } from "@/lib/format";
 
+import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
   return t === "" ? null : t;
@@ -27,7 +28,7 @@ export async function createDeal(formData: FormData) {
   const { data: auth } = await supabase.auth.getUser();
   const companyId = s(formData.get("company_id"));
   const title = s(formData.get("title"));
-  if (!companyId || !title) throw new Error("取引先と案件名は必須です");
+  if (!companyId || !title) throw userError("取引先と案件名は必須です");
   const inquiryId = s(formData.get("inquiry_id"));
   const stage = (s(formData.get("stage")) ?? "appointment") as DealStage;
 
@@ -55,7 +56,7 @@ export async function createDeal(formData: FormData) {
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "converted", deal_id: data.id }).eq("id", inquiryId);
@@ -97,7 +98,7 @@ export async function updateDeal(id: string, formData: FormData) {
       memo: s(formData.get("memo")),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
 }
@@ -110,23 +111,23 @@ export async function moveDealStage(
 ) {
   const supabase = await createClient();
   const { data: deal, error: e0 } = await supabase.from("deals").select("id, company_id, stage").eq("id", id).single();
-  if (e0 || !deal) throw new Error("案件が見つかりません");
+  if (e0 || !deal) throw userError("案件が見つかりません");
 
   if (stage === "won") {
     const lines = (opts.revenues ?? []).filter((l) => l.amount > 0 && l.year_month);
-    if (lines.length === 0) throw new Error("成約にするには売上計上(金額と計上月)が必要です");
+    if (lines.length === 0) throw userError("成約にするには売上計上(金額と計上月)が必要です");
     const total = lines.reduce((a, l) => a + l.amount, 0);
     const { error: e1 } = await supabase.from("revenues").delete().eq("deal_id", id);
-    if (e1) throw new Error(e1.message);
+    if (e1) throw userError(e1.message);
     const { error: e2 } = await supabase.from("revenues").insert(
       lines.map((l) => ({ deal_id: id, company_id: deal.company_id, year_month: l.year_month, amount: l.amount, memo: l.memo ?? null })),
     );
-    if (e2) throw new Error(e2.message);
+    if (e2) throw userError(e2.message);
     const { error } = await supabase
       .from("deals")
       .update({ stage, won_at: new Date().toISOString(), probability: 100, amount: total, sort_order: opts.sortOrder ?? 0 })
       .eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error) throw userError(error.message);
   } else {
     const patch: Record<string, unknown> = { stage, sort_order: opts.sortOrder ?? 0 };
     if (stage === "lost") {
@@ -141,7 +142,7 @@ export async function moveDealStage(
       await supabase.from("revenues").delete().eq("deal_id", id);
     }
     const { error } = await supabase.from("deals").update(patch).eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error) throw userError(error.message);
   }
   revalidatePath("/deals");
   revalidatePath(`/deals/${id}`);
@@ -161,7 +162,7 @@ export async function deleteDeal(id: string) {
   const supabase = await createClient();
   const { data: deal } = await supabase.from("deals").select("company_id").eq("id", id).maybeSingle();
   const { error } = await supabase.from("deals").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/deals");
   if (deal?.company_id) revalidatePath(`/companies/${deal.company_id}`);
   redirect("/deals");
@@ -173,7 +174,7 @@ export async function addDealNote(dealId: string, formData: FormData) {
   if (!body) return;
   const { data: auth } = await supabase.auth.getUser();
   const { error } = await supabase.from("deal_notes").insert({ deal_id: dealId, author_id: auth.user?.id ?? null, body });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath(`/deals/${dealId}`);
 }
 
@@ -187,14 +188,14 @@ export async function deleteDealNote(noteId: string, dealId: string) {
 export async function saveRevenues(dealId: string, lines: RevenueLine[]) {
   const supabase = await createClient();
   const { data: deal } = await supabase.from("deals").select("company_id").eq("id", dealId).single();
-  if (!deal) throw new Error("案件が見つかりません");
+  if (!deal) throw userError("案件が見つかりません");
   const valid = lines.filter((l) => l.amount > 0 && l.year_month);
-  if (valid.length === 0) throw new Error("売上明細を1件以上入力してください");
+  if (valid.length === 0) throw userError("売上明細を1件以上入力してください");
   await supabase.from("revenues").delete().eq("deal_id", dealId);
   const { error } = await supabase.from("revenues").insert(
     valid.map((l) => ({ deal_id: dealId, company_id: deal.company_id, year_month: l.year_month, amount: l.amount, memo: l.memo ?? null })),
   );
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   await supabase.from("deals").update({ amount: valid.reduce((a, l) => a + l.amount, 0) }).eq("id", dealId);
   revalidatePath(`/deals/${dealId}`);
   revalidatePath("/revenue");

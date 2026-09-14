@@ -6,16 +6,16 @@ import { toast } from "sonner";
 import { CreditCard, ExternalLink } from "lucide-react";
 import { finalizeCheckout, openBillingPortal, startCheckout } from "@/actions/billing";
 import { Button } from "@/components/ui/button";
+import { actionErrorMessage } from "@/lib/errors";
 
 function run(start: (fn: () => Promise<void>) => void, action: () => Promise<never>) {
   start(async () => {
     try {
       await action();
     } catch (e) {
-      // redirect() は例外として伝わる。それ以外はエラー表示
-      const msg = (e as Error)?.message ?? "";
-      if (/NEXT_REDIRECT/.test(msg)) throw e;
-      toast.error(msg || "処理に失敗しました");
+      // redirect() は例外として伝わる(本番では message が伏せられるので digest で判定)。それ以外はエラー表示
+      if ((e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      toast.error(actionErrorMessage(e));
     }
   });
 }

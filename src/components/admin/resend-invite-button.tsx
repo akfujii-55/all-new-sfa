@@ -6,6 +6,7 @@ import { Send } from "lucide-react";
 import { resendTenantInvite } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ResendInviteButton({ tenantId, memberId }: { tenantId: string; memberId: string }) {
   const [pending, start] = useTransition();
   const [link, setLink] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export function ResendInviteButton({ tenantId, memberId }: { tenantId: string; m
               else toast.error(`招待メールを送れませんでした(${r.mailError})。表示されたリンクを手動で送ってください`);
               setLink(r.inviteLink);
             } catch (e) {
-              toast.error((e as Error).message);
+              toast.error(actionErrorMessage(e));
             }
           })
         }

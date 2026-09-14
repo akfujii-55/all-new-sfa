@@ -6,6 +6,7 @@ import { assertTenantWritable } from "@/lib/tenant-quota";
 import { parseLocalInput } from "@/lib/format";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { userError } from "@/lib/errors";
 /**
  * 案件の行動(電話・メール・訪問などの履歴と、期限付きの Todo)。
  * 期限超過の判定は表示側(due_at < now かつ done_at が null)で行う。
@@ -19,16 +20,16 @@ function s(v: FormDataEntryValue | null) {
 /** 種類 ID。自テナントの activity_kinds にあるものだけ受け付ける(RLS で他テナントの ID は見えない) */
 async function kindIdOf(supabase: SupabaseClient, v: FormDataEntryValue | null): Promise<string> {
   const id = s(v);
-  if (!id) throw new Error("行動の種類を選んでください");
+  if (!id) throw userError("行動の種類を選んでください");
   const { data } = await supabase.from("activity_kinds").select("id").eq("id", id).maybeSingle();
-  if (!data) throw new Error("行動の種類が見つかりません。設定画面で種類を確認してください");
+  if (!data) throw userError("行動の種類が見つかりません。設定画面で種類を確認してください");
   return data.id as string;
 }
 
 async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("ログインが必要です");
+  if (!data.user) throw userError("ログインが必要です");
   await assertTenantWritable(supabase);
   return { supabase, userId: data.user.id };
 }
@@ -43,7 +44,7 @@ function revalidate(dealId: string) {
 export async function addActivity(dealId: string, formData: FormData): Promise<void> {
   const { supabase, userId } = await requireUser();
   const body = s(formData.get("body"));
-  if (!body) throw new Error("内容を入力してください");
+  if (!body) throw userError("内容を入力してください");
   const { error } = await supabase.from("deal_activities").insert({
     deal_id: dealId,
     kind_id: await kindIdOf(supabase, formData.get("kind_id")),
@@ -52,19 +53,19 @@ export async function addActivity(dealId: string, formData: FormData): Promise<v
     done_at: formData.get("done") === "on" ? new Date().toISOString() : null,
     author_id: userId,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate(dealId);
 }
 
 export async function updateActivity(id: string, dealId: string, formData: FormData): Promise<void> {
   const { supabase } = await requireUser();
   const body = s(formData.get("body"));
-  if (!body) throw new Error("内容を入力してください");
+  if (!body) throw userError("内容を入力してください");
   const { error } = await supabase
     .from("deal_activities")
     .update({ kind_id: await kindIdOf(supabase, formData.get("kind_id")), body, due_at: parseLocalInput(s(formData.get("due_at"))) })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate(dealId);
 }
 
@@ -72,13 +73,13 @@ export async function updateActivity(id: string, dealId: string, formData: FormD
 export async function setActivityDone(id: string, dealId: string, done: boolean): Promise<void> {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("deal_activities").update({ done_at: done ? new Date().toISOString() : null }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate(dealId);
 }
 
 export async function deleteActivity(id: string, dealId: string): Promise<void> {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("deal_activities").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidate(dealId);
 }

@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { syncTenantBillingNow } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function SyncBillingButton({ tenantId }: { tenantId: string }) {
   const [pending, start] = useTransition();
   return (
@@ -17,7 +18,7 @@ export function SyncBillingButton({ tenantId }: { tenantId: string }) {
             await syncTenantBillingNow(tenantId);
             toast.success("Stripe の数量を同期しました(失敗した場合はシステムログに記録されます)");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

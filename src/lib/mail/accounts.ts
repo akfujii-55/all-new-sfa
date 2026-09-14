@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret } from "./crypto";
 import type { MailAccount } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 type Db = SupabaseClient;
 
 /** 接続に使う復号済みのアカウント情報(サーバー内部専用。クライアントへ渡さない) */
@@ -43,7 +44,7 @@ export async function listMailAccounts(db: Db, opts: { includeInactive?: boolean
   let q = db.from("mail_accounts").select("*").order("is_default", { ascending: false }).order("created_at");
   if (!opts.includeInactive) q = q.eq("is_active", true);
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   return ((data ?? []) as MailAccount[]).map(toConfig);
 }
 
@@ -57,7 +58,7 @@ export async function getMailAccount(db: Db, id: string): Promise<MailAccountCon
  */
 export async function resolveSendAccount(db: Db, opts: { accountId?: string | null; replyToAccountId?: string | null }): Promise<MailAccountConfig> {
   const accounts = await listMailAccounts(db);
-  if (accounts.length === 0) throw new Error("送信用のメールアカウントが設定されていません。設定画面から追加してください。");
+  if (accounts.length === 0) throw userError("送信用のメールアカウントが設定されていません。設定画面から追加してください。");
   const pick = (id?: string | null) => (id ? accounts.find((a) => a.id === id) : undefined);
   return pick(opts.accountId) ?? pick(opts.replyToAccountId) ?? accounts.find((a) => a.isDefault) ?? accounts[0];
 }

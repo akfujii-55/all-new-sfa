@@ -15,6 +15,7 @@ import { TagPicker } from "@/components/tags/tag-picker";
 import { TagBadges } from "@/components/tags/tag-badge";
 import type { Contact, Tag } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows: Contact[]; companies: { id: string; name: string }[]; tags: Tag[]; mergeCandidates: MergeContactCandidate[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
@@ -44,7 +45,7 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
         toast.success(`${selectedIds.length}名のタグを更新しました`);
         setSelected(new Set());
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(actionErrorMessage(e));
       }
     });
   }

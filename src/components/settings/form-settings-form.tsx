@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { actionErrorMessage } from "@/lib/errors";
 const FIELDS: { key: keyof FormSettings; label: string; labels: keyof FormLabels }[] = [
   { key: "form_labels_company", label: "会社名の項目名", labels: "company" },
   { key: "form_labels_name", label: "氏名の項目名", labels: "name" },
@@ -33,7 +34,7 @@ export function FormSettingsForm({ settings }: { settings: FormSettings }) {
             await saveFormSettings(fd);
             toast.success("保存しました");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(actionErrorMessage(e));
           }
         })
       }

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtDateTime } from "@/lib/format";
 
+import { actionErrorMessage } from "@/lib/errors";
 /** プレビュー用のサンプル値 */
 const SAMPLE: MailTemplateVars = {
   name: "山田 太郎",
@@ -49,7 +50,7 @@ export function MailTemplateEditor({ template }: { template: MailTemplateRow }) 
                 await saveMailTemplate(template.key, fd);
                 toast.success("保存しました");
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }
@@ -95,7 +96,7 @@ export function MailTemplateEditor({ template }: { template: MailTemplateRow }) 
                         await resetMailTemplate(template.key);
                         toast.success("既定の文面に戻しました");
                       } catch (e) {
-                        toast.error((e as Error).message);
+                        toast.error(actionErrorMessage(e));
                       }
                     })
                   }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { RevenueLinesEditor } from "./revenue-lines-editor";
 import type { Revenue } from "@/lib/types";
 
+import { actionErrorMessage } from "@/lib/errors";
 export function RevenueEditor({ dealId, revenues }: { dealId: string; revenues: Revenue[] }) {
   const [lines, setLines] = useState<RevenueLine[]>(
     revenues.length ? revenues.map((r) => ({ year_month: r.year_month, amount: Number(r.amount), memo: r.memo ?? "" })) : [{ year_month: "", amount: 0, memo: "" }],
@@ -25,7 +26,7 @@ export function RevenueEditor({ dealId, revenues }: { dealId: string; revenues: 
                 await saveRevenues(dealId, lines);
                 toast.success("売上明細を保存しました");
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(actionErrorMessage(e));
               }
             })
           }

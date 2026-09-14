@@ -6,10 +6,11 @@ import { extractFromEmail } from "@/lib/mail/extract";
 import { loadFormProfile } from "@/lib/mail/form-profile";
 import type { InquiryStatus } from "@/lib/types";
 
+import { userError } from "@/lib/errors";
 export async function updateInquiryStatus(id: string, status: InquiryStatus) {
   const supabase = await createClient();
   const { error } = await supabase.from("inquiries").update({ status }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/inquiries");
   revalidatePath("/");
 }
@@ -17,7 +18,7 @@ export async function updateInquiryStatus(id: string, status: InquiryStatus) {
 export async function createInquiry(formData: FormData) {
   const supabase = await createClient();
   const subject = String(formData.get("subject") ?? "").trim();
-  if (!subject) throw new Error("件名は必須です");
+  if (!subject) throw userError("件名は必須です");
   const companyId = String(formData.get("company_id") ?? "") || null;
   const { error } = await supabase.from("inquiries").insert({
     company_id: companyId,
@@ -27,7 +28,7 @@ export async function createInquiry(formData: FormData) {
     category: String(formData.get("category") ?? "").trim() || null,
     status: "new",
   });
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
   revalidatePath("/inquiries");
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }
@@ -39,13 +40,13 @@ export async function createInquiry(formData: FormData) {
 export async function deleteInquiry(id: string) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const { data: inq } = await supabase.from("inquiries").select("id, company_id, deal_id").eq("id", id).maybeSingle();
-  if (!inq) throw new Error("問い合わせが見つかりません(すでに削除されている可能性があります)");
+  if (!inq) throw userError("問い合わせが見つかりません(すでに削除されている可能性があります)");
 
   const { error } = await supabase.from("inquiries").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw userError(error.message);
 
   revalidatePath("/inquiries");
   revalidatePath("/inbox");
@@ -68,13 +69,13 @@ export interface CreateInquiriesResult {
 export async function createInquiriesFromEmails(emailIds: string[]): Promise<CreateInquiriesResult> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("ログインが必要です");
+  if (!auth.user) throw userError("ログインが必要です");
 
   const ids = Array.from(new Set(emailIds.filter(Boolean)));
   if (ids.length === 0) return { created: 0, skipped: 0 };
 
   const { data: seeds, error: seedErr } = await supabase.from("emails").select("id, thread_key").in("id", ids);
-  if (seedErr) throw new Error(seedErr.message);
+  if (seedErr) throw userError(seedErr.message);
   const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key)));
 
   let created = 0;
@@ -121,7 +122,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
       })
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw userError(error.message);
 
     await supabase.from("emails").update({ inquiry_id: inq.id }).eq("thread_key", threadKey);
     if (companyId) companyIds.add(companyId);
