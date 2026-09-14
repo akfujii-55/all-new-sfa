@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       { source: "/docs", destination: "/docs/index.html" },
       { source: "/docs/manual", destination: "/docs/manual.html" },
       { source: "/docs/test-spec", destination: "/docs/test-spec.html" },
+      { source: "/docs/flow", destination: "/docs/flow.html" },
     ];
   },
   async headers() {

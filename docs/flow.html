@@ -1,0 +1,156 @@
+<title>SFA 業務フロー図</title>
+<style>
+  :root { --bg: #ffffff; --text: #18181b; --muted: #71717a; --line: #a1a1aa; --panel: #f4f4f5; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #131316; --text: #f4f4f5; --muted: #a1a1aa; --line: #52525b; --panel: #1f1f24; } }
+  :root[data-theme="dark"] { --bg: #131316; --text: #f4f4f5; --muted: #a1a1aa; --line: #52525b; --panel: #1f1f24; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif; padding-block: 28px 40px; padding-inline: 24px; }
+  .wrap { max-width: 1440px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .lede { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  figure { margin: 0; }
+  svg { width: 100%; max-width: 100%; height: auto; display: block; }
+  figcaption { margin-top: 12px; color: var(--muted); font-size: 12.5px; line-height: 1.6; max-width: 90ch; }
+  .st { font-size: 12.5px; }
+  .hd { font-size: 15px; font-weight: 700; }
+  .sm { font-size: 11.5px; }
+  .mu { opacity: .7; }
+  .box { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+  .panel { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+  .band { fill: currentColor; opacity: .07; }
+  .arrow { stroke: currentColor; stroke-width: 2; fill: none; }
+  .chip-t { font-size: 11.5px; font-weight: 600; fill: #ffffff; }
+</style>
+<div class="wrap">
+  <p style="margin:0 0 10px;font-size:13px"><a href="/docs/manual" style="color:inherit">← マニュアルに戻る</a></p>
+  <h1>SFA 業務フロー</h1>
+  <p class="lede">インバウンドのメール起点から売上計上まで、これ 1 つで完結。案件の中でメール履歴と行動(Todo)を管理します。</p>
+  <figure>
+    <svg viewBox="0 0 1440 610" role="img" aria-label="メール受信から問い合わせ登録、アポ取得で案件化、案件内でメール履歴と行動(Todo)を管理し、提案書・見積書を経てかんばんで成約まで進め、月次売上を計上する流れ" fill="currentColor">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- 1. メール -->
+      <rect class="box" x="40" y="90" width="230" height="190" rx="10"/>
+      <rect class="band" x="40" y="90" width="230" height="40" rx="10"/>
+      <text class="hd" x="60" y="116">1. メール</text>
+      <text class="sm mu" x="150" y="116">受信が起点</text>
+      <text class="st" x="60" y="156">・受信・送信を自動で取り込み</text>
+      <text class="st" x="60" y="180">・顧客(取引先)と担当者を自動登録</text>
+      <text class="st" x="60" y="204">・条件に合うメールは自動タグ付け</text>
+      <text class="st" x="60" y="228">・スレッド(同じ話題)ごとに表示</text>
+      <text class="sm mu" x="60" y="260">不要な自動メールは一括削除できる</text>
+
+      <!-- arrow 1→2 -->
+      <line class="arrow" x1="270" y1="185" x2="388" y2="185" marker-end="url(#ah)"/>
+      <text class="sm" x="329" y="168" text-anchor="middle">対応メールを選んで</text>
+      <text class="sm" x="329" y="206" text-anchor="middle" font-weight="600">問い合わせに登録</text>
+
+      <!-- 2. 問い合わせ -->
+      <rect class="box" x="390" y="90" width="230" height="190" rx="10"/>
+      <rect class="band" x="390" y="90" width="230" height="40" rx="10"/>
+      <text class="hd" x="410" y="116">2. 問い合わせ</text>
+      <text class="st" x="410" y="156">・件名・要約・分類を自動作成</text>
+      <text class="st" x="410" y="180">・担当者・取引先が紐付いた状態</text>
+      <text class="st" x="410" y="204">・状態: 新規 → 対応中</text>
+      <text class="st" x="410" y="228">・返信で日程調整(アポ取り)</text>
+      <text class="sm mu" x="410" y="260">ダッシュボードに未対応の件数</text>
+
+      <!-- arrow 2→3 -->
+      <line class="arrow" x1="620" y1="185" x2="738" y2="185" marker-end="url(#ah)"/>
+      <text class="sm" x="679" y="168" text-anchor="middle">アポが取れたら</text>
+      <text class="sm" x="679" y="206" text-anchor="middle" font-weight="600">案件を作成</text>
+
+      <!-- 3. 案件 -->
+      <rect class="box" x="740" y="40" width="470" height="500" rx="10"/>
+      <rect class="band" x="740" y="40" width="470" height="40" rx="10"/>
+      <text class="hd" x="760" y="66">3. 案件(かんばん管理)</text>
+      <text class="sm mu" x="1190" y="66" text-anchor="end">ステージごとに確度 30〜100%</text>
+
+      <!-- stage chips -->
+      <g>
+        <rect x="760" y="96" width="76" height="24" rx="6" fill="#0ea5e9"/>
+        <text class="chip-t" x="798" y="112" text-anchor="middle">アポ取得</text>
+        <line class="arrow" x1="838" y1="108" x2="850" y2="108" marker-end="url(#ah)" stroke-width="1.5"/>
+        <rect x="852" y="96" width="100" height="24" rx="6" fill="#8b5cf6"/>
+        <text class="chip-t" x="902" y="112" text-anchor="middle">提案書作成中</text>
+        <line class="arrow" x1="954" y1="108" x2="966" y2="108" marker-end="url(#ah)" stroke-width="1.5"/>
+        <rect x="968" y="96" width="76" height="24" rx="6" fill="#7c3aed"/>
+        <text class="chip-t" x="1006" y="112" text-anchor="middle">提案済み</text>
+        <line class="arrow" x1="1046" y1="108" x2="1058" y2="108" marker-end="url(#ah)" stroke-width="1.5"/>
+        <rect x="1060" y="96" width="62" height="24" rx="6" fill="#f59e0b"/>
+        <text class="chip-t" x="1091" y="112" text-anchor="middle">検討中</text>
+        <line class="arrow" x1="1124" y1="108" x2="1136" y2="108" marker-end="url(#ah)" stroke-width="1.5"/>
+        <rect x="1138" y="96" width="52" height="24" rx="6" fill="#10b981"/>
+        <text class="chip-t" x="1164" y="112" text-anchor="middle">成約</text>
+        <text class="sm mu" x="760" y="140">止まったら「保留」、見送りは「失注」。カードは列をまたいで動かします。</text>
+      </g>
+
+      <!-- panel: メール履歴 -->
+      <rect class="panel" x="760" y="160" width="210" height="150" rx="8"/>
+      <text class="st" x="774" y="184" font-weight="700">メール履歴</text>
+      <text class="sm" x="774" y="208">・取引先・担当者のメールが</text>
+      <text class="sm" x="774" y="224">　自動でこの案件に紐付く</text>
+      <text class="sm" x="774" y="246">・案件画面から返信・新規送信</text>
+      <text class="sm" x="774" y="268">・やり取りの経緯を時系列で確認</text>
+      <text class="sm mu" x="774" y="296">添付ファイルもここから</text>
+
+      <!-- panel: 行動 -->
+      <rect class="panel" x="990" y="160" width="200" height="150" rx="8"/>
+      <text class="st" x="1004" y="184" font-weight="700">行動(活動の記録と Todo)</text>
+      <text class="sm" x="1004" y="208">・電話・訪問・打ち合わせを記録</text>
+      <text class="sm" x="1004" y="230">・ネクストアクションに期限を付ける</text>
+      <text class="sm" x="1004" y="252">・完了チェック、期限超過は赤で警告</text>
+      <text class="sm" x="1004" y="274">・「今日やること」に期限順で表示</text>
+      <text class="sm mu" x="1004" y="296">種類は設定で増やせる</text>
+
+      <!-- arrow between panels: 行動 → メール -->
+      <path class="arrow" d="M990,245 C982,245 978,245 972,245" marker-end="url(#ah)" stroke-width="1.5"/>
+
+      <!-- panel: 提案書・見積書 -->
+      <rect class="panel" x="760" y="330" width="430" height="138" rx="8"/>
+      <text class="st" x="774" y="354" font-weight="700">提案書・見積書を出して、ステージを進める</text>
+      <text class="sm" x="774" y="378">・「見積書作成」などを行動(Todo)にして期限管理、</text>
+      <text class="sm" x="774" y="394">　提出したらステージを「提案済み」へ</text>
+      <text class="sm" x="774" y="416">・受注予定日・金額・確度から「どの案件がいつ成約しそうか」が</text>
+      <text class="sm" x="774" y="432">　一目で分かり、売上予測が立てやすい</text>
+      <text class="sm" x="774" y="454">・成約にすると月次売上の入力が必須(計上月と金額)</text>
+
+      <!-- inside footer -->
+      <text class="sm mu" x="760" y="496">案件からメールを送ると、メール履歴と行動の両方に残ります。</text>
+      <text class="sm mu" x="760" y="516">サイドバー「行動」には全案件の期限超過・今日・今後の Todo が一覧で並びます。</text>
+
+      <!-- arrow 3→4 -->
+      <line class="arrow" x1="1210" y1="185" x2="1288" y2="185" marker-end="url(#ah)"/>
+      <text class="sm" x="1249" y="168" text-anchor="middle">成約</text>
+      <text class="sm" x="1249" y="206" text-anchor="middle" font-weight="600">売上を計上</text>
+
+      <!-- 4. 売上 -->
+      <rect class="box" x="1290" y="90" width="120" height="190" rx="10"/>
+      <rect class="band" x="1290" y="90" width="120" height="40" rx="10"/>
+      <text class="hd" x="1310" y="116">4. 売上</text>
+      <text class="sm" x="1310" y="156">・月次で計上</text>
+      <text class="sm" x="1310" y="178">・案件別、月別</text>
+      <text class="sm" x="1310" y="194">　の実績を集計</text>
+      <text class="sm" x="1310" y="216">・予測と実績を</text>
+      <text class="sm" x="1310" y="232">　ここ 1 つで</text>
+      <text class="sm mu" x="1310" y="260">売上メニュー</text>
+
+      <!-- bottom: 自動登録の注記 -->
+      <rect class="panel" x="40" y="320" width="580" height="220" rx="8"/>
+      <text class="st" x="56" y="346" font-weight="700">流れを支える自動処理</text>
+      <text class="sm" x="56" y="372">・メールの差出人から取引先(ドメイン)と担当者を自動登録。間違いは「付け替え」「統合」で修正</text>
+      <text class="sm" x="56" y="394">・自社サイトの問い合わせフォーム通知は、本文の問い合わせ者を担当者として登録</text>
+      <text class="sm" x="56" y="416">・問い合わせ・案件に紐付いた相手からの返信は、以後も自動で同じ問い合わせ・案件に付く</text>
+      <text class="sm" x="56" y="438">・抽出した担当者にタグ(リード・顧客 など)を付けるだけで、</text>
+      <text class="sm" x="56" y="454">　タグ別のメールマガジン送信リストが自動でできる(CSV)</text>
+      <text class="sm" x="56" y="476">・期限超過の行動は、サイドバーのバッジとかんばんのカードで気付ける</text>
+      <text class="sm mu" x="56" y="520">同期は手動ボタンと毎日の自動実行。エラーは設定の通知先(メール・Lark)へ</text>
+      <rect x="40" y="550" width="1370" height="40" rx="8" fill="#0ea5e9" opacity=".12"/>
+      <text class="st" x="725" y="575" text-anchor="middle" font-weight="700">インバウンドのメール起点 → 問い合わせ → 案件(売上予測) → 売上計上(実績)まで、これ 1 つで完結</text>
+    </svg>
+    <figcaption>メールを受け取ると顧客と担当者が自動で登録され、対応するメールを選んで問い合わせにします。アポが取れたら案件を作り、案件の中でメール履歴と行動(次にやること)を管理しながら、提案書・見積書を出してかんばんのステージを進め、成約時に月次売上を計上します。</figcaption>
+  </figure>
+</div>
