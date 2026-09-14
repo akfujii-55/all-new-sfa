@@ -8,6 +8,7 @@ import type { FormProfile } from "./extract";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
 import { cleanupOutbox, saveAttachments } from "./attachments";
 import { errorDetail, logSystem } from "@/lib/log";
+import { loadTagRules, matchTagRules, tagThreads, type TagRule } from "@/lib/tag-rules";
 
 import { userError } from "@/lib/errors";
 type Db = SupabaseClient;
@@ -71,11 +72,12 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   if (accounts.length === 0) throw userError("メールアカウントが設定されていません。設定画面から追加してください。");
   const selves = accounts.map((a) => a.email);
   const form = await loadFormProfile(db);
+  const rules = await loadTagRules(db);
 
   const results: SyncResult[] = [];
   for (const account of accounts) {
     try {
-      results.push(...(await syncAccount(db, account, selves, { ...opts, form })));
+      results.push(...(await syncAccount(db, account, selves, { ...opts, form, rules })));
       await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
     } catch (e) {
       const message = (e as Error).message;
@@ -137,7 +139,7 @@ async function syncAccount(
   db: Db,
   account: MailAccountConfig,
   selves: string[],
-  opts: { initialDays?: number; form?: FormProfile | null },
+  opts: { initialDays?: number; form?: FormProfile | null; rules?: TagRule[] },
 ): Promise<SyncResult[]> {
   const client = imapClient(account);
   const results: SyncResult[] = [];
@@ -181,7 +183,7 @@ async function syncAccount(
           if (!msg || !msg.source) continue;
           res.fetched++;
           const parsed = await simpleParser(msg.source);
-          const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id, opts.form);
+          const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id, opts.form, opts.rules);
           if (inserted) res.inserted++;
           maxUid = Math.max(maxUid, uid);
         }
@@ -309,6 +311,8 @@ export async function ingestParsedMail(
   imapUid?: number,
   accountId?: string | null,
   form?: FormProfile | null,
+  /** 自動タグ付けルール(件名・差出人が一致したらスレッドにタグを付ける) */
+  rules?: TagRule[] | null,
 ): Promise<boolean> {
   const messageId = parsed.messageId?.trim();
   if (messageId) {
@@ -414,6 +418,18 @@ export async function ingestParsedMail(
         { level: "warn", source: "mail.sync", message: `添付ファイルを保存できませんでした(${parsed.subject ?? "(件名なし)"}): ${(e as Error).message}`, detail: { emailId: row.id }, notify: false },
         db,
       );
+    }
+  }
+
+  // 自動タグ付け: 件名・差出人がルールに一致したら、このメールと同じスレッドのメールにタグを付ける(担当者には付けない)
+  if (rules?.length) {
+    const tagIds = matchTagRules(rules, { subject: parsed.subject, fromName: from.name, fromAddress: from.address });
+    if (tagIds.length > 0) {
+      try {
+        await tagThreads(db, [effectiveThreadKey], tagIds);
+      } catch (e) {
+        await logSystem({ level: "warn", source: "mail.sync", message: `自動タグ付けに失敗しました(${parsed.subject ?? "(件名なし)"}): ${(e as Error).message}`, detail: { emailId: row.id }, notify: false }, db);
+      }
     }
   }
 

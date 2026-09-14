@@ -162,6 +162,17 @@ export interface Company {
   updated_at: string;
 }
 
+/** メールの自動タグ付けルール(src/lib/tag-rules.ts) */
+export interface EmailTagRule {
+  id: string;
+  field: "subject" | "from";
+  keywords: string;
+  tag_id: string;
+  sort_order: number;
+  created_at: string;
+  tag?: Tag | null;
+}
+
 export interface Contact {
   id: string;
   company_id: string | null;

@@ -15,10 +15,11 @@ import { MailSettingsForm } from "@/components/settings/mail-settings-form";
 import { AlertSettingsForm } from "@/components/settings/alert-settings-form";
 import { FormSettingsForm } from "@/components/settings/form-settings-form";
 import { TagSettings } from "@/components/settings/tag-settings";
+import { TagRuleSettings } from "@/components/settings/tag-rule-settings";
 import { ActivityKindSettings } from "@/components/settings/activity-kind-settings";
 import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import { TENANT_STATUS_LABEL, type ActivityKind, type MailAccount, type Tag } from "@/lib/types";
+import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
 
 export const metadata = { title: "設定" };
@@ -28,7 +29,7 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings, { data: kindRows }] = await Promise.all([
+  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings, { data: kindRows }, { data: ruleRows }] = await Promise.all([
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
@@ -45,6 +46,7 @@ export default async function SettingsPage() {
     supabase.from("system_logs").select("message, created_at, level").like("source", "cron.%").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     getFormSettings(supabase),
     supabase.from("activity_kinds").select("*").order("sort_order").order("created_at"),
+    supabase.from("email_tag_rules").select("*, tag:tags(*)").order("sort_order").order("created_at"),
   ]);
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
@@ -182,6 +184,10 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <TagSettings tags={(tagRows ?? []) as Tag[]} />
+            <div className="mt-6 space-y-2">
+              <h3 className="text-sm font-medium">自動で付けるルール</h3>
+              <TagRuleSettings rules={(ruleRows ?? []) as unknown as EmailTagRule[]} tags={(tagRows ?? []) as Tag[]} />
+            </div>
           </CardContent>
         </Card>
 

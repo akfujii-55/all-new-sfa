@@ -7,6 +7,7 @@ import { loadFormProfile } from "@/lib/mail/form-profile";
 import type { InquiryStatus } from "@/lib/types";
 
 import { userError } from "@/lib/errors";
+import { DELETE_LIST_TAG_NAME } from "@/lib/tag-rules";
 export async function updateInquiryStatus(id: string, status: InquiryStatus) {
   const supabase = await createClient();
   const { error } = await supabase.from("inquiries").update({ status }).eq("id", id);
@@ -58,6 +59,8 @@ export async function deleteInquiry(id: string) {
 export interface CreateInquiriesResult {
   created: number;
   skipped: number;
+  /** 「削除リスト」タグが付いていて登録しなかった件数 */
+  deleteList: number;
 }
 
 /**
@@ -72,7 +75,9 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
   if (!auth.user) throw userError("ログインが必要です");
 
   const ids = Array.from(new Set(emailIds.filter(Boolean)));
-  if (ids.length === 0) return { created: 0, skipped: 0 };
+  if (ids.length === 0) return { created: 0, skipped: 0, deleteList: 0 };
+  // 「削除リスト」タグ(自動タグ付けで付く)のメールは問い合わせにしない
+  const { data: deleteTag } = await supabase.from("tags").select("id").eq("name", DELETE_LIST_TAG_NAME).maybeSingle();
 
   const { data: seeds, error: seedErr } = await supabase.from("emails").select("id, thread_key").in("id", ids);
   if (seedErr) throw userError(seedErr.message);
@@ -80,6 +85,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
 
   let created = 0;
   let skipped = 0;
+  let deleteList = 0;
   const companyIds = new Set<string>();
   const form = await loadFormProfile(supabase);
 
@@ -92,6 +98,10 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
     const emails = thread ?? [];
     if (emails.length === 0) { skipped++; continue; }
     if (emails.some((e) => e.inquiry_id)) { skipped++; continue; }
+    if (deleteTag) {
+      const { count } = await supabase.from("email_tags").select("email_id", { count: "exact", head: true }).eq("tag_id", deleteTag.id).in("email_id", emails.map((e) => e.id));
+      if ((count ?? 0) > 0) { deleteList++; continue; }
+    }
 
     const base = emails.find((e) => e.direction === "inbound") ?? emails[0];
     // 担当者・取引先は問い合わせ元の受信メール自身の紐付けを優先し、無ければスレッド内の他のメールから引き継ぐ
@@ -133,5 +143,5 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
   revalidatePath("/inquiries");
   revalidatePath("/");
   for (const id of companyIds) revalidatePath(`/companies/${id}`);
-  return { created, skipped };
+  return { created, skipped, deleteList };
 }

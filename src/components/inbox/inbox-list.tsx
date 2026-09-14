@@ -71,8 +71,10 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
     start(async () => {
       try {
         const r = await createInquiriesFromEmails(selectedIds);
-        if (r.created > 0) toast.success(`${r.created}件を問い合わせに登録しました${r.skipped ? `(登録済み ${r.skipped}件はスキップ)` : ""}`);
-        else toast.info("選択したメールはすべて問い合わせ登録済みです");
+        const notes = [r.skipped ? `登録済み ${r.skipped}件はスキップ` : null, r.deleteList ? `「削除リスト」${r.deleteList}件は対象外` : null].filter(Boolean);
+        if (r.created > 0) toast.success(`${r.created}件を問い合わせに登録しました${notes.length ? `(${notes.join("、")})` : ""}`);
+        else if (r.deleteList > 0 && r.skipped === 0) toast.info("選択したメールは「削除リスト」のため登録しませんでした");
+        else toast.info(`選択したメールはすべて問い合わせ登録済みです${r.deleteList ? `(「削除リスト」${r.deleteList}件は対象外)` : ""}`);
         setSelected(new Set());
       } catch (e) {
         toast.error(actionErrorMessage(e));
