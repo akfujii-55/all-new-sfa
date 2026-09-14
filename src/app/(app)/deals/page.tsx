@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/deals/kanban-board";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
-import type { Deal, Member } from "@/lib/types";
+import type { Deal, Member, OpenTodo } from "@/lib/types";
 import { dueState } from "@/lib/activities";
 
 export const metadata = { title: "案件" };
@@ -32,16 +32,25 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
     supabase.from("members").select("*").order("sort_order").order("created_at"),
     supabase.from("deals").select("id").is("owner_id", null).limit(1),
     // 未完了の行動(期限あり)。カードに期限超過・今日の件数を出す
-    supabase.from("deal_activities").select("deal_id, due_at, done_at").is("done_at", null).not("due_at", "is", null),
+    supabase.from("deal_activities").select("id, deal_id, body, due_at, done_at, kind:activity_kinds(name)").is("done_at", null).not("due_at", "is", null).order("due_at"),
   ]);
   const overdueByDeal = new Map<string, number>();
   const todayByDeal = new Map<string, number>();
+  const todosByDeal = new Map<string, OpenTodo[]>();
   for (const a of openActs ?? []) {
     const st = dueState(a as { due_at: string | null; done_at: string | null });
     if (st === "overdue") overdueByDeal.set(a.deal_id, (overdueByDeal.get(a.deal_id) ?? 0) + 1);
     else if (st === "today") todayByDeal.set(a.deal_id, (todayByDeal.get(a.deal_id) ?? 0) + 1);
+    const kind = a.kind as unknown as { name: string } | { name: string }[] | null;
+    const kindName = Array.isArray(kind) ? kind[0]?.name ?? null : kind?.name ?? null;
+    todosByDeal.set(a.deal_id, [...(todosByDeal.get(a.deal_id) ?? []), { id: a.id, body: a.body, due_at: a.due_at as string, kind_name: kindName }]);
   }
-  const deals = ((dealRows ?? []) as unknown as Deal[]).map((d) => ({ ...d, overdue_activities: overdueByDeal.get(d.id) ?? 0, today_activities: todayByDeal.get(d.id) ?? 0 }));
+  const deals = ((dealRows ?? []) as unknown as Deal[]).map((d) => ({
+    ...d,
+    overdue_activities: overdueByDeal.get(d.id) ?? 0,
+    today_activities: todayByDeal.get(d.id) ?? 0,
+    open_todos: todosByDeal.get(d.id) ?? [],
+  }));
   const members = ((memberRows ?? []) as Member[]).filter((m) => m.is_active || m.id === owner);
   const me = members.find((m) => m.profile_id === auth.user?.id);
   const hasUnassigned = (unassigned ?? []).length > 0 || owner === "none";

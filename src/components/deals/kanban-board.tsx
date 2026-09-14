@@ -6,10 +6,13 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import { toast } from "sonner";
 import { AlertTriangle, Building2, CalendarClock, GripVertical, UserCog } from "lucide-react";
 import { moveDealStage } from "@/actions/deals";
-import { DEAL_STAGES, type Deal, type DealStage } from "@/lib/types";
-import { fmtDate, yen } from "@/lib/format";
+import { DEAL_STAGES, type Deal, type DealStage, type OpenTodo } from "@/lib/types";
+import { fmtDate, fmtDue, yen } from "@/lib/format";
+import { appointmentState, dueState } from "@/lib/activities";
+import { useLocalPref } from "@/lib/local-pref";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { WonDialog, LostDialog } from "./stage-dialogs";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -25,6 +28,8 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
   const [lostTarget, setLostTarget] = useState<Deal | null>(null);
   const [, start] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // カードに出す未完了 Todo の件数(ブラウザごとに記憶)
+  const [todoLimit, setTodoLimit] = useLocalPref("kanban_todo_limit", "3", TODO_LIMITS);
 
   function onDragStart(e: DragStartEvent) {
     setActive(deals.find((d) => d.id === e.active.id) ?? null);
@@ -54,15 +59,23 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
 
   return (
     <>
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <div className="mb-2 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+        <span className="mr-1">カードの Todo</span>
+        {TODO_LIMITS.map((n) => (
+          <Button key={n} size="sm" variant={todoLimit === n ? "secondary" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setTodoLimit(n)} aria-pressed={todoLimit === n}>
+            {n === "0" ? "件数だけ" : `${n} 件まで`}
+          </Button>
+        ))}
+      </div>
+      <DndContext id="deal-kanban" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6">
           {DEAL_STAGES.map((s) => {
             const items = deals.filter((d) => d.stage === s.key).sort((a, b) => a.sort_order - b.sort_order || b.updated_at.localeCompare(a.updated_at));
             const total = items.reduce((a, d) => a + Number(d.amount), 0);
-            return <Column key={s.key} stage={s} items={items} total={total} />;
+            return <Column key={s.key} stage={s} items={items} total={total} todoLimit={Number(todoLimit)} />;
           })}
         </div>
-        <DragOverlay>{active ? <DealCard deal={active} overlay /> : null}</DragOverlay>
+        <DragOverlay>{active ? <DealCard deal={active} todoLimit={Number(todoLimit)} overlay /> : null}</DragOverlay>
       </DndContext>
 
       <WonDialog
@@ -81,7 +94,9 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
   );
 }
 
-function Column({ stage, items, total }: { stage: (typeof DEAL_STAGES)[number]; items: Deal[]; total: number }) {
+const TODO_LIMITS = ["3", "1", "0"] as const;
+
+function Column({ stage, items, total, todoLimit }: { stage: (typeof DEAL_STAGES)[number]; items: Deal[]; total: number; todoLimit: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
   return (
     <div className="flex w-72 shrink-0 flex-col">
@@ -100,23 +115,57 @@ function Column({ stage, items, total }: { stage: (typeof DEAL_STAGES)[number]; 
           isOver && "bg-accent border-primary/40",
         )}
       >
-        {items.map((d) => <DraggableCard key={d.id} deal={d} />)}
+        {items.map((d) => <DraggableCard key={d.id} deal={d} todoLimit={todoLimit} />)}
         {items.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">ここにドロップ</p>}
       </div>
     </div>
   );
 }
 
-function DraggableCard({ deal }: { deal: Deal }) {
+function DraggableCard({ deal, todoLimit }: { deal: Deal; todoLimit: number }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: deal.id });
   return (
     <div ref={setNodeRef} {...attributes} {...listeners} className={cn(isDragging && "opacity-40")}>
-      <DealCard deal={deal} />
+      <DealCard deal={deal} todoLimit={todoLimit} />
     </div>
   );
 }
 
-function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
+/** アポ日時の行。これからのアポは青、過ぎたアポは経過日数付き(APPOINTMENT_STALE_DAYS を超えると赤)で、ステージに関係なく出す */
+function AppointmentLine({ appointmentAt }: { appointmentAt: string }) {
+  const st = appointmentState(appointmentAt);
+  if (st.past) {
+    return (
+      <p className={cn("mt-1.5 flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground", st.stale && "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300")}>
+        <CalendarClock className="size-3" /> アポ {fmtDate(appointmentAt, "M/d")}
+        <span className={cn("font-semibold", st.stale ? "text-rose-600 dark:text-rose-300" : "text-amber-600 dark:text-amber-300")}>· {st.days} 日経過</span>
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1.5 flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+      <CalendarClock className="size-3" /> アポ {fmtDate(appointmentAt, "M/d HH:mm")}{st.today && " · 今日"}
+    </p>
+  );
+}
+
+/** 未完了 Todo の 1 行(種類・内容・期限)。期限超過は赤、今日は黄色 */
+function TodoLine({ todo }: { todo: OpenTodo }) {
+  const st = dueState({ due_at: todo.due_at, done_at: null });
+  return (
+    <p className="grid grid-cols-[auto_1fr_auto] items-baseline gap-1.5 text-[11px] leading-snug">
+      {todo.kind_name && <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">{todo.kind_name}</span>}
+      {!todo.kind_name && <span />}
+      <span className="min-w-0 truncate">{todo.body}</span>
+      <span className={cn("tabular-nums text-muted-foreground", st === "overdue" && "font-semibold text-rose-600 dark:text-rose-300", st === "today" && "font-semibold text-amber-600 dark:text-amber-300")}>
+        {fmtDue(todo.due_at).replace(/^\d{4}\//, "")}
+      </span>
+    </p>
+  );
+}
+
+function DealCard({ deal, todoLimit, overlay }: { deal: Deal; todoLimit: number; overlay?: boolean }) {
+  const todos = deal.open_todos ?? [];
   return (
     <div className={cn("group rounded-md border bg-card p-3 shadow-xs", overlay && "shadow-lg rotate-1 cursor-grabbing")}>
       <div className="flex items-start gap-2">
@@ -147,11 +196,18 @@ function DealCard({ deal, overlay }: { deal: Deal; overlay?: boolean }) {
               )}
             </p>
           )}
-          {(deal.appointment_at || deal.expected_close_date) && (
+          {deal.appointment_at ? (
+            <AppointmentLine appointmentAt={deal.appointment_at} />
+          ) : deal.expected_close_date ? (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-              <CalendarClock className="size-3" />
-              {deal.stage === "appointment" && deal.appointment_at ? `アポ ${fmtDate(deal.appointment_at, "M/d HH:mm")}` : deal.expected_close_date ? `受注予定 ${fmtDate(deal.expected_close_date, "M/d")}` : ""}
+              <CalendarClock className="size-3" /> 受注予定 {fmtDate(deal.expected_close_date, "M/d")}
             </p>
+          ) : null}
+          {todoLimit > 0 && todos.length > 0 && (
+            <div className="mt-1.5 space-y-0.5 border-t border-dashed pt-1.5">
+              {todos.slice(0, todoLimit).map((t) => <TodoLine key={t.id} todo={t} />)}
+              {todos.length > todoLimit && <p className="text-[10px] text-muted-foreground">ほか {todos.length - todoLimit} 件</p>}
+            </div>
           )}
         </div>
       </div>

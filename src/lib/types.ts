@@ -225,6 +225,16 @@ export interface Deal {
   overdue_activities?: number;
   /** 一覧用: 今日が期限の未完了行動の件数 */
   today_activities?: number;
+  /** 一覧用: 未完了で期限のある行動(期限が近い順。カンバンのカードに表示) */
+  open_todos?: OpenTodo[];
+}
+
+/** カンバンのカードに出す未完了の行動 */
+export interface OpenTodo {
+  id: string;
+  body: string;
+  due_at: string;
+  kind_name: string | null;
 }
 
 export interface Email {

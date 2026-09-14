@@ -59,3 +59,19 @@ export function groupByDue(list: DealActivity[], now: Date = new Date()): { key:
   const sorted = sortActivities(list);
   return DUE_GROUPS.map((g) => ({ ...g, items: sorted.filter((a) => dueState(a, now) === g.key) }));
 }
+
+/** 過ぎたアポイントをカンバンで赤くするまでの日数 */
+export const APPOINTMENT_STALE_DAYS = 14;
+
+/**
+ * アポイント日時の状態(カンバンのカード用)。days は日本時間の日付で数えた経過日数(未来なら負)。
+ * 過ぎたアポは「n 日経過」を出し、APPOINTMENT_STALE_DAYS を超えたら進んでいない案件として強調する。
+ */
+export function appointmentState(appointmentAt: string, now: Date = new Date()): { past: boolean; today: boolean; days: number; stale: boolean } {
+  const n = new TZDate(now.getTime(), APP_TZ);
+  const a = new TZDate(new Date(appointmentAt).getTime(), APP_TZ);
+  const todayStart = new TZDate(n.getFullYear(), n.getMonth(), n.getDate(), APP_TZ).getTime();
+  const apptStart = new TZDate(a.getFullYear(), a.getMonth(), a.getDate(), APP_TZ).getTime();
+  const days = Math.round((todayStart - apptStart) / (24 * 60 * 60 * 1000));
+  return { past: days > 0, today: days === 0, days, stale: days > APPOINTMENT_STALE_DAYS };
+}
