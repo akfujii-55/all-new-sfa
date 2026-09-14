@@ -105,7 +105,7 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
               <TableCell className="text-muted-foreground">{p.phone ?? "-"}</TableCell>
               <TableCell>
                 <div className="flex justify-end gap-1">
-                  {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: p.company_id }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
+                  {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: p.company_id }} merge={{ 取引先: p.company?.name ?? "", 担当者名: p.name, 担当者メール: p.email }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
                   <ContactDialog contact={p} companies={companies} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
                   <MergeContactDialog contact={p} contacts={mergeCandidates} companies={companies} trigger={<Button size="sm" variant="ghost" title="別の担当者に統合"><Merge className="size-4" /></Button>} />
                 </div>

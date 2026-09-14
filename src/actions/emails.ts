@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
+import { unresolvedMerges } from "@/lib/mail/merge";
 import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertStorageAvailable, assertTenantWritable } from "@/lib/tenant-quota";
 import {
@@ -50,6 +51,9 @@ export async function sendEmail(input: SendEmailInput) {
   const cc = splitAddrs(input.cc);
   if (to.length === 0) throw userError("宛先を入力してください");
   if (!input.subject.trim()) throw userError("件名を入力してください");
+  // テンプレートの差し込み項目が残ったまま送らない(画面の確認ダイアログでも止めている)
+  const unresolved = unresolvedMerges(`${input.subject}\n${input.body}`);
+  if (unresolved.length > 0) throw userError(`差し込み項目が反映されていません: ${unresolved.join(" ")}。本文を直してから送信してください`);
   const attachmentRefs = validateOutgoingRefs(input.attachments, await tenantIdOf(supabase));
   const bodyBytes = Buffer.byteLength(input.body, "utf8");
   const attachmentBytes = attachmentRefs.reduce((a, r) => a + (Number(r.size) || 0), 0);

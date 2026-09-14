@@ -17,9 +17,10 @@ import { FormSettingsForm } from "@/components/settings/form-settings-form";
 import { TagSettings } from "@/components/settings/tag-settings";
 import { TagRuleSettings } from "@/components/settings/tag-rule-settings";
 import { ActivityKindSettings } from "@/components/settings/activity-kind-settings";
+import { EmailTemplateSettings } from "@/components/settings/email-template-settings";
 import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type MailAccount, type Tag } from "@/lib/types";
+import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
 
 export const metadata = { title: "設定" };
@@ -40,7 +41,7 @@ export default async function SettingsPage() {
       .order("created_at"),
     supabase.from("mail_sync_state").select("*"),
     getMailSettings(supabase),
-    supabase.from("members").select("name").eq("profile_id", auth.user?.id ?? "").maybeSingle(),
+    supabase.from("members").select("id, name").eq("profile_id", auth.user?.id ?? "").maybeSingle(),
     getAlertSettings(supabase),
     supabase.from("system_logs").select("id", { count: "exact", head: true }).eq("level", "error").gte("created_at", hoursAgo(24)),
     supabase.from("system_logs").select("message, created_at, level").like("source", "cron.%").order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -48,6 +49,14 @@ export default async function SettingsPage() {
     supabase.from("activity_kinds").select("*").order("sort_order").order("created_at"),
     supabase.from("email_tag_rules").select("*, tag:tags(*)").order("sort_order").order("created_at"),
   ]);
+  // メールテンプレート: 会社共通 + ログインユーザー自身の自分専用
+  const { data: templateRows } = await supabase
+    .from("email_templates")
+    .select("*")
+    .or(member ? `member_id.is.null,member_id.eq.${member.id}` : "member_id.is.null")
+    .order("member_id", { ascending: true, nullsFirst: true })
+    .order("sort_order")
+    .order("created_at");
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
   const accounts = (accountRows ?? []) as AccountRow[];
@@ -213,6 +222,16 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <MailSettingsForm settings={mailSettings} memberName={member?.name ?? "(担当者名)"} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">メールテンプレート</CardTitle>
+            <CardDescription>返信や新規作成で選べる文面。{"{{取引先}}"} や {"{{担当者名}}"} などの差し込み項目を書いておくと、相手や案件の情報に置き換わります。会社共通のほか、自分だけのテンプレートも登録できます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EmailTemplateSettings templates={(templateRows ?? []) as EmailTemplate[]} canPersonal={Boolean(member)} />
           </CardContent>
         </Card>
 

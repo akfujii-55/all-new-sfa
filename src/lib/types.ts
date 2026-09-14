@@ -162,6 +162,19 @@ export interface Company {
   updated_at: string;
 }
 
+/** メールテンプレート(設定画面で管理。member_id が null なら会社共通、入っていればその営業担当者の自分専用) */
+export interface EmailTemplate {
+  id: string;
+  member_id: string | null;
+  name: string;
+  /** 空なら選んでも件名を変えない */
+  subject: string;
+  body: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 /** メールの自動タグ付けルール(src/lib/tag-rules.ts) */
 export interface EmailTagRule {
   id: string;

@@ -10,6 +10,7 @@ import { getMailSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { signOut } from "@/actions/auth";
 import { tenantAccess, trialDaysLeft as calcTrialDaysLeft } from "@/lib/tenant-quota";
+import type { EmailTemplate } from "@/lib/types";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
@@ -20,12 +21,24 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getCurrentTenant(supabase),
     supabase.rpc("is_operator"),
     supabase.from("profiles").select("email, full_name").eq("id", auth.user.id).maybeSingle(),
-    supabase.from("members").select("name").eq("profile_id", auth.user.id).maybeSingle(),
+    supabase.from("members").select("id, name").eq("profile_id", auth.user.id).maybeSingle(),
     getMailSettings(supabase),
     supabase.from("emails").select("id", { count: "exact", head: true }).eq("is_read", false).eq("direction", "inbound"),
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
     supabase.from("deal_activities").select("id", { count: "exact", head: true }).is("done_at", null).lt("due_at", nowIso()),
   ]);
+
+  // メールテンプレート: 会社共通 + ログイン中の営業担当者の自分専用
+  const { data: templateRows } = tenant
+    ? await supabase
+        .from("email_templates")
+        .select("*")
+        .or(member ? `member_id.is.null,member_id.eq.${member.id}` : "member_id.is.null")
+        .order("member_id", { ascending: true, nullsFirst: true })
+        .order("sort_order")
+        .order("created_at")
+    : { data: null };
+  const templates = (templateRows ?? []) as EmailTemplate[];
 
   // 運営専用アカウント(テナントに所属しない運営者)は運営管理へ
   if (!tenant && isOperator) redirect("/admin");
@@ -43,7 +56,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   }
 
   // メール署名の担当者名: 営業担当者(members)の名前 → プロフィール名 → メールアドレスの @ より前
-  const signature = buildSignature(mailSettings, member?.name || profile?.full_name || (auth.user.email ?? "").split("@")[0]);
+  const memberName = member?.name || profile?.full_name || (auth.user.email ?? "").split("@")[0];
+  const signature = buildSignature(mailSettings, memberName);
   // 停止中・解約・お試し期限切れは閲覧のみ(書き込み系の Server Action は個別に拒否する)
   const access = tenantAccess(tenant);
   // お試し終了が近く、まだお支払い方法が未登録なら知らせる(7 日前から)
@@ -51,7 +65,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const trialEndingSoon = access.writable && !tenant.stripe_subscription_id && trialDaysLeft !== null && trialDaysLeft <= 7;
 
   return (
-    <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject}>
+    <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject} memberName={memberName} companyName={mailSettings.signature_company} templates={templates}>
       <div className="flex min-h-screen">
         <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} isOperator={Boolean(isOperator)} />
         <div className="flex-1 flex flex-col min-w-0">

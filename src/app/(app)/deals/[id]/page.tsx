@@ -17,6 +17,8 @@ import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { fmtDate, fmtDateTime, fmtMonth, yen } from "@/lib/format";
 import { getMailAccountOptions } from "@/lib/mail/options";
+import { buildQuote, type MergeVars } from "@/lib/mail/merge";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Deal, DealActivity, DealNote, Email, Revenue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +49,18 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   const memberOptions = (members ?? []).filter((m) => m.is_active || m.id === deal.owner_id);
 
   const revTotal = (revenues ?? []).reduce((a, r) => a + Number(r.amount), 0);
+
+  // テンプレートの差し込み項目。案件の元になった問い合わせがあれば、そのメールを {{問い合わせ本文}} に使う
+  const inquiryMail = deal.inquiry_id ? await loadInquiryMail(supabase, deal.inquiry_id) : null;
+  const merge: MergeVars = {
+    取引先: deal.company?.name ?? "",
+    担当者名: deal.contact?.name ?? "",
+    担当者メール: deal.contact?.email ?? "",
+    案件名: deal.title,
+    元の件名: inquiryMail?.subject ?? "",
+    問い合わせ本文: inquiryMail ? buildQuote(fmtDateTime(inquiryMail.received_at), inquiryMail.from_name || inquiryMail.from_address, inquiryMail.text_body) : "",
+    受信日時: inquiryMail ? fmtDateTime(inquiryMail.received_at) : "",
+  };
 
   return (
     <div>
@@ -101,6 +115,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
             <ComposeDialog
               accounts={accounts}
               defaults={{ to: deal.contact?.email ?? "", subject: `${deal.title}について`, dealId: deal.id, contactId: deal.contact_id, companyId: deal.company_id }}
+              merge={merge}
               trigger={<Button size="sm"><PenSquare className="size-4" /> メールを送る</Button>}
             />
           </div>
@@ -161,4 +176,12 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
       </Tabs>
     </div>
   );
+}
+
+/** 問い合わせの元メール(件名・本文・受信日時)。案件ページのテンプレートで引用に使う */
+async function loadInquiryMail(supabase: SupabaseClient, inquiryId: string) {
+  const { data: inq } = await supabase.from("inquiries").select("email_id").eq("id", inquiryId).maybeSingle();
+  if (!inq?.email_id) return null;
+  const { data } = await supabase.from("emails").select("subject, text_body, received_at, from_name, from_address").eq("id", inq.email_id).maybeSingle();
+  return data as { subject: string | null; text_body: string | null; received_at: string; from_name: string | null; from_address: string } | null;
 }

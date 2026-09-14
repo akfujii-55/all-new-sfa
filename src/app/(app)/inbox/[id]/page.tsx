@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { EmailBody } from "@/components/inbox/email-body";
 import { AttachmentList } from "@/components/inbox/attachment-list";
 import { ReplyForm } from "@/components/inbox/reply-form";
+import { buildQuote, type MergeVars } from "@/lib/mail/merge";
 import { LinkDealSelect } from "@/components/inbox/link-deal-select";
 import { ThreadActions } from "@/components/inbox/thread-actions";
 import { RelinkDialog } from "@/components/inbox/relink-dialog";
@@ -75,7 +76,16 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
         ? latestInbound.from_address
         : latestInbound.to_addresses.join(", ");
   const replyCc = isForm ? "" : latestInbound.cc_addresses.filter((a) => !selves.has(a.toLowerCase())).join(", ");
-  const quote = `${fmtDateTime(latestInbound.received_at)} ${latestInbound.from_name || latestInbound.from_address}:\n${(latestInbound.text_body ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`;
+  const quote = buildQuote(fmtDateTime(latestInbound.received_at), latestInbound.from_name || latestInbound.from_address, latestInbound.text_body);
+  // テンプレートの差し込み項目。相手の会社名・氏名はスレッドに紐付く取引先・担当者(フォーム通知なら本文の問い合わせ者)
+  const merge: MergeVars = {
+    取引先: linked.company?.name ?? "",
+    担当者名: linked.contact?.name ?? (isForm ? counterpart?.name ?? "" : latestInbound.direction === "inbound" ? latestInbound.from_name ?? "" : ""),
+    担当者メール: replyTo.split(",")[0]?.trim() ?? "",
+    元の件名: latestInbound.subject ?? "",
+    問い合わせ本文: quote,
+    受信日時: fmtDateTime(latestInbound.received_at),
+  };
 
   return (
     <div>
@@ -89,7 +99,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
-          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} />
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} merge={merge} />
           {/* 履歴は新しいものが上。各メールはヘッダーをクリックして開閉できる */}
           {[...emails].reverse().map((e) => (
             <ThreadMessage

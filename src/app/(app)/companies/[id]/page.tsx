@@ -109,7 +109,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: id }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
+                    {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: id }} merge={{ 取引先: company.name, 担当者名: p.name, 担当者メール: p.email }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}
                     <ContactDialog contact={p} companies={companies ?? []} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
                     <MergeContactDialog contact={p} contacts={allContacts ?? []} companies={companies ?? []} trigger={<Button size="sm" variant="ghost" title="別の担当者に統合"><Merge className="size-4" /></Button>} />
                   </div>

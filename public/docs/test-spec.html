@@ -564,6 +564,12 @@
               <div><div class="l">期待結果</div><ul><li>設定なしでは本文を読み取れず、差出人(フォームツール役)が担当者として登録されるか、AI 抽出で問い合わせ者が登録される(どちらになったかメモ)</li><li>項目名を追加した後は本文の問い合わせ者が登録される</li><li>送信元アドレスを登録すると、読み取れなかった場合でもフォームツール役のアドレスは担当者として登録されず、スレッドの担当者は「未登録」になる</li><li>形式違反は「送信元アドレスの形式が正しくありません」で保存できない</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
+          <div class="case" data-id="MB-11"><div><div class="cid">MB-11</div><span class="pri p1">必須</span></div><div class="title">メールテンプレートと差し込み項目、送信前の確認</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>設定 → メールテンプレートで、本文に {{取引先}} {{担当者名}} 様 / {{自社担当者}} / {{問い合わせ本文}} を含む会社共通のテンプレートと、件名に {{案件名}} を含む自分専用のテンプレートを登録。取引先・担当者が付いた受信スレッドと、問い合わせから作った案件がある。</div>
+              <div><div class="l">手順</div><ol><li>スレッドの返信フォームで会社共通のテンプレートを選び、「確認して送信」</li><li>案件詳細 → メール履歴 → 「メールを送る」で自分専用のテンプレートを選ぶ</li><li>受信トレイの「新規作成」で宛先を空のままテンプレートを選び、「確認して送信」</li><li>宛先に登録済みの担当者のアドレスを入れてから、テンプレートを選び直して送信</li><li>別のログインユーザーで返信フォームのテンプレート一覧を確認</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>返信では取引先名・氏名・自分の名前が入り、相手のメールが「&gt;」付きで {{問い合わせ本文}} の位置に入る(末尾に二重には付かない)。署名は本文の後ろに付く</li><li>確認画面に差出人・宛先・件名・本文・添付が出て、「差し込み項目はすべて反映されています」と表示され、送信できる</li><li>案件からは件名に案件名が入り、{{問い合わせ本文}} には元の問い合わせメールが入る</li><li>宛先が空だと {{取引先}} {{担当者名}} が残って黄色の注意が出る。確認画面では赤く示され、送信ボタンが押せない</li><li>宛先を入れて選び直すと登録済みの会社名・氏名が入る</li><li>自分専用のテンプレートは登録した本人以外の一覧に出ない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
           <div class="case" data-id="MB-08"><div><div class="cid">MB-08</div><span class="pri">通常</span></div><div class="title">スレッドと案件の紐付け</div>
             <div class="body"><div class="pre"><span class="l">前提</span>案件が 1 件以上ある。</div>
               <div><div class="l">手順</div><ol><li>スレッド画面の「案件を選択」で案件に紐付ける</li><li>案件詳細でメールが表示されることを確認し、紐付けを外す</li></ol></div>
@@ -742,6 +748,12 @@
             <div class="body">
               <div><div class="l">手順</div><ol><li>会社名・メール・追記・返信件名を変更して保存</li><li>返信フォームを開く</li></ol></div>
               <div><div class="l">期待結果</div><ul><li>保存トーストが出て、再読み込み後も残る</li><li>返信フォームの署名と件名に反映される</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
+          <div class="case" data-id="ST-05"><div><div class="cid">ST-05</div><span class="pri">通常</span></div><div class="title">メールテンプレートの登録と上限</div>
+            <div class="body">
+              <div><div class="l">手順</div><ol><li>設定 → メールテンプレートで「追加」。差し込み項目のボタンを押して本文に入れ、会社共通で保存</li><li>同じテンプレートを編集して「自分専用」に変えて保存</li><li>名前を空、本文を空で保存</li><li>会社共通を 10 個にしてから 11 個目を追加</li><li>1 つ削除</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>ボタンでカーソル位置に {{取引先}} などが入り、保存すると一覧に「会社共通」のバッジで並ぶ</li><li>自分専用に変えるとバッジが変わり、返信フォームの一覧では「自分専用」のグループに出る</li><li>名前・本文が空だと「入力してください」で保存できない</li><li>11 個目は「会社共通のテンプレートは 10 個までです」で止まる</li><li>削除すると一覧と返信フォームの選択肢から消える</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
           <div class="case" data-id="ST-02"><div><div class="cid">ST-02</div><span class="pri">通常</span></div><div class="title">複数メールアカウントと既定の差出人</div>
