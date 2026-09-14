@@ -65,7 +65,7 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
   }
 
   return (
-    <div className="rounded-lg border bg-card overflow-x-auto">
+    <div className="rounded-lg border bg-card scroll-x">
       <div className="flex items-center gap-3 border-b px-4 py-2">
         <Checkbox checked={allChecked ? true : someChecked ? "indeterminate" : false} onCheckedChange={(v) => setSelected(v === true ? new Set(ids) : new Set())} aria-label="すべて選択" />
         {selectedIds.length > 0 ? (
@@ -80,16 +80,16 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
           <span className="text-sm text-muted-foreground">担当者を選択してタグの付け外しや削除をまとめてできます</span>
         )}
       </div>
-      <Table>
+      <Table className="min-w-[1080px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-8" />
             <TableHead>氏名</TableHead>
             <TableHead>会社</TableHead>
             <TableHead>タグ</TableHead>
-            <TableHead className="hidden md:table-cell">役職</TableHead>
-            <TableHead className="hidden sm:table-cell">メール</TableHead>
-            <TableHead className="hidden lg:table-cell">電話</TableHead>
+            <TableHead>役職</TableHead>
+            <TableHead>メール</TableHead>
+            <TableHead>電話</TableHead>
             <TableHead className="w-32" />
           </TableRow>
         </TableHeader>
@@ -100,9 +100,9 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
               <TableCell className="font-medium">{p.name}</TableCell>
               <TableCell>{p.company ? <Link href={`/companies/${p.company.id}`} className="hover:underline">{p.company.name}</Link> : <span className="text-muted-foreground">-</span>}</TableCell>
               <TableCell><TagBadges tags={p.tags ?? []} max={3} /></TableCell>
-              <TableCell className="hidden md:table-cell text-muted-foreground">{p.title ?? "-"}</TableCell>
-              <TableCell className="hidden sm:table-cell text-muted-foreground">{p.email ?? "-"}</TableCell>
-              <TableCell className="hidden lg:table-cell text-muted-foreground">{p.phone ?? "-"}</TableCell>
+              <TableCell className="text-muted-foreground">{p.title ?? "-"}</TableCell>
+              <TableCell className="text-muted-foreground">{p.email ?? "-"}</TableCell>
+              <TableCell className="text-muted-foreground">{p.phone ?? "-"}</TableCell>
               <TableCell>
                 <div className="flex justify-end gap-1">
                   {p.email && <ComposeDialog defaults={{ to: p.email, contactId: p.id, companyId: p.company_id }} trigger={<Button size="sm" variant="ghost"><Mail className="size-4" /></Button>} />}

@@ -161,3 +161,12 @@
   .legal-doc tr { display: block; border-top: 1px solid var(--border); }
   .legal-doc th { white-space: normal; }
 }
+
+/* 横に長い一覧: 列を折り返さず、横スクロールのバーを常に見せる(macOS のオーバーレイ表示でも隠れないように色と太さを指定) */
+.scroll-x [data-slot="table-container"] {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.7 0 0) transparent;
+}
+.scroll-x [data-slot="table-container"]::-webkit-scrollbar { height: 10px; }
+.scroll-x [data-slot="table-container"]::-webkit-scrollbar-thumb { background: oklch(0.7 0 0); border-radius: 9999px; }
+.scroll-x [data-slot="table"] { white-space: nowrap; }
