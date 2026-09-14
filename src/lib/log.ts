@@ -74,7 +74,11 @@ export function errorDetail(e: unknown): Record<string, unknown> {
  * 既存の Server Action は「〜してください」「〜が必要です」で終わるメッセージを投げる。
  */
 export function isUserFacingError(message: string): boolean {
-  return /(してください|が必要です|正しくありません|ありません|できません)[。)]?$/.test(message.trim());
+  const m = message.trim();
+  // 「〜してください」「〜が見つかりません」「〜は必須です」など、入力や操作の問題を利用者に伝える文。
+  // 「〜に失敗しました: ...」「〜できませんでした」「〜が設定されていません」は処理や設定の失敗なので通知の対象に残す
+  if (/失敗|できませんでした|設定されていません|未設定/.test(m)) return false;
+  return /(ください|です|ません|ます)[。)]?$/.test(m);
 }
 
 /** ログを 1 件記録する。失敗しても例外は投げない。db を渡すとそのテナントのログになる(渡さなければシステム全体のログ) */
