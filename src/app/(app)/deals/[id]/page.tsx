@@ -107,7 +107,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
         </TabsList>
 
         <TabsContent value="activities" className="mt-4">
-          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} activities={activities} kinds={kindRows ?? []} /></CardContent></Card>
+          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} deal={{ id: deal.id, title: deal.title, company: deal.company }} activities={activities} kinds={kindRows ?? []} /></CardContent></Card>
         </TabsContent>
 
         <TabsContent value="emails" className="mt-4 space-y-3">

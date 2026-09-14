@@ -18,6 +18,7 @@ import type { ActivityKind, DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ActivityKindIcon } from "./activity-kind-icon";
+import { CalendarAddButton } from "./calendar-add-button";
 
 import { actionErrorMessage } from "@/lib/errors";
 const DUE_LABEL: Record<DueState, { text: string; className: string } | null> = {
@@ -61,7 +62,18 @@ function KindPicker({ kinds, value, onChange, idPrefix }: { kinds: KindOption[];
   );
 }
 
-export function DealActivities({ dealId, activities, kinds }: { dealId: string; activities: DealActivity[]; kinds: KindOption[] }) {
+export function DealActivities({
+  dealId,
+  deal,
+  activities,
+  kinds,
+}: {
+  dealId: string;
+  /** 「Google カレンダーに追加」の予定名・メモに使う案件名と取引先 */
+  deal?: { id: string; title: string; company?: { name: string } | null } | null;
+  activities: DealActivity[];
+  kinds: KindOption[];
+}) {
   const [pending, start] = useTransition();
   const ref = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState<string>(kinds[0]?.id ?? "");
@@ -162,6 +174,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
                 </div>
                 <p className={cn("mt-1 whitespace-pre-wrap text-sm", done && "line-through")}>{a.body}</p>
               </div>
+              <CalendarAddButton activity={a} deal={deal} />
               <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
                 <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind_id); }}><Pencil className="size-3.5" /></Button>
                 <Button size="sm" variant="ghost" className="text-destructive" aria-label="削除" disabled={pending} onClick={() => run(() => deleteActivity(a.id, dealId), "削除しました")}><Trash2 className="size-3.5" /></Button>

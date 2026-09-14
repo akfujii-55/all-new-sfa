@@ -8,6 +8,7 @@ import { setActivityDone } from "@/actions/activities";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
+import { CalendarAddButton } from "@/components/deals/calendar-add-button";
 import { dueState, type DueState } from "@/lib/activities";
 import { fmtDue } from "@/lib/format";
 import type { DealActivity } from "@/lib/types";
@@ -75,6 +76,7 @@ export function ActivityRow({ activity: a, showDeal = true }: { activity: DealAc
         </p>
       </div>
       {chip && <Badge className={cn("shrink-0 h-5 px-1.5 text-[10px]", chip.className)}>{chip.text}</Badge>}
+      <CalendarAddButton activity={a} deal={a.deal} className="-my-1" />
     </div>
   );
 }
