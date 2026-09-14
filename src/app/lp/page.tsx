@@ -12,7 +12,8 @@ const display = Zen_Kaku_Gothic_New({ weight: ["500", "700", "900"], subsets: ["
 const serif = Shippori_Mincho_B1({ weight: ["600", "800"], subsets: ["latin"], variable: "--font-lp-serif" });
 const mono = IBM_Plex_Mono({ weight: ["400", "500"], subsets: ["latin"], variable: "--font-lp-mono" });
 
-const LP_URL = process.env.NEXT_PUBLIC_LP_HOST ? `https://${process.env.NEXT_PUBLIC_LP_HOST}/` : undefined;
+const LP_HOST = (process.env.NEXT_PUBLIC_LP_HOST ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+const LP_URL = LP_HOST ? `https://${LP_HOST}/` : undefined;
 
 export const metadata = {
   title: { absolute: "SFA | メールから始まる、シンプルな営業管理" },

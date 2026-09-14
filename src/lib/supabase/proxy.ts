@@ -2,7 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** LP 専用ドメイン(NEXT_PUBLIC_LP_HOST)。設定されていれば、そのドメインでは常に LP を表示し、本体(未ログインのトップ)からはそこへ送る */
-const LP_HOST = (process.env.NEXT_PUBLIC_LP_HOST ?? "").trim().toLowerCase() || null;
+const LP_HOST =
+  (process.env.NEXT_PUBLIC_LP_HOST ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "") || null;
 /** 本体のオリジン。LP ドメインで /signup や /login を開いたときの飛び先 */
 const APP_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sfa.art-trading.net").replace(/\/$/, "");
 
