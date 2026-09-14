@@ -33,7 +33,7 @@
 
 - 文書(マニュアル・テスト仕様書): 本文は `docs/*.html`(Claude の Artifact と同じ「本文だけ」の HTML)。`node scripts/build-docs.mjs`(`npm run build` でも自動実行)が noindex 付きの完全な HTML にして `public/docs/` に書き出し、`next.config.ts` の rewrites で `/docs`, `/docs/manual`, `/docs/test-spec` として配る(X-Robots-Tag も付与、proxy で公開パス)。文書を直すときは `docs/` を編集して build-docs を実行し、`public/docs/` もコミットする。
 
-- LP(紹介ページ): 未ログインで `/` を開くと `src/lib/supabase/proxy.ts` が `/lp` に rewrite(URL は / のまま)。文言・構成・開発者写真は `src/content/lp.ts`、見た目は `src/app/lp/lp.css`(`.lp` にスコープ)、料金は operator_settings から自動。写真は public/lp/ に置いて lp.ts の verdict.founder を設定。
+- LP(紹介ページ): 専用ドメイン `lp.sfa.art-trading.net`(環境変数 `NEXT_PUBLIC_LP_HOST`。Vercel の同じプロジェクトにドメイン追加、DNS は CNAME → cname.vercel-dns.com)。`src/lib/supabase/proxy.ts` がそのホストでは `/` を `/lp` に rewrite し、他のパス(/signup, /login など)は `NEXT_PUBLIC_SITE_URL` の本体へ 307。本体で未ログインの `/` は LP ドメインへ 307(`NEXT_PUBLIC_LP_HOST` 未設定なら従来どおり `/lp` に rewrite)。文言・構成・開発者写真は `src/content/lp.ts`、見た目は `src/app/lp/lp.css`(`.lp` にスコープ)、料金は operator_settings から自動。写真は public/lp/ に置いて lp.ts の verdict.founder を設定。
 
 ## ドメインの流れ
 受信メール(顧客/担当者は自動登録) → メール一覧で選択して問い合わせ(inquiries)に登録 → アポ取得で案件化(deals, stage=appointment) → カンバンでステージ管理 → 成約時に月次売上(revenues)を必須入力。

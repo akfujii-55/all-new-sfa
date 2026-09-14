@@ -1,7 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/** LP 専用ドメイン(NEXT_PUBLIC_LP_HOST)。設定されていれば、そのドメインでは常に LP を表示し、本体(未ログインのトップ)からはそこへ送る */
+const LP_HOST = (process.env.NEXT_PUBLIC_LP_HOST ?? "").trim().toLowerCase() || null;
+/** 本体のオリジン。LP ドメインで /signup や /login を開いたときの飛び先 */
+const APP_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sfa.art-trading.net").replace(/\/$/, "");
+
 export async function updateSession(request: NextRequest) {
+  // LP 専用ドメイン: / は LP、それ以外(申し込み・ログイン・法務ページなど)は本体ドメインへ送る。認証は見ない
+  const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  if (LP_HOST && host === LP_HOST) {
+    const path = request.nextUrl.pathname;
+    if (path === "/") return NextResponse.rewrite(new URL("/lp", request.url), { request });
+    if (path === "/lp") return NextResponse.redirect(new URL("/", request.url), 308);
+    return NextResponse.redirect(new URL(path + request.nextUrl.search, APP_ORIGIN), 307);
+  }
+
   // 環境変数が未設定だと createServerClient が例外を投げて全ページが 500 になるため、原因が分かるメッセージを返す
   const missing = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"].filter((k) => !process.env[k]);
   if (missing.length > 0) {
@@ -50,8 +64,9 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/stripe") ||
     path === "/api/health";
 
-  // 未ログインでトップを開いたら紹介ページ(LP)を表示する(URL は / のまま)
+  // 未ログインでトップを開いたら紹介ページ(LP)へ。LP 専用ドメインがあればそこへ、無ければこのドメインで表示する(URL は / のまま)
   if (!user && path === "/") {
+    if (LP_HOST) return NextResponse.redirect(`https://${LP_HOST}/`, 307);
     const url = request.nextUrl.clone();
     url.pathname = "/lp";
     return NextResponse.rewrite(url, { request });

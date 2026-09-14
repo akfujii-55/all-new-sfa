@@ -12,14 +12,19 @@ const display = Zen_Kaku_Gothic_New({ weight: ["500", "700", "900"], subsets: ["
 const serif = Shippori_Mincho_B1({ weight: ["600", "800"], subsets: ["latin"], variable: "--font-lp-serif" });
 const mono = IBM_Plex_Mono({ weight: ["400", "500"], subsets: ["latin"], variable: "--font-lp-mono" });
 
+const LP_URL = process.env.NEXT_PUBLIC_LP_HOST ? `https://${process.env.NEXT_PUBLIC_LP_HOST}/` : undefined;
+
 export const metadata = {
   title: { absolute: "SFA | メールから始まる、シンプルな営業管理" },
   description: "問い合わせメールを Gmail から自動で取り込み、顧客・案件・売上までひとつの流れで管理。売上 10 億円までの中小企業、営業 5 名までのインバウンド営業に。",
+  // LP 専用ドメインがあるときは、本体の /lp で開かれても正規 URL は LP ドメインにする
+  ...(LP_URL ? { alternates: { canonical: LP_URL }, openGraph: { url: LP_URL } } : {}),
 };
 export const dynamic = "force-dynamic";
 
 /**
- * 紹介ページ(LP)。未ログインで / を開くと proxy がここへ書き換える(URL は / のまま)。
+ * 紹介ページ(LP)。LP 専用ドメイン(NEXT_PUBLIC_LP_HOST)があればそのドメインの / で表示し、
+ * 無ければ未ログインで / を開いたときに proxy がここへ書き換える(URL は / のまま)。
  * 文言と構成は src/content/lp.ts、料金は運営の料金設定から読む。
  */
 export default async function LandingPage() {
