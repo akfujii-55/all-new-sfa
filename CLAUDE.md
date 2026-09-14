@@ -31,6 +31,7 @@
 
 - 案件の行動(0019・0020): `deal_activities`(種類 `kind_id` → `activity_kinds`、本文、期限 due_at、完了 done_at)。種類はテナントごとに `activity_kinds`(名前・アイコンキー `icon`・sort_order、最大 20 個、既定 6 個はテナント作成時にトリガーで投入)で、設定画面の「行動の種類」から追加・編集・削除(使用中と最後の 1 個は不可)・上下の並び替え(`src/actions/activity-kinds.ts`、アイコン一覧は `src/lib/activity-kinds.ts`)。タグも同じ `reorder-buttons.tsx` で並び替え(`reorderTags`)。行動の埋め込みは `kind:activity_kinds(id,name,icon)`。`src/actions/activities.ts` で登録・編集・完了・削除、期限超過の判定は `src/lib/activities.ts` の `dueState`(今日の判定は日本時間)。案件詳細の「行動」タブ、カンバンのカード(期限超過・今日の件数)、ダッシュボードの「今日やること」、一覧ページ `/activities`(期限の状態ごとにグループ)、サイドバー「行動」の期限超過バッジに表示。共通の 1 行は `activity-row.tsx`(完了チェック付き)。
 
+- アポイント Todo(0023): 案件の作成・更新でアポイント日時があれば `src/lib/appointment-todo.ts` の `syncAppointmentTodo` が行動の種類「アポイント」(既定で投入、無ければ作る)の `deal_activities` を期限 = アポ日時で自動登録し、日時変更で未完了 Todo の期限を追従させる。
 - 日付入力: 行動の期限・案件のアポイント日時・受注予定日は `src/components/date-picker/date-picker.tsx`(日付ボタン + 「日付を選ぶ」で 2 週間タイル + 時刻ボタン。hidden input で datetime-local と同じ形式を渡すのでサーバーの `parseLocalInput` はそのまま)。「時刻なし(終日)」は 23:59 で保存し `fmtDue` で日付だけ表示。祝日は `src/lib/holidays.ts`(固定表、2028 年まで。毎年足す)。新しく日時を入力する画面を作るときは `<input type="datetime-local">` ではなくこの部品を使う。
 
 - 文書(マニュアル・テスト仕様書): 本文は `docs/*.html`(Claude の Artifact と同じ「本文だけ」の HTML)。`node scripts/build-docs.mjs`(`npm run build` でも自動実行)が noindex 付きの完全な HTML にして `public/docs/` に書き出し、`next.config.ts` の rewrites で `/docs`, `/docs/manual`, `/docs/test-spec`, `/docs/flow`(業務フロー図。マニュアル冒頭にも同じ SVG を埋め込み)として配る(X-Robots-Tag も付与、proxy で公開パス)。文書を直すときは `docs/` を編集して build-docs を実行し、`public/docs/` もコミットする。

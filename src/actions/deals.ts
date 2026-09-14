@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { STAGE_PROBABILITY, type DealStage } from "@/lib/types";
 import { parseLocalInput } from "@/lib/format";
+import { syncAppointmentTodo } from "@/lib/appointment-todo";
 
 import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
@@ -39,6 +40,7 @@ export async function createDeal(formData: FormData) {
     ownerId = me?.id ?? null;
   }
 
+  const appointmentAt = parseLocalInput(s(formData.get("appointment_at")));
   const { data, error } = await supabase
     .from("deals")
     .insert({
@@ -49,7 +51,7 @@ export async function createDeal(formData: FormData) {
       stage,
       amount: n(formData.get("amount")),
       probability: STAGE_PROBABILITY[stage] ?? 30,
-      appointment_at: parseLocalInput(s(formData.get("appointment_at"))),
+      appointment_at: appointmentAt,
       expected_close_date: s(formData.get("expected_close_date")),
       owner_id: ownerId,
       memo: s(formData.get("memo")),
@@ -57,6 +59,9 @@ export async function createDeal(formData: FormData) {
     .select("id")
     .single();
   if (error) throw userError(error.message);
+
+  // アポイント日時が入っていれば、行動「アポイント」の Todo(期限 = アポの日時)を自動で作る
+  await syncAppointmentTodo(supabase, { dealId: data.id, appointmentAt, userId: auth.user?.id ?? null });
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "converted", deal_id: data.id }).eq("id", inquiryId);
@@ -85,6 +90,9 @@ export async function createDeal(formData: FormData) {
 
 export async function updateDeal(id: string, formData: FormData) {
   const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const { data: before } = await supabase.from("deals").select("appointment_at").eq("id", id).maybeSingle();
+  const appointmentAt = parseLocalInput(s(formData.get("appointment_at")));
   const { error } = await supabase
     .from("deals")
     .update({
@@ -93,12 +101,14 @@ export async function updateDeal(id: string, formData: FormData) {
       owner_id: s(formData.get("owner_id")),
       amount: n(formData.get("amount")),
       probability: Math.min(100, Math.max(0, n(formData.get("probability")))),
-      appointment_at: parseLocalInput(s(formData.get("appointment_at"))),
+      appointment_at: appointmentAt,
       expected_close_date: s(formData.get("expected_close_date")),
       memo: s(formData.get("memo")),
     })
     .eq("id", id);
   if (error) throw userError(error.message);
+  // アポイント日時を変えたら「アポイント」Todo の期限も合わせる(無ければ作る)
+  await syncAppointmentTodo(supabase, { dealId: id, appointmentAt, previousAppointmentAt: (before?.appointment_at as string | null) ?? null, userId: auth.user?.id ?? null });
   revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
 }
