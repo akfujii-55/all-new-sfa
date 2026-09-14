@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
 import { operatorTenantClient } from "@/lib/supabase/tenant";
+import { createHmac } from "node:crypto";
 import { getAlertSettings, splitAlertEmails } from "@/lib/settings";
+import { isLarkWebhook, operatorAlertFromRows } from "@/lib/alerts";
 import { fmtDateTime } from "@/lib/format";
 import type { SystemLogLevel } from "@/lib/types";
 
@@ -125,12 +127,35 @@ function appUrl(): string {
 
 export interface AlertTargets {
   emails: string[];
+  /** 汎用 Webhook(Slack 互換の {text} を POST。Lark の URL なら Lark の形式で送る) */
   webhook: string | null;
+  /** Lark グループチャットのカスタム Bot(署名シークレットは任意) */
+  lark: { url: string; secret: string | null } | null;
 }
 
+export function hasAlertTargets(t: AlertTargets): boolean {
+  return t.emails.length > 0 || Boolean(t.webhook) || Boolean(t.lark);
+}
+
+/** テナントの通知先(設定画面の「通知先メールアドレス」+ 環境変数の Webhook) */
 export async function getAlertTargets(db: SupabaseClient): Promise<AlertTargets> {
   const settings = await getAlertSettings(db);
-  return { emails: splitAlertEmails(settings.alert_emails), webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null };
+  return { emails: splitAlertEmails(settings.alert_emails), webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null, lark: null };
+}
+
+/** 運営側の通知先(運営管理の「エラー通知先」= operator_settings)。システム全体のエラーと各テナントのエラーの控えを送る */
+export async function getOperatorAlertTargets(): Promise<AlertTargets> {
+  try {
+    const { data } = await createAdminClient().from("operator_settings").select("key, value");
+    const s = operatorAlertFromRows(data);
+    return {
+      emails: splitAlertEmails(s.alert_emails),
+      webhook: null,
+      lark: s.alert_lark_webhook ? { url: s.alert_lark_webhook, secret: s.alert_lark_secret || null } : null,
+    };
+  } catch {
+    return { emails: [], webhook: null, lark: null };
+  }
 }
 
 /**
@@ -138,11 +163,16 @@ export async function getAlertTargets(db: SupabaseClient): Promise<AlertTargets>
  * @param tenantDb テナント付きのクライアント。null ならシステム全体のログなので、運営側テナントの通知先を使う
  */
 async function notifyIfNeeded(logDb: SupabaseClient, logId: string, input: LogInput, tenantDb: SupabaseClient | null) {
-  const settingsDb = tenantDb ?? (await operatorTenantClient());
-  const targets = settingsDb
-    ? await getAlertTargets(settingsDb)
-    : { emails: [], webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null };
-  if (targets.emails.length === 0 && !targets.webhook) return;
+  // テナントのエラーはそのテナントの通知先へ。運営側の通知先には、システム全体のエラーと各テナントのエラーの控えを送る
+  const tenantTargets = tenantDb ? await getAlertTargets(tenantDb) : { emails: [], webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null, lark: null };
+  const operatorAll = await getOperatorAlertTargets();
+  // 同じ宛先に二重に送らない(運営側テナント自身のエラーなど)
+  const operatorTargets: AlertTargets = {
+    emails: operatorAll.emails.filter((e) => !tenantTargets.emails.includes(e)),
+    webhook: null,
+    lark: operatorAll.lark && operatorAll.lark.url !== tenantTargets.webhook ? operatorAll.lark : null,
+  };
+  if (!hasAlertTargets(tenantTargets) && !hasAlertTargets(operatorTargets)) return;
 
   // 同じ発生箇所の通知は一定時間に 1 回まで(システム全体のログは tenant_id が null の行だけを見る)
   const since = new Date(Date.now() - NOTIFY_INTERVAL_MIN * 60 * 1000).toISOString();
@@ -176,7 +206,8 @@ async function notifyIfNeeded(logDb: SupabaseClient, logId: string, input: LogIn
   ].filter((l): l is string => Boolean(l));
   const body = lines.join("\n");
 
-  await sendAlert(settingsDb, { subject, body, targets });
+  if (hasAlertTargets(tenantTargets)) await sendAlert(tenantDb, { subject, body, targets: tenantTargets });
+  if (hasAlertTargets(operatorTargets)) await sendAlert(await operatorTenantClient(), { subject, body, targets: operatorTargets });
 }
 
 async function currentTenantLabel(db: SupabaseClient): Promise<{ name: string; slug: string | null } | null> {
@@ -188,27 +219,57 @@ async function currentTenantLabel(db: SupabaseClient): Promise<{ name: string; s
   }
 }
 
+/**
+ * Webhook にテキストを POST する。Lark / 飛書のカスタム Bot なら {msg_type:"text"} の形式と署名(timestamp + "\n" + secret を鍵にした HMAC-SHA256 の Base64)、
+ * それ以外は Slack 互換の {text}。成功なら null、失敗なら理由を返す
+ */
+async function postWebhook(url: string, larkSecret: string | null, text: string): Promise<string | null> {
+  try {
+    let payload: Record<string, unknown> = { text };
+    if (isLarkWebhook(url)) {
+      payload = { msg_type: "text", content: { text } };
+      if (larkSecret) {
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        payload.timestamp = timestamp;
+        payload.sign = createHmac("sha256", `${timestamp}\n${larkSecret}`).update("").digest("base64");
+      }
+    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return `応答 ${res.status}`;
+    if (isLarkWebhook(url)) {
+      // Lark は HTTP 200 でも本文の code で失敗を返す(署名不一致など)
+      const json = (await res.json().catch(() => null)) as { code?: number; StatusCode?: number; msg?: string } | null;
+      const code = json?.code ?? json?.StatusCode ?? 0;
+      if (code !== 0) return `Lark 応答 code=${code} ${json?.msg ?? ""}`.trim();
+    }
+    return null;
+  } catch (e) {
+    return errorMessage(e);
+  }
+}
+
 /** 通知を送る(メールと Webhook)。失敗は warn として記録し、例外は投げない。db が null ならメールは送れない(Webhook のみ) */
 export async function sendAlert(
   db: SupabaseClient | null,
   { subject, body, targets }: { subject: string; body: string; targets: AlertTargets },
-): Promise<{ email: boolean | null; webhook: boolean | null; errors: string[] }> {
-  const result = { email: null as boolean | null, webhook: null as boolean | null, errors: [] as string[] };
+): Promise<{ email: boolean | null; webhook: boolean | null; lark: boolean | null; errors: string[] }> {
+  const result = { email: null as boolean | null, webhook: null as boolean | null, lark: null as boolean | null, errors: [] as string[] };
+  const text = `${subject}\n${body}`;
 
   if (targets.webhook) {
-    try {
-      const res = await fetch(targets.webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `${subject}\n${body}` }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      result.webhook = res.ok;
-      if (!res.ok) result.errors.push(`Webhook 応答 ${res.status}`);
-    } catch (e) {
-      result.webhook = false;
-      result.errors.push(`Webhook: ${errorMessage(e)}`);
-    }
+    const err = await postWebhook(targets.webhook, null, text);
+    result.webhook = !err;
+    if (err) result.errors.push(`Webhook: ${err}`);
+  }
+  if (targets.lark) {
+    const err = await postWebhook(targets.lark.url, targets.lark.secret, text);
+    result.lark = !err;
+    if (err) result.errors.push(`Lark: ${err}`);
   }
 
   if (targets.emails.length > 0 && !db) {

@@ -8,7 +8,7 @@ import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
 import { buildMail } from "@/lib/mail/templates";
-import { errorDetail, errorMessage, getAlertTargets, logSystem, sendAlert } from "@/lib/log";
+import { errorDetail, errorMessage, getOperatorAlertTargets, logSystem, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
 
 import { userError } from "@/lib/errors";
@@ -219,11 +219,11 @@ export async function completeSignup(token: string): Promise<{ error: string } |
   redirect("/set-password");
 }
 
-/** 運営側の通知先(設定画面の通知先メール・Webhook)に新規申し込みを知らせる。失敗しても申し込みは止めない */
+/** 運営側の通知先(運営管理の「エラー通知先」)に新規申し込みを知らせる。失敗しても申し込みは止めない */
 async function notifyOperators(req: PendingSignup, tenantId: string) {
   try {
     const operator = await operatorTenantClient();
-    const targets = operator ? await getAlertTargets(operator) : { emails: [], webhook: process.env.ALERT_WEBHOOK_URL?.trim() || null };
+    const targets = await getOperatorAlertTargets();
     const origin = await siteOrigin();
     const body = [
       `Web から新しい申し込みがあり、アカウントを自動開設しました。`,

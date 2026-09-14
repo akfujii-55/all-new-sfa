@@ -7,7 +7,10 @@ import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
 import { DEFAULT_MAIL_TEMPLATES, MAIL_TEMPLATE_KEYS, loadMailTemplate, buildMail, validateTemplate, type MailTemplate, type MailTemplateKey } from "@/lib/mail/templates";
-import { errorMessage } from "@/lib/log";
+import { errorMessage, getOperatorAlertTargets, hasAlertTargets, sendAlert } from "@/lib/log";
+import { OPERATOR_ALERT_KEYS, isLarkWebhook, operatorAlertFromRows, type OperatorAlertSettings } from "@/lib/alerts";
+import { splitAlertEmails } from "@/lib/settings";
+import { fmtDateTime } from "@/lib/format";
 import { PRICING_KEYS, pricingFromRows, type PricingSettings } from "@/lib/pricing";
 import { GIB, type BillingStatus, type Tenant, type TenantStatus, type TenantUsage } from "@/lib/types";
 
@@ -316,6 +319,48 @@ export async function savePricingSettings(formData: FormData) {
   const { error } = await admin.from("operator_settings").upsert(rows, { onConflict: "key" });
   if (error) throw userError(error.message);
   revalidatePath("/admin", "layout");
+}
+
+// ---------- エラー通知先(運営側) ----------
+
+export async function getOperatorAlertSettings(): Promise<OperatorAlertSettings> {
+  const { admin } = await requireOperator();
+  const { data } = await admin.from("operator_settings").select("key, value").in("key", OPERATOR_ALERT_KEYS);
+  return operatorAlertFromRows(data);
+}
+
+export async function saveOperatorAlertSettings(formData: FormData) {
+  const { admin } = await requireOperator();
+  const raw = String(formData.get("alert_emails") ?? "");
+  const invalid = raw.split(/[,;\s]+/).map((a) => a.trim()).filter((a) => a && !a.includes("@"));
+  if (invalid.length) throw userError(`メールアドレスの形式が正しくありません: ${invalid.join(", ")}`);
+  const lark = String(formData.get("alert_lark_webhook") ?? "").trim();
+  if (lark && !isLarkWebhook(lark)) throw userError("Lark の Webhook URL は https://open.larksuite.com/open-apis/bot/v2/hook/... の形式で入力してください");
+  const rows = [
+    { key: "alert_emails", value: splitAlertEmails(raw).join(", ") },
+    { key: "alert_lark_webhook", value: lark },
+    { key: "alert_lark_secret", value: String(formData.get("alert_lark_secret") ?? "").trim() },
+  ];
+  const { error } = await admin.from("operator_settings").upsert(rows, { onConflict: "key" });
+  if (error) throw userError(error.message);
+  revalidatePath("/admin/settings");
+}
+
+/** 運営側の通知先へテスト通知を送る(メールと Lark) */
+export async function sendOperatorTestAlert(): Promise<{ ok: boolean; message: string }> {
+  const { user } = await requireOperator();
+  const targets = await getOperatorAlertTargets();
+  if (!hasAlertTargets(targets)) return { ok: false, message: "通知先が設定されていません(保存してから送ってください)" };
+  const r = await sendAlert(await operatorTenantClient(), {
+    subject: "[SFA] テスト通知(運営)",
+    body: `これは運営管理からのテスト通知です。${fmtDateTime(new Date())} に ${user.email ?? "運営者"} が送信しました。\nこれが届いていれば、システム全体のエラーと各テナントのエラーの通知を受け取れます。`,
+    targets,
+  });
+  const parts = [
+    r.email === null ? null : `メール: ${r.email ? "送信済み" : "失敗"}`,
+    r.lark === null ? null : `Lark: ${r.lark ? "送信済み" : "失敗"}`,
+  ].filter(Boolean);
+  return { ok: r.errors.length === 0, message: r.errors.length ? `${parts.join(" / ")}(${r.errors.join(" / ")})` : parts.join(" / ") };
 }
 
 // ---------- テナントの作成 ----------
