@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Merge, Pencil } from "lucide-react";
+import { Mail, Merge, Pencil, Trash2 } from "lucide-react";
 import { setContactTags } from "@/actions/tags";
+import { deleteContacts } from "@/actions/companies";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,6 +51,19 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
     });
   }
 
+  function removeSelected() {
+    if (!confirm(`選択した ${selectedIds.length} 名を削除しますか?\nメール・問い合わせ・案件は残り、担当者だけが外れます。`)) return;
+    start(async () => {
+      try {
+        await deleteContacts(selectedIds);
+        toast.success(`${selectedIds.length}名を削除しました`);
+        setSelected(new Set());
+      } catch (e) {
+        toast.error(actionErrorMessage(e));
+      }
+    });
+  }
+
   return (
     <div className="rounded-lg border bg-card overflow-x-auto">
       <div className="flex items-center gap-3 border-b px-4 py-2">
@@ -58,9 +72,12 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
           <>
             <span className="text-sm text-muted-foreground">{selectedIds.length}名選択</span>
             <TagPicker tags={tags} current={current} onApply={applyTags} pending={pending} description="選択した担当者にタグを付けます" />
+            <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={removeSelected}>
+              <Trash2 className="size-4" /> {pending ? "削除中..." : "削除"}
+            </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">担当者を選択してタグをまとめて付け外しできます</span>
+          <span className="text-sm text-muted-foreground">担当者を選択してタグの付け外しや削除をまとめてできます</span>
         )}
       </div>
       <Table>

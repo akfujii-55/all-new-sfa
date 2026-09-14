@@ -52,12 +52,43 @@ export async function updateCompany(id: string, formData: FormData) {
   revalidatePath("/companies");
 }
 
-export async function deleteCompany(id: string) {
+/**
+ * 取引先を削除する。案件(deals)は取引先に紐付いて消える(DB は on delete cascade)ので、案件のある取引先は削除させない。
+ * 担当者・メール・問い合わせは残り、取引先だけが外れる(on delete set null)。
+ */
+async function deleteCompaniesById(ids: string[]) {
   const supabase = await createClient();
-  const { error } = await supabase.from("companies").delete().eq("id", id);
+  if (ids.length === 0) return;
+  const { data: deals } = await supabase.from("deals").select("company_id, company:companies(name)").in("company_id", ids);
+  if (deals && deals.length > 0) {
+    const names = Array.from(new Set(deals.map((d) => (d.company as unknown as { name: string } | null)?.name ?? "").filter(Boolean)));
+    throw userError(`案件のある取引先は削除できません(${names.join("、")})。先に案件を削除するか、別の取引先に統合してください`);
+  }
+  const { error } = await supabase.from("companies").delete().in("id", ids);
   if (error) throw userError(error.message);
   revalidatePath("/companies");
-  redirect("/companies");
+  revalidatePath("/contacts");
+}
+
+/** 取引先を 1 件削除する。redirectTo を渡すと削除後にそのページへ移動する(詳細ページから消したとき用) */
+export async function deleteCompany(id: string, redirectTo?: string) {
+  await deleteCompaniesById([id]);
+  if (redirectTo) redirect(redirectTo);
+}
+
+/** 一覧で選択した取引先をまとめて削除する */
+export async function deleteCompanies(ids: string[]) {
+  await deleteCompaniesById(ids);
+}
+
+/** 一覧で選択した担当者をまとめて削除する(メール・問い合わせ・案件からは担当者だけが外れる) */
+export async function deleteContacts(ids: string[]) {
+  const supabase = await createClient();
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("contacts").delete().in("id", ids);
+  if (error) throw userError(error.message);
+  revalidatePath("/contacts");
+  revalidatePath("/companies");
 }
 
 export async function createContact(formData: FormData) {

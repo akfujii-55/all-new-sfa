@@ -53,7 +53,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
         </div>
         <div className="flex gap-2">
           <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />
-          <CompanyDialog company={c} trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
+          <CompanyDialog company={c} redirectOnDelete trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
           <MergeCompanyDialog company={c} companies={companies ?? []} trigger={<Button size="sm" variant="outline"><Merge className="size-4" /> 統合</Button>} />
         </div>
       </div>

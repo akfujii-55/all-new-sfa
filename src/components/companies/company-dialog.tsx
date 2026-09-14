@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
-import { createCompany, updateCompany } from "@/actions/companies";
+import { createCompany, deleteCompany, updateCompany } from "@/actions/companies";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Company } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
-export function CompanyDialog({ trigger, company }: { trigger: ReactNode; company?: Company }) {
+/** redirectOnDelete: 詳細ページから削除したときは一覧へ移動する(一覧の編集から消したときはその場で更新) */
+export function CompanyDialog({ trigger, company, redirectOnDelete }: { trigger: ReactNode; company?: Company; redirectOnDelete?: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   return (
@@ -73,9 +74,34 @@ export function CompanyDialog({ trigger, company }: { trigger: ReactNode; compan
             <Label htmlFor="memo">メモ</Label>
             <Textarea id="memo" name="memo" rows={3} defaultValue={company?.memo ?? ""} />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-            <Button type="submit" disabled={pending}>{company ? "保存" : "登録"}</Button>
+          <DialogFooter className={company ? "sm:justify-between" : ""}>
+            {company && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive"
+                disabled={pending}
+                onClick={() => {
+                  if (!confirm(`取引先「${company.name}」を削除しますか?\n担当者・メール・問い合わせは残り、取引先だけが外れます。案件がある場合は削除できません。`)) return;
+                  start(async () => {
+                    try {
+                      await deleteCompany(company.id, redirectOnDelete ? "/companies" : undefined);
+                      toast.success("取引先を削除しました");
+                      setOpen(false);
+                    } catch (e) {
+                      if ((e as Error & { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) return;
+                      toast.error(actionErrorMessage(e));
+                    }
+                  });
+                }}
+              >
+                削除
+              </Button>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+              <Button type="submit" disabled={pending}>{company ? "保存" : "登録"}</Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
