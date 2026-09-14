@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
+import { listMailAccounts } from "@/lib/mail/accounts";
 import { backfillAttachments, syncMail } from "@/lib/mail/sync";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
@@ -49,6 +50,11 @@ async function handle(request: NextRequest) {
 
   for (const { label, db } of targets) {
     try {
+      // cron: メールアカウント未設定のテナント(申し込み直後など)はエラーにせず黙ってスキップする
+      if (fromCron && (await listMailAccounts(db)).length === 0) {
+        out.push({ tenant: label, skipped: "no_mail_accounts" });
+        continue;
+      }
       if (backfill) {
         out.push({ tenant: label, results: await backfillAttachments(db, { days: Number(backfill) || 90 }) });
         continue;

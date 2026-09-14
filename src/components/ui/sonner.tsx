@@ -1,8 +1,14 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { toast, Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+
+// エラーは内容を読んで控えられるように 15 秒表示し、閉じるボタンも付ける(成功などは既定の 4 秒のまま)。
+// 各画面の toast.error(...) を変えずに済むよう、ここで一括して既定値を上書きする
+const ERROR_TOAST_MS = 15000
+const originalError = toast.error
+toast.error = (message, data) => originalError(message, { duration: ERROR_TOAST_MS, closeButton: true, ...data })
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()

@@ -96,8 +96,10 @@ export interface InviteOperatorResult {
 
 /**
  * 運営者をメールで招待する(スーパーユーザーのみ)。
- * 運営専用のアカウント(どのテナントにも所属しない)を作り、招待リンクでパスワードを設定してもらう。
- * テナントの利用者として登録済みのメールアドレスは使えない(運営とテナント利用を分けるため)。
+ * - 未登録のメールアドレス: 運営専用のアカウント(どのテナントにも所属しない)を作り、招待リンクでパスワードを設定してもらう。
+ * - 運営側テナント(最初に作られた自社)の利用者: そのままログインを使って運営者にもなれる(テナント側と /admin の両方に入れる)。
+ *   ログイン用のリンク(magiclink)を送る。
+ * - 他社テナントの利用者: 運営者にできない(他社の人に /admin を開かせないため)。
  */
 export async function inviteOperator(formData: FormData): Promise<InviteOperatorResult> {
   const { admin, user } = await requireSuperOperator();
@@ -107,16 +109,19 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   if (!name) throw new Error("氏名を入力してください");
   const note = s(formData.get("note"));
 
-  const { data: existing } = await admin.from("profiles").select("id, tenant_id").ilike("email", email).maybeSingle();
+  const [{ data: existing }, { data: opTenant }] = await Promise.all([
+    admin.from("profiles").select("id, tenant_id").ilike("email", email).maybeSingle(),
+    admin.from("tenants").select("id, name").order("created_at").limit(1).maybeSingle(),
+  ]);
   let userId: string | null = existing?.id ?? null;
   let tokenHash: string;
   let type: "invite" | "magiclink";
 
-  if (existing?.tenant_id) {
-    throw new Error("このメールアドレスはテナントの利用者として登録されています。運営者は運営専用のメールアドレスで招待してください");
+  if (existing?.tenant_id && existing.tenant_id !== opTenant?.id) {
+    throw new Error("このメールアドレスは他社(テナント)の利用者として登録されています。運営者にできるのは運営側の会社の利用者か、まだ登録のないメールアドレスです");
   }
   if (userId) {
-    // 招待済みで未ログインの運営者への再送
+    // 既にログインできる利用者(運営側テナントの利用者)、または招待済みで未ログインの運営者への再送。ログイン用のリンクを送る
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (again.error) throw new Error(again.error.message);
     tokenHash = again.data.properties.hashed_token;
@@ -146,7 +151,6 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
     const operator = await operatorTenantClient();
     if (!operator) throw new Error("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
-    const { data: opTenant } = await admin.from("tenants").select("name").order("created_at").limit(1).maybeSingle();
     const mail = await buildMail("operator_invite", { name, company: opTenant?.name ?? "", inviter: user.email ?? "", link: inviteLink });
     await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
     mailSent = true;
