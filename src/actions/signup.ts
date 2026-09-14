@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { operatorTenantClient } from "@/lib/supabase/tenant";
 import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
@@ -16,8 +16,10 @@ import { fmtDateTime } from "@/lib/format";
  * 1. /signup のフォーム → requestSignup: 内容を signup_requests に保存し、確認メール(トークン付きリンク)を運営側のメールアカウントから送る。
  * 2. メールのリンク /signup/verify?token=... → 内容を表示して「アカウントを開設する」ボタン(メールのリンクを開いただけでは作らない。
  *    セキュリティスキャナがリンクを踏んでトークンを消費しないため)。
- * 3. completeSignup: create_tenant(source=signup)でテナントと最初の営業担当者を作り、Supabase の招待リンクへそのまま送って
- *    パスワード設定 → ログイン。運営には通知メール。
+ * 3. completeSignup: create_tenant(source=signup)でテナントと最初の営業担当者を作り、招待トークンをこの Server Action の中で検証して
+ *    セッション Cookie を発行し、/set-password でパスワード設定 → ログイン。運営には通知メール。
+ *    (Server Action から /auth/confirm へ redirect すると、Next.js がサーバー内部で転送先を取りに行くため
+ *    そこで発行された Cookie がブラウザに届かず、トークンだけ消費されてログインできなくなる。必ずここで verifyOtp する)
  * テナントができる前の処理なので service role を使う(signup_requests / tenants は業務テーブルではない)。
  */
 
@@ -205,8 +207,15 @@ export async function completeSignup(token: string): Promise<{ error: string } |
 
   await notifyOperators(req, tenantId as string);
 
-  const next = encodeURIComponent("/set-password");
-  redirect(`/auth/confirm?token_hash=${encodeURIComponent(linkData.properties.hashed_token)}&type=invite&next=${next}`);
+  // 招待トークンをここで検証してセッションを作る(Server Action なので Cookie をブラウザに返せる)。
+  // 運営者など別のユーザーで同じブラウザにログインしていた場合は、その申込者のセッションに置き換わる
+  const supabase = await createClient();
+  const { error: otpErr } = await supabase.auth.verifyOtp({ type: "invite", token_hash: linkData.properties.hashed_token });
+  if (otpErr) {
+    await logSystem({ source: "signup", message: `申込者のログインに失敗しました(${req.email}): ${otpErr.message}` });
+    return { error: "アカウントは作成しましたが、ログインの準備に失敗しました。ログイン画面の「パスワードを忘れた方」からパスワードを設定してください" };
+  }
+  redirect("/set-password");
 }
 
 /** 運営側の通知先(設定画面の通知先メール・Webhook)に新規申し込みを知らせる。失敗しても申し込みは止めない */
