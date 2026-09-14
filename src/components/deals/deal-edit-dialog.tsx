@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Deal } from "@/lib/types";
 import { toLocalInput } from "@/lib/format";
+import { DatePicker } from "@/components/date-picker/date-picker";
+import { APPOINTMENT_TIMES } from "@/components/deals/new-deal-dialog";
 
 export function DealEditDialog({
   deal,
@@ -85,15 +87,13 @@ export function DealEditDialog({
               <Input id="probability" name="probability" type="number" min={0} max={100} defaultValue={deal.probability} />
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="appointment_at">アポイント日時</Label>
-              <Input id="appointment_at" name="appointment_at" type="datetime-local" defaultValue={toLocalInput(deal.appointment_at)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="expected_close_date">受注予定日</Label>
-              <Input id="expected_close_date" name="expected_close_date" type="date" defaultValue={deal.expected_close_date ?? ""} />
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="appointment_at-open">アポイント日時</Label>
+            <DatePicker name="appointment_at" mode="datetime" timePresets={APPOINTMENT_TIMES} allowNoTime={false} defaultValue={toLocalInput(deal.appointment_at)} emptyLabel="未定" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="expected_close_date-open">受注予定日</Label>
+            <DatePicker name="expected_close_date" mode="date" quick="month-end" defaultValue={deal.expected_close_date} emptyLabel="未定" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>

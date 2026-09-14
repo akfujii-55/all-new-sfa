@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
 import { dueState, type DueState } from "@/lib/activities";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDue } from "@/lib/format";
 import type { DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +68,7 @@ export function ActivityRow({ activity: a, showDeal = true }: { activity: DealAc
           )}
           {a.due_at && (
             <span className={cn("inline-flex items-center gap-1", state === "overdue" && "font-medium text-rose-600 dark:text-rose-300", state === "today" && "font-medium text-amber-600 dark:text-amber-300")}>
-              <CalendarClock className="size-3" /> 期限 {fmtDateTime(a.due_at)}
+              <CalendarClock className="size-3" /> 期限 {fmtDue(a.due_at)}
             </span>
           )}
         </p>

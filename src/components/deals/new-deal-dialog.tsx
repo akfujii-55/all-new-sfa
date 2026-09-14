@@ -10,6 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DEAL_STAGES, type DealStage } from "@/lib/types";
+import { DatePicker } from "@/components/date-picker/date-picker";
+
+/** アポイント日時の時刻ボタン */
+export const APPOINTMENT_TIMES: [string, string][] = [
+  ["10:00", "10:00"],
+  ["13:00", "13:00"],
+  ["14:00", "14:00"],
+  ["16:00", "16:00"],
+];
 
 export interface NewDealDefaults {
   company_id?: string;
@@ -140,15 +149,13 @@ export function NewDealDialog({
               </Select>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="appointment_at">アポイント日時</Label>
-              <Input id="appointment_at" name="appointment_at" type="datetime-local" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="expected_close_date">受注予定日</Label>
-              <Input id="expected_close_date" name="expected_close_date" type="date" />
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="appointment_at-open">アポイント日時</Label>
+            <DatePicker name="appointment_at" mode="datetime" timePresets={APPOINTMENT_TIMES} allowNoTime={false} emptyLabel="未定" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="expected_close_date-open">受注予定日</Label>
+            <DatePicker name="expected_close_date" mode="date" quick="month-end" emptyLabel="未定" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>

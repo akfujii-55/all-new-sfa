@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/date-picker/date-picker";
 import { dueState, sortActivities, type DueState } from "@/lib/activities";
-import { fmtDateTime, toLocalInput } from "@/lib/format";
+import { fmtDateTime, fmtDue, toLocalInput } from "@/lib/format";
 import type { ActivityKind, DealActivity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,8 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
   const [kind, setKind] = useState<string>(kinds[0]?.id ?? "");
   const [editing, setEditing] = useState<DealActivity | null>(null);
   const [editKind, setEditKind] = useState<string>(kinds[0]?.id ?? "");
+  // 登録後に期限の選択部品を初期状態に戻すためのキー(form.reset() では React の state は戻らない)
+  const [formKey, setFormKey] = useState(0);
   const sorted = sortActivities(activities);
   const overdue = activities.filter((a) => dueState(a) === "overdue").length;
   const open = activities.filter((a) => !a.done_at).length;
@@ -98,6 +100,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
               fd.set("kind_id", kind);
               await addActivity(dealId, fd);
               ref.current?.reset();
+              setFormKey((k) => k + 1);
               toast.success("行動を登録しました");
             } catch (e) {
               toast.error((e as Error).message);
@@ -107,12 +110,12 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
       >
         <KindPicker kinds={kinds} value={kind} onChange={setKind} idPrefix="new" />
         <Textarea id="activity-body" name="body" rows={2} placeholder="内容(例: 見積書を送付。来週中に回答予定 / 部長に折り返し電話をもらう)" required />
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="activity-due">期限(Todo の場合)</Label>
-            <Input id="activity-due" name="due_at" type="datetime-local" className="w-56" />
-          </div>
-          <label className="flex items-center gap-2 pb-2 text-sm">
+        <div className="grid gap-1.5">
+          <Label htmlFor="activity-due-open">期限(Todo の場合)</Label>
+          <DatePicker key={formKey} name="due_at" mode="datetime" idPrefix="activity-due" emptyLabel="期限なし(履歴として記録)" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
             <Checkbox name="done" id="activity-done" /> 済んだ行動として記録する
           </label>
           <Button type="submit" size="sm" className="ml-auto" disabled={pending}>{pending ? "登録中..." : "登録"}</Button>
@@ -149,7 +152,7 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
                   <span className="inline-flex items-center gap-1 font-medium text-foreground"><ActivityKindIcon icon={a.kind?.icon} className="size-3.5" /> {a.kind?.name ?? "(種類なし)"}</span>
                   {a.due_at && (
                     <span className={cn("inline-flex items-center gap-1 text-muted-foreground", state === "overdue" && "text-rose-700 dark:text-rose-300 font-medium")}>
-                      <CalendarClock className="size-3.5" /> 期限 {fmtDateTime(a.due_at)}
+                      <CalendarClock className="size-3.5" /> 期限 {fmtDue(a.due_at)}
                     </span>
                   )}
                   {due && <Badge className={cn("h-5 px-1.5 text-[10px]", due.className)}>{due.text}</Badge>}
@@ -189,8 +192,8 @@ export function DealActivities({ dealId, activities, kinds }: { dealId: string; 
               <KindPicker kinds={kinds} value={editKind} onChange={setEditKind} idPrefix="edit" />
               <Textarea id="edit-activity-body" name="body" rows={3} defaultValue={editing.body} required />
               <div className="grid gap-1.5">
-                <Label htmlFor="edit-activity-due">期限</Label>
-                <Input id="edit-activity-due" name="due_at" type="datetime-local" className="w-56" defaultValue={toLocalInput(editing.due_at)} />
+                <Label htmlFor="edit-activity-due-open">期限</Label>
+                <DatePicker name="due_at" mode="datetime" idPrefix="edit-activity-due" defaultValue={toLocalInput(editing.due_at)} emptyLabel="期限なし" />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>

@@ -28,6 +28,15 @@ export function fmtDateTime(d: string | Date | null | undefined) {
   return fmtDate(d, "yyyy/MM/dd HH:mm");
 }
 
+/**
+ * 行動の期限の表示。「時刻なし(終日)」は 23:59 で保存しているので、その場合は日付だけを出す。
+ * (日付の選択部品 date-picker.tsx の ALL_DAY_TIME と対応)
+ */
+export function fmtDue(d: string | Date | null | undefined) {
+  if (!d) return "-";
+  return format(new Date(d), "HH:mm", inTz) === "23:59" ? fmtDate(d, "yyyy/MM/dd") : fmtDateTime(d);
+}
+
 export function fmtRelative(d: string | Date | null | undefined) {
   if (!d) return "-";
   return formatDistanceToNow(new Date(d), { addSuffix: true, locale: ja });
