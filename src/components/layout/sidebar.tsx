@@ -15,12 +15,16 @@ const NAV = [
   { href: "/inquiries", label: "問い合わせ", icon: MessageSquareText, badgeKey: "inquiries" as const },
   { href: "/deals", label: "案件", icon: KanbanSquare },
   { href: "/activities", label: "行動", icon: CalendarCheck, badgeKey: "overdue" as const },
+  { href: "/revenue", label: "売上", icon: JapaneseYen },
+  // ここから下はマスタ系。設定は一番最後
   { href: "/companies", label: "取引先", icon: Building2 },
   { href: "/contacts", label: "担当者", icon: Users },
   { href: "/members", label: "営業担当者", icon: UserCog },
-  { href: "/revenue", label: "売上", icon: JapaneseYen },
   { href: "/settings", label: "設定", icon: Settings },
 ];
+
+/** スマホの下部バーに出す 6 個(PC のサイドバーの並びとは別に固定) */
+const MOBILE_NAV = ["/", "/inbox", "/inquiries", "/deals", "/activities", "/companies"].map((href) => NAV.find((n) => n.href === href)!);
 
 export type NavCounts = { unread: number; inquiries: number; overdue: number };
 
@@ -79,7 +83,7 @@ export function MobileNav() {
   const pathname = usePathname();
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-background grid grid-cols-6">
-      {NAV.slice(0, 6).map((item) => {
+      {MOBILE_NAV.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (
           <Link
