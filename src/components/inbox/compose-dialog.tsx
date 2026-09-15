@@ -16,6 +16,7 @@ import { checkAttachmentLimits, discardUploads, uploadAttachments } from "@/lib/
 import { useMailDefaults } from "@/components/mail/signature-provider";
 import { TemplateSelect, applyTemplate } from "@/components/mail/template-select";
 import { SendPreviewDialog } from "@/components/mail/send-preview-dialog";
+import { MergeInsertMenu, RecipientLine, useCaretInsert } from "@/components/mail/merge-insert";
 import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
 import { selfMergeVars, type MergeVars } from "@/lib/mail/merge";
 import type { MailAccountOption } from "@/lib/types";
@@ -54,6 +55,8 @@ export function ComposeDialog({
   const [uploading, setUploading] = useState(false);
   // 本文には署名が入っているので、最初のフォーカス時はカーソルを先頭(署名の上)に置く
   const caretPlaced = useRef(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const caret = useCaretInsert(bodyRef, (update) => setForm((f) => ({ ...f, body: update(f.body) })));
 
   const fromAccount = accounts.find((a) => a.id === accountId) ?? accounts[0];
   const firstTo = form.to.split(/[,;\s]+/)[0] ?? "";
@@ -133,12 +136,13 @@ export function ComposeDialog({
           <DialogTitle>メールを作成</DialogTitle>
           <DialogDescription>登録したメールアカウントから送信し、履歴に保存します。</DialogDescription>
         </DialogHeader>
-        <div className="-mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+        <div className="-mx-1 min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-1">
           <MailAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
           <TemplateSelect templates={templates} value={templateId} onChange={selectTemplate} disabled={pending} />
           <div className="grid gap-1.5">
             <Label>宛先</Label>
             <Input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} onBlur={lookupTo} placeholder="taro@example.co.jp, hanako@example.co.jp" />
+            <RecipientLine vars={mergeVars} to={form.to} />
           </div>
           <div className="grid gap-1.5">
             <Label>CC</Label>
@@ -149,13 +153,19 @@ export function ComposeDialog({
             <Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           </div>
           <div className="grid gap-1.5">
-            <Label>本文</Label>
+            <div className="flex items-center justify-between">
+              <Label>本文</Label>
+              <MergeInsertMenu vars={mergeVars} disabled={pending} onInsert={(text) => { caretPlaced.current = true; caret.insert(text); }} />
+            </div>
             {/* Textarea は内容に合わせて伸びる(field-sizing)ので、長いテンプレート・引用でダイアログが画面からはみ出さないよう高さを抑える */}
             <Textarea
+              ref={bodyRef}
               rows={10}
               className="max-h-[45dvh]"
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
+              onSelect={caret.remember}
+              onBlur={caret.remember}
               onFocus={(e) => {
                 if (caretPlaced.current) return;
                 caretPlaced.current = true;
