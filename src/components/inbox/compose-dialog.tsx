@@ -127,12 +127,13 @@ export function ComposeDialog({
       <DialogTrigger asChild>
         <span className="contents">{trigger}</span>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      {/* 画面が低いときは本文側だけをスクロールさせ、送信ボタンは常に見えるようにする */}
+      <DialogContent className="flex flex-col sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>メールを作成</DialogTitle>
           <DialogDescription>登録したメールアカウントから送信し、履歴に保存します。</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="-mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
           <MailAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
           <TemplateSelect templates={templates} value={templateId} onChange={selectTemplate} disabled={pending} />
           <div className="grid gap-1.5">
@@ -149,8 +150,10 @@ export function ComposeDialog({
           </div>
           <div className="grid gap-1.5">
             <Label>本文</Label>
+            {/* Textarea は内容に合わせて伸びる(field-sizing)ので、長いテンプレート・引用でダイアログが画面からはみ出さないよう高さを抑える */}
             <Textarea
               rows={10}
+              className="max-h-[45dvh]"
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
               onFocus={(e) => {

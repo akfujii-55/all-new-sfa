@@ -41,7 +41,7 @@ export function SendPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="flex flex-col sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>この内容で送信します</DialogTitle>
           <DialogDescription>宛名や差し込み項目が正しく入っているか確認してください。</DialogDescription>
@@ -56,7 +56,7 @@ export function SendPreviewDialog({
             <CheckCircle2 className="size-4 shrink-0 text-emerald-500" /> 差し込み項目はすべて反映されています。
           </div>
         )}
-        <div className="overflow-hidden rounded-md border text-sm">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border text-sm">
           <dl className="grid grid-cols-[4rem_1fr] gap-x-3 gap-y-1 bg-muted/50 px-3 py-2 text-xs">
             <dt className="text-muted-foreground">差出人</dt><dd className="min-w-0 break-all">{from}</dd>
             <dt className="text-muted-foreground">宛先</dt><dd className="min-w-0 break-all">{to || <Unresolved>未入力</Unresolved>}</dd>
@@ -64,7 +64,7 @@ export function SendPreviewDialog({
             <dt className="text-muted-foreground">件名</dt><dd className="min-w-0"><Highlighted text={subject} /></dd>
             <dt className="text-muted-foreground">添付</dt><dd className="min-w-0">{files.length === 0 ? "なし" : files.map((f) => `${f.name}(${fmtBytes(f.size)})`).join(" / ")}</dd>
           </dl>
-          <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-relaxed"><Highlighted text={body} /></div>
+          <div className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-relaxed"><Highlighted text={body} /></div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>本文に戻る</Button>
