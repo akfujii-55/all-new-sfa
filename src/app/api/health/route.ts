@@ -4,6 +4,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
 import { listMailAccounts } from "@/lib/mail/accounts";
 import { verifyImap } from "@/lib/mail/sync";
+import { inboundConfig, verifyInboundMailbox } from "@/lib/mail/inbound";
 import { verifySmtp } from "@/lib/mail/smtp";
 import { errorMessage, errorDetail, logSystem } from "@/lib/log";
 
@@ -72,6 +73,8 @@ export async function GET(request: NextRequest) {
       }
       for (const account of accounts) {
         for (const [kind, verify] of [["imap", verifyImap], ["smtp", verifySmtp]] as const) {
+          // 転送で受信するアカウントは IMAP を使わない(受信用メールボックスは下でまとめて確認する)
+          if (kind === "imap" && account.receiveMode === "forward") continue;
           const start = Date.now();
           try {
             await verify(account);
@@ -89,6 +92,17 @@ export async function GET(request: NextRequest) {
             );
           }
         }
+      }
+    }
+    // 転送メールの受信用メールボックス(全テナント共通、運営側の設定)。cron のときだけ確認する
+    if (fromCron && inboundConfig()) {
+      const start = Date.now();
+      try {
+        await verifyInboundMailbox();
+        checks.push({ name: "inbound_mailbox", ok: true, ms: Date.now() - start });
+      } catch (e) {
+        checks.push({ name: "inbound_mailbox", ok: false, ms: Date.now() - start, error: errorMessage(e) });
+        await logSystem({ source: "health", message: `転送メールの受信用メールボックスに接続できません: ${errorMessage(e)}`, detail: errorDetail(e) });
       }
     }
     if (fromCron) {

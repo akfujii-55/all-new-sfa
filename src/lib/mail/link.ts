@@ -52,7 +52,7 @@ export function resolveCounterpart(opts: {
 export function isSystemAddress(address: string | null | undefined): boolean {
   if (!address) return false;
   const local = address.toLowerCase().split("@")[0] ?? "";
-  return /^(mailer-daemon|postmaster|no-?reply|do-?not-?reply|noreply-|bounce|bounces|notifications?)(\b|[-_.+@]|$)/.test(local);
+  return /^(mailer-daemon|postmaster|forwarding-noreply|no-?reply|do-?not-?reply|noreply-|bounce|bounces|notifications?)(\b|[-_.+@]|$)/.test(local);
 }
 
 /** 自社アドレス・自社ドメイン以外なら true。self には登録済みアカウントのアドレスを全部渡す */

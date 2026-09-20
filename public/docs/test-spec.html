@@ -395,6 +395,12 @@
               <div><div class="l">期待結果</div><ul><li>設定一覧に「その他の IMAP / SMTP サーバー · IMAP ホスト:ポート / SMTP ホスト:ポート」とログイン ID が表示される</li><li>接続テストが成功し、受信トレイと送信済み(Sent / Sent Items / 送信済み などの名前でも)が取り込まれる</li><li>587 は STARTTLS で送信できる。暗号化に対応しないポートは接続テストが失敗し、原因の分かるメッセージが出る</li><li>URL 形式のサーバー名は「ホスト名だけを入力してください」で保存できない</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
+          <div class="case" data-id="ON-09"><div><div class="cid">ON-09</div><span class="pri p1">必須</span></div><div class="title">メール転送で受信 + SMTP で送信</div>
+            <div class="body"><div class="pre"><span class="l">前提</span>運営側で転送メールの受信用メールボックス(環境変数 INBOUND_*)を設定済み。自動転送を設定できるメールアドレスと、その SMTP の設定値。メールアカウント上限 2 以上。</div>
+              <div><div class="l">手順</div><ol><li>「メールアカウントを追加」で「メール転送で受信 + SMTP で送信」を選び、メールアドレスと SMTP サーバー・ポート・パスワードを入力して保存</li><li>表示された受け口アドレスをコピーし、メールサーバーで自動転送を設定(サーバーに残す)</li><li>転送を設定する前に「届いたか確認する」を押す</li><li>外部のアドレスからそのメールアドレス宛てにメールを送り、「届いたか確認する」を押す</li><li>メール一覧で届いたメールを開き、返信する</li><li>普段のメールソフトから、受け口アドレスを BCC に入れて顧客宛てに送信し、「今すぐ同期」</li><li>メールソフトの「転送」ボタンで、顧客からのメールを受け口アドレスに転送し、「今すぐ同期」</li><li>「アドレスを再発行」を実行し、古いアドレス宛てに送って「今すぐ同期」</li><li>接続テストを実行</li></ol></div>
+              <div><div class="l">期待結果</div><ul><li>IMAP の欄が出ず、保存するとダイアログが「次に、メールの転送を設定してください」に切り替わる(SMTP の確認結果、受け口アドレス、サービス別の手順)</li><li>転送前は「まだ届いていません」、転送後は「n 通届いています」になり、一覧の行が「転送待ち」から「受信中」に変わる</li><li>届いたメールの差出人は元の送信者で、担当者・取引先が自動登録される。返信はそのアカウントの SMTP から送られる</li><li>BCC で送ったメールは送信メールとして記録される</li><li>手動転送(Fwd:)は本文の差出人が相手として登録される</li><li>再発行後、古いアドレス宛てのメールは取り込まれない</li><li>接続テストは「SMTP に接続できました」になる(IMAP は確認しない)</li><li>運営側の設定が無い環境では、選択肢に「メール転送で受信」が出ない</li></ul></div></div>
+            <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
+
           <div class="case" data-id="ON-06"><div><div class="cid">ON-06</div><span class="pri">通常</span></div><div class="title">営業担当者の削除でログインが無効になり枠が空く</div>
             <div class="body">
               <div><div class="l">手順</div><ol><li>ON-04 で招待した人を削除</li><li>その人のブラウザで画面を操作</li><li>自分自身を削除しようとする</li></ol></div>

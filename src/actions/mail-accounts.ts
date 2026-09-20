@@ -9,6 +9,8 @@ import { encryptSecret } from "@/lib/mail/crypto";
 import { getMailAccount } from "@/lib/mail/accounts";
 import { verifySmtp } from "@/lib/mail/smtp";
 import { verifyImap } from "@/lib/mail/sync";
+import { generateInboundToken, inboundAddress, inboundConfig } from "@/lib/mail/inbound";
+import { syncMail } from "@/lib/mail/sync";
 import { assertCanAddMailAccount, assertTenantWritable } from "@/lib/tenant-quota";
 
 import { userError } from "@/lib/errors";
@@ -34,8 +36,11 @@ function revalidate() {
   revalidatePath("/inbox");
 }
 
-/** メールアカウントを追加・更新する。パスワード欄が空なら既存のものを維持する */
-export async function saveMailAccount(id: string | null, formData: FormData) {
+/**
+ * メールアカウントを追加・更新する。パスワード欄が空なら既存のものを維持する。
+ * 転送で受信するアカウントを新しく追加したときは、続けて転送の設定を案内できるように id と受け口アドレスを返す。
+ */
+export async function saveMailAccount(id: string | null, formData: FormData): Promise<{ forward: { id: string; address: string; smtpError: string | null } | null }> {
   const db = await requireUser();
   // 上限(tenants.max_mail_accounts)は新規追加のときだけ確認する
   if (id) await assertTenantWritable(db);
@@ -45,7 +50,10 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
   const password = String(formData.get("password") ?? "").replace(/\s+/g, "");
   if (!email || !email.includes("@")) throw userError("メールアドレスを入力してください");
   if (!id && !password) throw userError("パスワードを入力してください");
-  const imapHost = s(formData.get("imap_host"))?.toLowerCase() ?? "imap.gmail.com";
+  // 転送で受信するアカウントは IMAP を使わない(列は既定値のまま)。受け口アドレスのトークンは初回の保存で発行する
+  const forward = formData.get("receive_mode") === "forward";
+  if (forward && !inboundConfig()) throw userError("メール転送による受信は現在ご利用いただけません。運営にお問い合わせください");
+  const imapHost = (forward ? null : s(formData.get("imap_host"))?.toLowerCase()) ?? "imap.gmail.com";
   const smtpHost = s(formData.get("smtp_host"))?.toLowerCase() ?? "smtp.gmail.com";
   if (!/^[a-z0-9.-]+$/.test(imapHost) || !/^[a-z0-9.-]+$/.test(smtpHost)) throw userError("サーバー名はホスト名だけを入力してください(例: imap.example.jp)");
   const loginUser = s(formData.get("login_user"));
@@ -55,7 +63,8 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
     email,
     from_name: s(formData.get("from_name")),
     imap_host: imapHost,
-    imap_port: port(formData.get("imap_port"), 993),
+    imap_port: forward ? 993 : port(formData.get("imap_port"), 993),
+    receive_mode: forward ? "forward" : "imap",
     smtp_host: smtpHost,
     smtp_port: port(formData.get("smtp_port"), 465),
     // メールアドレスと同じなら空にしておく(既定の動作と区別しない)
@@ -63,13 +72,17 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
     is_active: formData.get("is_active") !== "false",
   };
   if (password) values.password_enc = encryptSecret(password);
+  if (forward) {
+    const { data: current } = id ? await db.from("mail_accounts").select("inbound_token").eq("id", id).maybeSingle() : { data: null };
+    if (!current?.inbound_token) values.inbound_token = generateInboundToken();
+  }
 
   const { count } = await db.from("mail_accounts").select("id", { count: "exact", head: true });
   if (!id && (count ?? 0) === 0) values.is_default = true;
 
-  const { error } = id
-    ? await db.from("mail_accounts").update(values).eq("id", id)
-    : await db.from("mail_accounts").insert(values);
+  const { data: saved, error } = id
+    ? await db.from("mail_accounts").update(values).eq("id", id).select("id, inbound_token").maybeSingle()
+    : await db.from("mail_accounts").insert(values).select("id, inbound_token").single();
   if (error) {
     if (error.code === "23505") throw userError("このメールアドレスは既に登録されています");
     throw userError(error.message);
@@ -80,6 +93,30 @@ export async function saveMailAccount(id: string | null, formData: FormData) {
     after(() => syncTenantBilling(tenantId));
   }
   revalidate();
+  const address = forward ? inboundAddress(saved?.inbound_token) : null;
+  if (id || !saved || !address) return { forward: null };
+  // 続けて出す案内で送信の可否も伝える(SMTP 認証が無効なサービスでは受信だけで使い始められる)
+  let smtpError: string | null = null;
+  try {
+    const account = await getMailAccount(db, saved.id as string);
+    if (account) await verifySmtp(account);
+  } catch (e) {
+    smtpError = (e as Error).message;
+    await db.from("mail_accounts").update({ last_error: smtpError }).eq("id", saved.id);
+  }
+  return { forward: { id: saved.id as string, address, smtpError } };
+}
+
+/**
+ * 転送の設定後に「届いたか確認する」: 受け口のメールボックスを同期して、このアカウントで取り込んだメールの件数を返す。
+ */
+export async function checkForwardArrival(id: string): Promise<{ received: number; error: string | null }> {
+  const db = await requireUser();
+  await assertTenantWritable(db);
+  const results = await syncMail(db, { accountId: id });
+  const { count } = await db.from("emails").select("id", { count: "exact", head: true }).eq("account_id", id).eq("direction", "inbound");
+  revalidate();
+  return { received: count ?? 0, error: results.find((r) => r.error)?.error ?? null };
 }
 
 export async function deleteMailAccount(id: string) {
@@ -105,13 +142,31 @@ export async function setDefaultMailAccount(id: string) {
   revalidate();
 }
 
-/** IMAP と SMTP の両方にログインできるか確認する */
+/**
+ * 受け口アドレスを作り直す。古いアドレス宛ての転送は取り込まれなくなるので、
+ * 利用者はメールサーバー側の転送先を新しいアドレスに変える必要がある(アドレスが外部に漏れたとき用)。
+ */
+export async function regenerateInboundAddress(id: string) {
+  const db = await requireUser();
+  await assertTenantWritable(db);
+  const { data, error } = await db
+    .from("mail_accounts")
+    .update({ inbound_token: generateInboundToken() })
+    .eq("id", id)
+    .eq("receive_mode", "forward")
+    .select("id");
+  if (error) throw userError(error.message);
+  if (!data?.length) throw userError("転送で受信するアカウントが見つかりません");
+  revalidate();
+}
+
+/** IMAP と SMTP の両方にログインできるか確認する(転送で受信するアカウントは SMTP のみ) */
 export async function testMailAccount(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const db = await requireUser();
   const account = await getMailAccount(db, id);
   if (!account) return { ok: false, error: "アカウントが見つかりません" };
   try {
-    await verifyImap(account);
+    if (account.receiveMode !== "forward") await verifyImap(account);
     await verifySmtp(account);
     await db.from("mail_accounts").update({ last_error: null }).eq("id", id);
     revalidate();

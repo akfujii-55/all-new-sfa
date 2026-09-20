@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
 import { listMailAccounts } from "@/lib/mail/accounts";
 import { backfillAttachments, syncMail } from "@/lib/mail/sync";
+import { cleanupInboundMailbox } from "@/lib/mail/inbound";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -86,6 +87,18 @@ async function handle(request: NextRequest) {
         },
         db,
       );
+    }
+  }
+
+  // 転送メールの受信用メールボックスの掃除(宛先不明のメールを走査から外し、古いものを消す)。失敗しても同期結果には影響させない
+  if (fromCron && !backfill) {
+    try {
+      const cleaned = await cleanupInboundMailbox();
+      if (cleaned && cleaned.unknown > 0) {
+        await logSystem({ level: "warn", source: "cron.sync", message: `転送メールの受け口に宛先不明のメールが ${cleaned.unknown} 件届きました`, detail: { ...cleaned }, notify: false });
+      }
+    } catch (e) {
+      await logSystem({ source: "cron.sync", message: `転送メールの受け口の掃除に失敗: ${errorMessage(e)}`, detail: errorDetail(e) });
     }
   }
 

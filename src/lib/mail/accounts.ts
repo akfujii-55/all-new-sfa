@@ -20,6 +20,9 @@ export interface MailAccountConfig {
   password: string;
   isDefault: boolean;
   isActive: boolean;
+  /** forward なら IMAP では取り込まず、受け口アドレスへの転送で受信する(src/lib/mail/inbound.ts) */
+  receiveMode: "imap" | "forward";
+  inboundToken: string | null;
 }
 
 function toConfig(row: MailAccount): MailAccountConfig {
@@ -36,6 +39,8 @@ function toConfig(row: MailAccount): MailAccountConfig {
     password: decryptSecret(row.password_enc),
     isDefault: row.is_default,
     isActive: row.is_active,
+    receiveMode: row.receive_mode ?? "imap",
+    inboundToken: row.inbound_token ?? null,
   };
 }
 

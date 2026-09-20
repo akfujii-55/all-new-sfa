@@ -128,6 +128,10 @@ export interface MailAccount {
   smtp_port: number;
   /** ログイン ID がメールアドレスと異なるサーバー用。null ならメールアドレスでログインする */
   login_user: string | null;
+  /** 受信方法。imap = IMAP で取り込む / forward = 受け口アドレスへの自動転送で受け取る(imap_host は使わない) */
+  receive_mode: "imap" | "forward";
+  /** 転送の受け口アドレスのトークン(receive_mode=forward のときだけ) */
+  inbound_token: string | null;
   password_enc: string;
   is_active: boolean;
   is_default: boolean;

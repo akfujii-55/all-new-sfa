@@ -7,6 +7,7 @@ import { loadFormProfile } from "./form-profile";
 import type { FormProfile } from "./extract";
 import { listMailAccounts, type MailAccountConfig } from "./accounts";
 import { cleanupOutbox, saveAttachments } from "./attachments";
+import { syncForwardAccounts } from "./inbound";
 import { errorDetail, logSystem } from "@/lib/log";
 import { loadTagRules, matchTagRules, tagThreads, type TagRule } from "@/lib/tag-rules";
 
@@ -65,17 +66,18 @@ export interface SyncResult {
   error?: string;
 }
 
-/** 登録済みの全アカウントを IMAP で取り込み、顧客/担当者/問い合わせ/案件に紐付ける */
+/** 登録済みの全アカウントを IMAP(転送受信のアカウントは受け口のメールボックス)から取り込み、顧客/担当者/問い合わせ/案件に紐付ける */
 export async function syncMail(db: Db, opts: { initialDays?: number; accountId?: string } = {}): Promise<SyncResult[]> {
   let accounts = await listMailAccounts(db);
+  // 自社アドレスは、1 アカウントだけ同期するときも登録済みの全アカウントで判定する
+  const selves = accounts.map((a) => a.email);
   if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
   if (accounts.length === 0) throw userError("メールアカウントが設定されていません。設定画面から追加してください。");
-  const selves = accounts.map((a) => a.email);
   const form = await loadFormProfile(db);
   const rules = await loadTagRules(db);
 
   const results: SyncResult[] = [];
-  for (const account of accounts) {
+  for (const account of accounts.filter((a) => a.receiveMode !== "forward")) {
     try {
       results.push(...(await syncAccount(db, account, selves, { ...opts, form, rules })));
       await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
@@ -87,6 +89,22 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
         { source: "mail.sync", message: `メール同期に失敗(${account.email}): ${message}`, detail: { ...errorDetail(e), account: account.email } },
         db,
       );
+    }
+  }
+  // 転送受信のアカウントは、受け口のメールボックスを 1 回開いてまとめて取り込む
+  const forwards = accounts.filter((a) => a.receiveMode === "forward");
+  if (forwards.length > 0) {
+    let forwarded: SyncResult[];
+    try {
+      forwarded = await syncForwardAccounts(db, forwards, selves, { form, rules });
+    } catch (e) {
+      forwarded = forwards.map((a) => ({ account: a.email, mailbox: "-", fetched: 0, inserted: 0, error: (e as Error).message }));
+      await logSystem({ source: "mail.sync", message: `転送メールの取り込みに失敗: ${(e as Error).message}`, detail: errorDetail(e) }, db);
+    }
+    results.push(...forwarded);
+    for (const a of forwards) {
+      const error = forwarded.find((r) => r.account === a.email && r.error)?.error ?? null;
+      await db.from("mail_accounts").update({ last_error: error }).eq("id", a.id);
     }
   }
   // フォルダ単位の失敗(アカウント自体には接続できたもの)も記録する
@@ -108,7 +126,7 @@ export async function verifyImap(account: MailAccountConfig) {
 }
 
 /** 993 は接続時から TLS、それ以外(143)は STARTTLS で暗号化してから認証する(STARTTLS 非対応なら失敗させ、平文でパスワードを送らない) */
-function imapClient(account: MailAccountConfig) {
+export function imapClient(account: Pick<MailAccountConfig, "imapHost" | "imapPort" | "loginUser" | "password">) {
   const secure = account.imapPort === 993;
   return new ImapFlow({
     host: account.imapHost,
@@ -120,11 +138,13 @@ function imapClient(account: MailAccountConfig) {
   });
 }
 
-async function connectOrThrow(client: ImapFlow) {
+/** label を渡すのは利用者のアカウント以外(運営側の受信用メールボックス)。利用者向けのパスワードの案内を出さない */
+export async function connectOrThrow(client: ImapFlow, label?: string) {
   try {
     await client.connect();
   } catch (e) {
     const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
+    if (label) throw userError(`${label}に接続できません: ${err.responseText ?? err.message}`);
     if (err.authenticationFailed) {
       throw userError(
         `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
@@ -225,6 +245,8 @@ export interface BackfillResult {
 export async function backfillAttachments(db: Db, opts: { days?: number; accountId?: string } = {}): Promise<BackfillResult[]> {
   let accounts = await listMailAccounts(db);
   if (opts.accountId) accounts = accounts.filter((a) => a.id === opts.accountId);
+  // 転送受信のアカウントは IMAP に元のメールが無いので対象外
+  accounts = accounts.filter((a) => a.receiveMode !== "forward");
   const results: BackfillResult[] = [];
   const since = new Date();
   since.setDate(since.getDate() - (opts.days ?? 90));

@@ -22,6 +22,8 @@ import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settin
 import { fmtDateTime } from "@/lib/format";
 import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
+import { inboundAddress, inboundConfig } from "@/lib/mail/inbound";
+import { ForwardSetupPanel } from "@/components/settings/forward-setup";
 
 export const metadata = { title: "設定" };
 
@@ -36,7 +38,7 @@ export default async function SettingsPage() {
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
     supabase
       .from("mail_accounts")
-      .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, login_user, is_active, is_default, last_error, created_at, updated_at")
+      .select("id, label, email, from_name, imap_host, imap_port, smtp_host, smtp_port, login_user, receive_mode, inbound_token, is_active, is_default, last_error, created_at, updated_at")
       .order("is_default", { ascending: false })
       .order("created_at"),
     supabase.from("mail_sync_state").select("*"),
@@ -60,6 +62,14 @@ export default async function SettingsPage() {
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
   const accounts = (accountRows ?? []) as AccountRow[];
+  // メール転送で受信: 運営側の受信用メールボックス(INBOUND_*)が設定されているときだけ選べる
+  const forwardEnabled = Boolean(inboundConfig());
+  // 転送で受信するアカウントの最後の受信日時(まだ届いていなければ「転送待ち」と表示する)
+  const lastForwarded = new Map<string, string | null>();
+  for (const a of accounts.filter((x) => x.receive_mode === "forward")) {
+    const { data } = await supabase.from("emails").select("received_at").eq("account_id", a.id).eq("direction", "inbound").order("received_at", { ascending: false }).limit(1).maybeSingle();
+    lastForwarded.set(a.id, (data?.received_at as string | undefined) ?? null);
+  }
   const aiConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
   const cronConfigured = Boolean(process.env.CRON_SECRET);
 
@@ -71,7 +81,7 @@ export default async function SettingsPage() {
         actions={
           <>
             <Button asChild size="sm" variant="outline"><a href="/docs/manual" target="_blank" rel="noopener"><BookOpen className="size-4" /> マニュアル</a></Button>
-            <MailAccountDialog trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />
+            <MailAccountDialog forwardEnabled={forwardEnabled} trigger={<Button size="sm"><Plus className="size-4" /> メールアカウントを追加</Button>} />
           </>
         }
       />
@@ -108,7 +118,7 @@ export default async function SettingsPage() {
             <CardTitle className="text-base">メールアカウント連携</CardTitle>
             <CardDescription>
               営業で使うメールアカウントを連携すると、受信トレイと送信済みメールを取り込み、このアプリから返信・送信できます(返信は受信したアカウントから送られます)。
-              Gmail / Google Workspace のほか、IMAP と SMTP が使えるメールサーバー(レンタルサーバーのメールなど)を連携できます。設定手順はこのページの下にあります。
+              Gmail / Google Workspace のほか、IMAP と SMTP が使えるメールサーバー(レンタルサーバーのメールなど)を連携できます。{forwardEnabled && "IMAP が使えないメールサービス(Microsoft 365 など)は、メール転送で受信できます。"}設定手順はこのページの下にあります。
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
@@ -121,23 +131,34 @@ export default async function SettingsPage() {
               <div className="divide-y">
                 {accounts.map((a) => {
                   const own = (states ?? []).filter((s) => s.account_id === a.id);
+                  const isForward = a.receive_mode === "forward";
+                  const address = isForward ? inboundAddress(a.inbound_token) : null;
+                  const lastReceived = lastForwarded.get(a.id) ?? null;
                   return (
                     <div key={a.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{a.label}</span>
                           {a.label !== a.email && <span className="text-muted-foreground">{a.email}</span>}
                           {a.is_default && <Badge>既定の差出人</Badge>}
                           {!a.is_active && <Badge variant="outline">無効</Badge>}
+                          {isForward && (lastReceived
+                            ? <Badge variant="outline" className="border-emerald-300 text-emerald-700">受信中</Badge>
+                            : <Badge variant="outline" className="border-amber-300 text-amber-700">転送待ち</Badge>)}
                         </div>
                         {a.from_name && <p className="text-xs text-muted-foreground">差出人名: {a.from_name}</p>}
                         <p className="text-xs text-muted-foreground">
                           {PROVIDER_LABEL[providerOf(a)]}
                           {providerOf(a) === "other" && ` · IMAP ${a.imap_host}:${a.imap_port} / SMTP ${a.smtp_host}:${a.smtp_port}`}
+                          {isForward && ` · SMTP ${a.smtp_host}:${a.smtp_port}`}
                           {a.login_user && ` · ログイン ID ${a.login_user}`}
                         </p>
                         {a.last_error ? (
                           <p className="mt-1 flex items-center gap-1 text-xs text-destructive"><XCircle className="size-3" /> {a.last_error}</p>
+                        ) : isForward ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {lastReceived ? `最後の受信 ${fmtDateTime(lastReceived)}` : "まだ 1 通も届いていません。下の受け口アドレスへの転送を設定してください"}
+                          </p>
                         ) : own.length > 0 ? (
                           <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                             <CheckCircle2 className="size-3 text-emerald-500" />
@@ -147,10 +168,13 @@ export default async function SettingsPage() {
                         ) : (
                           <p className="mt-1 text-xs text-muted-foreground">まだ同期されていません</p>
                         )}
+                        {isForward && (address
+                          ? <ForwardSetupPanel id={a.id} email={a.email} address={address} received={Boolean(lastReceived)} />
+                          : <p className="mt-1 text-xs text-destructive">メール転送による受信は現在ご利用いただけません。運営にお問い合わせください。</p>)}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        <MailAccountActions id={a.id} isDefault={a.is_default} />
-                        <MailAccountDialog account={a} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                        <MailAccountActions id={a.id} isDefault={a.is_default} forward={isForward} />
+                        <MailAccountDialog account={a} forwardEnabled={forwardEnabled} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
                       </div>
                     </div>
                   );
@@ -303,8 +327,24 @@ export default async function SettingsPage() {
             </ol>
             <p className="text-muted-foreground">
               接続は SSL(IMAP 993 / SMTP 465)または STARTTLS(IMAP 143 / SMTP 587)で暗号化します。暗号化に対応していないサーバーには接続できません。
-              Microsoft 365 / Outlook.com は IMAP のパスワード認証が廃止されているため、現在は連携できません(今後、メール転送による取り込みで対応予定です)。
+              Microsoft 365 / Outlook.com は IMAP のパスワード認証が廃止されているため、IMAP では連携できません{forwardEnabled ? "(下のメール転送で受信できます)" : ""}。
             </p>
+            {forwardEnabled && (
+              <>
+                <h3 className="font-medium pt-2">IMAP が使えないメールサービス(Microsoft 365 など)の場合: メール転送で受信</h3>
+                <ol className="list-decimal pl-5 space-y-2">
+                  <li>右上の「メールアカウントを追加」で「メール転送で受信 + SMTP で送信」を選び、メールアドレスと、送信に使う SMTP サーバー名・ポート・パスワードを入力して保存します。</li>
+                  <li>保存すると、このアカウント専用の「受け口アドレス」が表示されます。ご利用のメールサーバーで、このアドレスへの自動転送を設定します(メールはサーバーに残す設定にしてください)。サービス別の手順は画面に表示されます。</li>
+                  <li>自分宛てにテストメールを送り、「届いたか確認する」を押して取り込まれることを確認します。以後は「今すぐ同期」と毎日の自動同期で取り込まれます。</li>
+                  <li>普段のメールソフトから送るメールも記録したいときは、送信時に受け口アドレスを BCC に入れます。このアプリから送ったメールは自動で記録されます。</li>
+                </ol>
+                <p className="text-muted-foreground">
+                  受け口アドレスは第三者に知らせないでください。外部に漏れたときは「アドレスを再発行」で作り直し、メールサーバーの転送先も変更します。
+                  メールソフトの「転送」ボタンで 1 通ずつ転送したメールは、本文の差出人から相手を判定します(自動転送のほうが確実です)。
+                  Microsoft 365 で SMTP 認証が無効の場合、このアプリからの送信はできず、受信のみの利用になります。
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
