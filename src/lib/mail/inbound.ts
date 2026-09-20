@@ -39,7 +39,8 @@ const PURGE_DAYS = 30;
 export function inboundConfig(): InboundConfig | null {
   const host = process.env.INBOUND_IMAP_HOST?.trim();
   const user = process.env.INBOUND_IMAP_USER?.trim();
-  const password = process.env.INBOUND_IMAP_PASSWORD;
+  // Google のアプリパスワードは 4 桁ごとに空白入りで表示されるので、メールアカウントの保存時と同じく空白を除く
+  const password = process.env.INBOUND_IMAP_PASSWORD?.replace(/\s+/g, "");
   const addressFormat = process.env.INBOUND_ADDRESS_FORMAT?.trim().toLowerCase();
   if (!host || !user || !password || !addressFormat?.includes("{token}") || !addressFormat.includes("@")) return null;
   return { host, port: Number(process.env.INBOUND_IMAP_PORT) || 993, user, password, addressFormat };
