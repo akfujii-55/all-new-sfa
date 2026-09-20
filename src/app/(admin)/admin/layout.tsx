@@ -31,7 +31,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <Link href="/admin/users" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Users className="size-4" /> ユーザー管理</Link>
             <Link href="/admin/mail-templates" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Mail className="size-4" /> メールテンプレート</Link>
             <Link href="/admin/settings" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Settings className="size-4" /> 料金・既定値</Link>
-            <a href="/docs/manual" target="_blank" rel="noopener" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"><BookOpen className="size-4" /> マニュアル</a>
+            {/* 運営者だけが開ける文書(docs/admin/*.html)。利用者マニュアルとテスト仕様書へのリンクは運営マニュアルの冒頭にある */}
+            <a href="/admin/docs/manual" target="_blank" rel="noopener" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"><BookOpen className="size-4" /> 運営マニュアル</a>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-muted-foreground sm:inline">{auth.user.email}</span>

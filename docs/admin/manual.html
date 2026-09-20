@@ -1,0 +1,336 @@
+<title>SFA 運営マニュアル</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1D21;
+    --ink-2: #5E6270;
+    --rule: #E3E3DE;
+    --accent: #2D4FA1;
+    --accent-ink: #FFFFFF;
+    --tint: #EEF2FA;
+    --warn-tint: #FBF3E4;
+    --warn-ink: #7A4B00;
+    --mono-bg: #F1F1EC;
+    --display: "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Sans", sans-serif;
+    --body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #17181B; --surface: #1E1F24; --ink: #ECECE8; --ink-2: #A0A3AD; --rule: #2E2F35;
+      --accent: #8FA8E8; --accent-ink: #14161C; --tint: #21262F; --warn-tint: #2E2618; --warn-ink: #E8C27A; --mono-bg: #24252A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #17181B; --surface: #1E1F24; --ink: #ECECE8; --ink-2: #A0A3AD; --rule: #2E2F35;
+    --accent: #8FA8E8; --accent-ink: #14161C; --tint: #21262F; --warn-tint: #2E2618; --warn-ink: #E8C27A; --mono-bg: #24252A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.85; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 0 80px; }
+
+  header.top { padding-block: 48px 28px; border-bottom: 1px solid var(--rule); }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 4vw, 38px); line-height: 1.25; margin: 6px 0 10px; text-wrap: balance; letter-spacing: 0.01em; }
+  .lede { max-width: 62ch; color: var(--ink-2); margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 24px 0 0; padding: 0; list-style: none; }
+  .flow li { display: flex; align-items: center; gap: 8px; }
+  .flow .step { background: var(--tint); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 12px; font-family: var(--display); font-weight: 500; font-size: 14px; }
+  .flow .step small { display: block; font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--ink-2); }
+  .flow .arrow { color: var(--ink-2); font-size: 14px; }
+
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; margin-top: 28px; }
+  nav.toc { position: sticky; top: 20px; align-self: start; font-size: 13px; }
+  nav.toc .eyebrow { margin-bottom: 8px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  nav.toc a { display: grid; grid-template-columns: 22px 1fr; gap: 6px; color: var(--ink); padding: 4px 6px; border-radius: 4px; }
+  nav.toc a:hover { background: var(--tint); text-decoration: none; }
+  nav.toc .n { font-family: var(--mono); color: var(--ink-2); font-size: 12px; }
+  main { max-width: 72ch; }
+
+  section { padding-block: 40px 8px; border-top: 1px solid var(--rule); }
+  section:first-of-type { border-top: none; padding-top: 24px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.35; margin: 0 0 14px; display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: baseline; text-wrap: balance; }
+  h2 .n { font-family: var(--mono); font-weight: 500; font-size: 14px; color: var(--accent); }
+  h3 { font-family: var(--display); font-weight: 700; font-size: 16px; margin: 28px 0 8px; }
+  h4 { font-family: var(--display); font-weight: 700; font-size: 14px; margin: 18px 0 6px; color: var(--ink-2); }
+  dl.kv dd ol { margin: 8px 0; padding-left: 20px; }
+  dl.kv dd ol li { margin-bottom: 6px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 1.4em; }
+  li { margin-bottom: 4px; }
+  li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
+  strong { font-weight: 700; }
+  code, .path { font-family: var(--mono); font-size: 0.88em; background: var(--mono-bg); border-radius: 4px; padding: 1px 6px; }
+  pre { font-family: var(--mono); font-size: 13px; line-height: 1.7; background: var(--mono-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; margin: 0 0 14px; }
+  .btn { display: inline-block; font-family: var(--display); font-weight: 500; font-size: 0.9em; border: 1px solid var(--rule); background: var(--surface); border-radius: 5px; padding: 0 8px; line-height: 1.6; white-space: nowrap; }
+  .menu { font-family: var(--display); font-weight: 500; }
+
+  .note { background: var(--tint); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 10px 14px; margin: 14px 0; font-size: 14px; }
+  .note.warn { background: var(--warn-tint); border-left-color: var(--warn-ink); color: var(--warn-ink); }
+  .note p:last-child { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); line-height: 1.6; }
+  th { font-family: var(--display); font-weight: 500; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; font-size: 14px; }
+  dl.kv dt { font-family: var(--display); font-weight: 500; color: var(--ink-2); }
+  dl.kv dd { margin: 0; }
+
+  footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; gap: 24px; }
+    nav.toc { position: static; }
+    nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    h2 { grid-template-columns: 34px 1fr; font-size: 20px; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+  /* 業務フロー図(冒頭の全体図) */
+  .fig-flow { margin: 24px 0 0; }
+  .fig-flow .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); padding: 12px; }
+  .fig-flow svg { display: block; width: 100%; min-width: 1100px; height: auto; color: var(--ink); }
+  .fig-flow figcaption { margin-top: 8px; font-size: 12.5px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+  .fig-flow .st { font-size: 12.5px; }
+  .fig-flow .hd { font-size: 15px; font-weight: 700; font-family: var(--display); }
+  .fig-flow .sm { font-size: 11.5px; }
+  .fig-flow .mu { opacity: .7; }
+  .fig-flow .box { fill: var(--surface); stroke: var(--rule); stroke-width: 1.5; }
+  .fig-flow .panel { fill: var(--tint); stroke: var(--rule); stroke-width: 1; }
+  .fig-flow .band { fill: currentColor; opacity: .07; }
+  .fig-flow .arrow { stroke: currentColor; stroke-width: 2; fill: none; }
+  .fig-flow .chip-t { font-size: 11.5px; font-weight: 600; fill: #ffffff; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Operator manual</p>
+    <h1>SFA 運営マニュアル</h1>
+    <p class="lede">運営管理画面の使いかたと、サービスを動かし続けるための設定・定期処理・障害時の確認をまとめた、運営者だけが読める文書です。ご利用者(テナント)に見せる内容は利用者マニュアルに分けています。</p>
+    <div class="meta">
+      <span>提供: アートトレーディング株式会社</span>
+      <span>版: 2026年9月20日(第 1 版)</span>
+      <span>対象: 運営者(運営管理にログインできる人)</span>
+      <span>関連: <a href="/docs/manual" target="_blank" rel="noopener">利用者マニュアル</a> / <a href="/admin/docs/test-spec" target="_blank" rel="noopener">テスト仕様書</a> / <a href="/docs/flow" target="_blank" rel="noopener">業務フロー図</a></span>
+    </div>
+    <div class="note warn"><p>この文書とテスト仕様書は運営者としてログインしているときだけ開けます。設定値やドメインの構成を含むので、社外やご利用者に転送しないでください。パスワードやアプリパスワードなどの秘密の値は、この文書には書かず、Vercel の環境変数にだけ保存します。</p></div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="目次">
+      <p class="eyebrow">目次</p>
+      <ol>
+        <li><a href="#s1"><span class="n">1</span>運営管理に入る</a></li>
+        <li><a href="#s2"><span class="n">2</span>テナント(契約企業)</a></li>
+        <li><a href="#s3"><span class="n">3</span>料金・既定値</a></li>
+        <li><a href="#s4"><span class="n">4</span>エラー通知と監視</a></li>
+        <li><a href="#s5"><span class="n">5</span>ユーザー管理(運営者)</a></li>
+        <li><a href="#s6"><span class="n">6</span>メールテンプレート</a></li>
+        <li><a href="#s7"><span class="n">7</span>メール転送の受け口</a></li>
+        <li><a href="#s8"><span class="n">8</span>環境変数と定期処理</a></li>
+        <li><a href="#s9"><span class="n">9</span>困ったときは</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="s1">
+        <h2><span class="n">01</span>運営管理に入る</h2>
+        <p>運営者のアカウントでログインすると <span class="path">https://sfa.art-trading.net/admin</span> が使えます。上のメニューは <span class="menu">テナント</span>、<span class="menu">ユーザー管理</span>、<span class="menu">メールテンプレート</span>、<span class="menu">料金・既定値</span>、<span class="menu">運営マニュアル</span>(この文書)です。</p>
+        <dl class="kv">
+          <dt>運営専用のアカウント</dt><dd>まだ登録のないメールアドレスを招待して作ったアカウント。どの会社にも所属しないので、テナント側の画面には入れません(ログアウトのみ)。</dd>
+          <dt>自社の利用者を兼ねる運営者</dt><dd>運営側の会社(最初に作られたテナント=自社)の利用者は、そのままのログインで運営者にもなれます。テナント側のサイドバーの下に「運営管理」が出て、運営管理の右上の「アプリへ戻る」で行き来できます。</dd>
+          <dt>スーパーユーザー</dt><dd>運営者の招待と削除ができる運営者です(<a href="#s5">5 章</a>)。</dd>
+        </dl>
+        <p>他社(自社以外のテナント)の利用者は運営者にできません。</p>
+      </section>
+
+      <section id="s2">
+        <h2><span class="n">02</span>テナント(契約企業)</h2>
+        <h3>テナント一覧</h3>
+        <p>全社の会社名・担当者・契約状態・課金状態・お試し期限・ユーザー数・メールアカウント数・メール件数・容量・月額(利用数ベース)と、課金中の月額合計が見られます。会社名から詳細を開きます。</p>
+        <h3>テナントの詳細</h3>
+        <dl class="kv">
+          <dt>会社情報・連絡先</dt><dd>会社名、担当者名、メール、電話、住所、運営メモ。運営メモはご利用者には見えません。</dd>
+          <dt>利用状況</dt><dd>ユーザー数(招待中を含む)、メールアカウント数、メール件数、使用容量と、それぞれの上限。</dd>
+          <dt>契約・上限・課金状態</dt><dd>契約状態(お試し / 契約中 / 停止 / 解約)、お試し期限(その日の終わりまで有効)、ユーザー数・メールアカウント数・容量(GB)の上限、課金状態。停止・解約・お試し期限切れの会社は閲覧のみになり、登録や送信ができません。</dd>
+          <dt>Stripe(オンライン決済)</dt><dd>顧客・サブスクリプションの状況と、利用数(基本 1 + ユーザー追加 + メールアカウント追加)を Stripe の数量に合わせ直すボタン。通常は招待・削除・メールアカウントの追加削除のたびに自動で同期されます。</dd>
+          <dt>利用者(営業担当者)</dt><dd>その会社の営業担当者とログインの状態。招待メールの再送ができます。</dd>
+          <dt>テナントの削除</dt><dd>会社のデータをすべて消します。元に戻せません。</dd>
+        </dl>
+        <div class="note"><p>運営が手で「停止」にした会社は、Stripe からの通知(Webhook)で契約状態が上書きされません。再開するときは運営が手で戻します。それ以外は Stripe の状態がそのまま写ります(お試し中 → お試し、支払い済み → 契約中、支払い遅延 → 契約中 + 支払い遅延、未払い・一時停止 → 停止、解約 → 解約)。</p></div>
+        <h3>テナントを作成する</h3>
+        <p>Web 申し込み(<span class="path">/signup</span>)を使わずに運営が会社を作る場合に使います。会社名、会社 ID、住所・電話、最初の管理者の担当者名とメールアドレス、上限(ユーザー数・メールアカウント数・容量)とお試し期間(日)、運営メモを入力すると、最初の管理者宛てに招待メールが送られます。</p>
+        <h3>メールアカウントの上限を上げるとき</h3>
+        <p>ご利用者から「メールアカウントを追加できない」と連絡があったら、テナントの詳細 → 契約・上限・課金状態の「メールアカウント数の上限」を上げます。基本料金に含まれるのは 1 件で、2 件目からオプション料金がかかります(<a href="#s3">3 章</a>)。メール転送で受信するアカウントも 1 件として数えます。</p>
+      </section>
+
+      <section id="s3">
+        <h2><span class="n">03</span>料金・既定値</h2>
+        <p><span class="menu">料金・既定値</span> で、月額の基本料金、追加ユーザー・追加メールアカウントの単価(いずれも税抜・円/月)、新規テナントの既定の上限とお試し期間を決めます。</p>
+        <ul>
+          <li>申し込み画面の料金表、紹介ページ(LP)、特定商取引法に基づく表記の価格は、ここの値に連動します。</li>
+          <li>請求は Stripe の数量課金で、消費税 10% を外税で加算します(円未満切り捨て)。単価を変えると、その単価の Price が Stripe に無ければ自動で作られます。</li>
+          <li>既定の上限とお試し期間は、変更後に作られるテナントから適用されます。既存の会社は詳細画面で個別に変えます。</li>
+        </ul>
+      </section>
+
+      <section id="s4">
+        <h2><span class="n">04</span>エラー通知と監視</h2>
+        <h3>エラー通知先(運営)</h3>
+        <p><span class="menu">料金・既定値</span> のページの下にあります。システム全体のエラー、各テナントで起きたエラーの控え(件名にテナント名付き)、Web からの新規申し込みを、通知先メールアドレス(カンマ区切りで複数可)と Lark のグループチャット(カスタムボットの Webhook URL。署名検証を使う場合はシークレットも)へ送ります。<span class="btn">テスト通知を送る</span> で確認できます。</p>
+        <ul>
+          <li>各テナント自身のエラーは、そのテナントの設定画面の通知先にも届きます。</li>
+          <li>同じ原因のエラーは 30 分に 1 回にまとめて通知されます。</li>
+          <li>各テナントで起きたことの記録は、その会社の「設定 → ログ」で見られます。会社に属さないシステム全体のエラーは、この通知先に届きます。</li>
+        </ul>
+        <h3>定期ヘルスチェック</h3>
+        <p>毎日 1 回、データベース、全テナントのメールアカウント(IMAP / SMTP。メール転送で受信するアカウントは SMTP のみ)、メール転送の受け口(<a href="#s7">7 章</a>)への接続を確認し、結果をログに残します。失敗があるとエラー通知先に届きます。<span class="path">/api/health</span> は外形監視にも使えます(未ログインではデータベースの確認だけを返します)。</p>
+      </section>
+
+      <section id="s5">
+        <h2><span class="n">05</span>ユーザー管理(運営者)</h2>
+        <p>運営管理に入れる人の招待と削除です。スーパーユーザーだけが操作できます。</p>
+        <ul>
+          <li>運営側の会社(自社)の利用者のメールアドレスを追加すると、その人は今のログインのまま運営者にもなります。削除すると運営者から外れるだけで、テナント側のログインは残ります。</li>
+          <li>まだ登録のないメールアドレスを招待すると、運営専用のアカウントになります。招待メールのリンクからパスワードを設定します。削除するとアカウントごと消えます。</li>
+          <li>他社の利用者のメールアドレスは追加できません。</li>
+          <li>氏名とメモは一覧の鉛筆ボタンで編集できます。</li>
+        </ul>
+      </section>
+
+      <section id="s6">
+        <h2><span class="n">06</span>メールテンプレート</h2>
+        <p>申し込み確認、招待、パスワード再設定など、アプリが送るメールの件名と本文です。<code>{{name}}</code> や <code>{{link}}</code> などの差し込みが使え、プレビューで確認できます。編集しなければ既定の文面が使われます。</p>
+        <p>申し込み確認や運営からの招待メールは、運営側の会社(最初に作られたテナント)の既定メールアカウントから送られます。そのアカウントの接続が切れると申し込みの確認メールが送れなくなるので、エラー通知が来たら早めに接続テストをしてください。</p>
+        <div class="note"><p>ご利用者が営業メールに使う「メールテンプレート」(設定画面)とは別のものです。</p></div>
+      </section>
+
+      <section id="s7">
+        <h2><span class="n">07</span>メール転送の受け口</h2>
+        <p>IMAP で連携できないメールサービス(Microsoft 365 など)のご利用者は、「メール転送で受信」を使います(利用者マニュアル 2 章)。その転送先になるのが、全テナント共通の<strong>受信用メールボックス</strong>です。運営側で 1 つ用意し、アプリが IMAP で読みに行って、宛先に含まれるトークンでどのテナントのどのアカウント宛てかを決めます。ご利用者にはアカウントごとの受け口アドレスだけが見え、このメールボックスのログイン情報は見えません。</p>
+        <h3>現在の構成</h3>
+        <dl class="kv">
+          <dt>メールボックス</dt><dd><code>sfa-inbox@in.sfa.art-trading.net</code>(Google Workspace、art-trading.co.jp の組織の専用ユーザー)</dd>
+          <dt>受け口アドレスの形</dt><dd><code>sfa-inbox+トークン 20 文字@in.sfa.art-trading.net</code>(Gmail のプラスアドレス)</dd>
+          <dt>ドメイン</dt><dd><code>in.sfa.art-trading.net</code> を Workspace のセカンダリドメインとして追加。DNS はお名前.com。</dd>
+          <dt>art-trading.net 本体</dt><dd>メールは Lark で運用中です。本体の MX・SPF には手を入れません。</dd>
+        </dl>
+        <h3>作り直す・別の環境に用意するときの手順</h3>
+        <ol>
+          <li><strong>ドメインを追加</strong>: Google 管理コンソール → アカウント → ドメイン → ドメインの管理 → <span class="btn">ドメインを追加</span> で、「セカンダリドメイン」として登録します。続く画面で所有権確認の TXT レコードの値(<code>google-site-verification=…</code>)が表示されます。</li>
+          <li><strong>DNS に 2 行追加</strong>(お名前.com の DNS レコード設定):
+            <div class="tablewrap"><table>
+              <thead><tr><th>ホスト名</th><th>TYPE</th><th>VALUE</th><th>優先</th></tr></thead>
+              <tbody>
+                <tr><td><code>in.sfa</code></td><td>TXT</td><td><code>google-site-verification=…</code>(手順 1 の値)</td><td>-</td></tr>
+                <tr><td><code>in.sfa</code></td><td>MX</td><td><code>smtp.google.com</code></td><td>1</td></tr>
+              </tbody>
+            </table></div>
+            「追加」のあと、画面下の「確認画面へ進む」→「設定する」まで押して保存します。反映には 10 分ほどかかります。
+          </li>
+          <li><strong>所有権の確認と Gmail の有効化</strong>: DNS に反映されたら、管理コンソールの画面で <span class="btn">確認</span> を押します。「所有権が証明されました」「Gmail の使用準備が整いました」と出れば完了です。早すぎると「現在確認できません」になるので、少し待って再試行します。</li>
+          <li><strong>専用ユーザーを作成</strong>: ディレクトリ → ユーザー → 新しいユーザーの追加で、@ の右のドメインに <code>in.sfa.art-trading.net</code> を選んで作ります(ライセンス 1 名分)。</li>
+          <li><strong>初回ログインと 2 段階認証</strong>: 組織で 2 段階認証が必須のため、作ったばかりのユーザーは「2 段階認証プロセスのポリシーを遵守していません」と出てログインできません。管理コンソールでそのユーザーを開き、セキュリティ → 2 段階認証プロセス → <span class="btn">バックアップ確認コードを取得</span> で発行したコードを使ってログインし、すぐに 2 段階認証を登録します(引き継ぎしやすい認証アプリがおすすめ)。</li>
+          <li><strong>アプリパスワードと IMAP</strong>: そのユーザーで <span class="path">https://myaccount.google.com/apppasswords</span> からアプリパスワード(16 桁)を発行し、Gmail の設定 → メール転送と POP/IMAP で IMAP が有効なことを確認します。</li>
+          <li><strong>環境変数を登録して再デプロイ</strong>: Vercel の Production に次の 5 つを登録し、再デプロイします。揃うと、テナントの設定画面のメールサービスに「メール転送で受信」が出ます。どれかが欠けている間は選択肢に出ず、保存もできません。
+            <div class="tablewrap"><table>
+              <thead><tr><th>名前</th><th>値</th></tr></thead>
+              <tbody>
+                <tr><td><code>INBOUND_IMAP_HOST</code></td><td><code>imap.gmail.com</code></td></tr>
+                <tr><td><code>INBOUND_IMAP_PORT</code></td><td><code>993</code></td></tr>
+                <tr><td><code>INBOUND_IMAP_USER</code></td><td><code>sfa-inbox@in.sfa.art-trading.net</code></td></tr>
+                <tr><td><code>INBOUND_IMAP_PASSWORD</code></td><td>アプリパスワード(空白は入っていても構いません)</td></tr>
+                <tr><td><code>INBOUND_ADDRESS_FORMAT</code></td><td><code>sfa-inbox+{token}@in.sfa.art-trading.net</code>(<code>{token}</code> はそのまま書きます)</td></tr>
+              </tbody>
+            </table></div>
+          </li>
+        </ol>
+        <div class="note warn">
+          <p><strong>DNS のホスト名の欄を空にしないでください。</strong>空のまま登録すると art-trading.net 本体に入ります。本体の MX に <code>smtp.google.com</code> が並ぶと、Lark で受けている @art-trading.net 宛てのメールの一部が Google に配送されて送信者に戻ってしまいます。保存後は、一覧のホスト名が <code>in.sfa.art-trading.net</code> になっていること、本体の MX が Lark の 3 行だけであることを確認します。</p>
+        </div>
+        <h3>運用上の決まり</h3>
+        <ul>
+          <li><strong>このメールボックスは専用にします。</strong>ほかの用途のメールを受けたり、人が普段使いしたりしないでください。毎日の定期同期が、どのアカウント宛てでもないメール(Google からのセキュリティ通知など)を既読にして取り込みの対象から外し、受信から 30 日を過ぎたメールを削除します。</li>
+          <li>取り込めたメールは、その場で受信箱から消えます。取り込みに失敗したメールや、利用停止中の会社宛てのメールは未読のまま残り、次の同期でやり直します(30 日で削除)。</li>
+          <li>取り込みのタイミングは、各テナントの <span class="btn">今すぐ同期</span> と、毎日の定期同期です。テナントの同期は自分の会社宛てのメールだけを取り込み、他社宛てには触りません。</li>
+          <li>アプリパスワードを作り直したら、<code>INBOUND_IMAP_PASSWORD</code> を更新して再デプロイします。古いままだと、ヘルスチェックと各テナントの同期が「転送メールの受信用メールボックスに接続できません」で失敗します。</li>
+          <li><strong>受け口のドメインやアドレスの形は変えないでください。</strong>変えると、全テナントがメールサーバーの転送先を設定し直すことになります。</li>
+          <li>Gmail は同じ Message-ID のメールを 1 通にまとめます。まったく同じメールが 2 つのテナントから同時に転送されると、片方にしか取り込まれません。問題になったら、catch-all が使えるメールサーバーに受け口を移します(アドレスの形は <code>INBOUND_ADDRESS_FORMAT</code> で変えられますが、上の理由で移行は慎重に)。</li>
+          <li>転送されたメールは迷惑メールに入りやすいので、届かないという連絡が続くときは、このメールボックスの迷惑メールフォルダを確認し、必要なら全メールを「迷惑メールにしない」フィルタを作ります。</li>
+        </ul>
+        <h3>ご利用者から問い合わせが来たら</h3>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>内容</th><th>確認すること</th></tr></thead>
+          <tbody>
+            <tr><td>選択肢に「メール転送で受信」が出ない</td><td>Vercel の Production に <code>INBOUND_*</code> の 5 つが揃っているか、登録後に再デプロイしたか。</td></tr>
+            <tr><td>追加できない</td><td>メールアカウント数の上限(<a href="#s2">2 章</a>)。</td></tr>
+            <tr><td>「転送待ち」のまま届かない</td><td>ご利用者のメールサーバーの転送先が、設定画面の受け口アドレスと一致しているか(再発行すると変わります)。Microsoft 365 は管理者が外部への自動転送を許可しているか。受信用メールボックスの受信トレイと迷惑メールに、そのアドレス宛てのメールが来ているか。</td></tr>
+            <tr><td>受信はできるが送信できない</td><td>ご利用者のメールサービスで SMTP 認証が無効(Microsoft 365 で多い)。その場合は受信のみの利用になります。</td></tr>
+            <tr><td>受け口アドレスが外部に漏れた</td><td>ご利用者の設定画面で <span class="btn">アドレスを再発行</span> し、メールサーバーの転送先を新しいアドレスに変えてもらいます。</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <section id="s8">
+        <h2><span class="n">08</span>環境変数と定期処理</h2>
+        <p>環境変数は Vercel のプロジェクト設定(Production)に登録します。変更したら再デプロイが必要です。秘密の値はここには書きません。</p>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>名前</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code> / <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> / <code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>データベース(Supabase)。service role は招待・添付ファイルの実体・テナント一覧などに限って使います。</td></tr>
+            <tr><td><code>SUPABASE_JWT_SECRET</code></td><td>定期同期・ヘルスチェックが、テナントごとの権限で動くために使います。</td></tr>
+            <tr><td><code>CRON_SECRET</code></td><td>定期処理の呼び出しを認証する共有シークレット。</td></tr>
+            <tr><td><code>NEXT_PUBLIC_SITE_URL</code> / <code>NEXT_PUBLIC_LP_HOST</code></td><td>本体の URL(招待・確認メールのリンク、決済の戻り先)と、紹介ページ専用のドメイン。</td></tr>
+            <tr><td><code>STRIPE_SECRET_KEY</code> / <code>STRIPE_WEBHOOK_SECRET</code></td><td>オンライン決済。未設定の間、ご利用者の課金画面は「準備中」表示になり、申し込みだけが動きます。</td></tr>
+            <tr><td><code>INBOUND_IMAP_*</code> / <code>INBOUND_ADDRESS_FORMAT</code></td><td>メール転送の受け口(<a href="#s7">7 章</a>)。</td></tr>
+            <tr><td><code>ALERT_WEBHOOK_URL</code></td><td>任意。エラー通知を追加で送る Webhook。</td></tr>
+            <tr><td><code>ANTHROPIC_API_KEY</code></td><td>任意。メール本文からの会社名・氏名の抽出に AI を使います。</td></tr>
+            <tr><td><code>MAIL_CREDENTIALS_KEY</code></td><td>任意。メールアカウントのパスワードを暗号化する鍵(未設定なら service role のキーから導出)。途中で変えると保存済みのパスワードが読めなくなります。</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>定期処理(1 日 1 回)</h3>
+        <dl class="kv">
+          <dt>メールの定期同期</dt><dd>利用できる状態の全テナント(契約中と、期限内のお試し)のメールを取り込み、最後にメール転送の受け口を掃除します。結果は各テナントのログに「定期同期: n 件取り込み」と残ります。停止・解約・お試し期限切れの会社は対象外です。</dd>
+          <dt>定期ヘルスチェック</dt><dd><a href="#s4">4 章</a>のとおり。</dd>
+        </dl>
+        <h3>データベースの変更</h3>
+        <p>スキーマの変更は <code>supabase/migrations/</code> の SQL を 1 ファイルずつ適用します。<strong>先に適用してから</strong>アプリを公開します(逆にすると、新しい列を読む画面が空になります)。適用に使う Supabase のアクセストークンは失効することがあり、その場合は再発行します。</p>
+      </section>
+
+      <section id="s9">
+        <h2><span class="n">09</span>困ったときは</h2>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>症状</th><th>確認すること</th></tr></thead>
+          <tbody>
+            <tr><td>申し込みの確認メール・招待メールが届かない</td><td>運営側の会社の既定メールアカウントで接続テスト。迷惑メールフォルダ。リンクの有効期限は 24 時間です。</td></tr>
+            <tr><td>定期同期のログが出ていない</td><td><code>CRON_SECRET</code> と <code>SUPABASE_JWT_SECRET</code> が設定されているか。Vercel の Cron の実行履歴。</td></tr>
+            <tr><td>ログに「転送メールの受け口に宛先不明のメールが n 件届きました」</td><td>受信用メールボックスに、どのアカウント宛てでもないメールが届いた記録です。Google からの通知や迷惑メールなら対応不要です。件数が急に増えたら、削除済みのアカウント宛てに転送が残っていないか、受け口アドレスが漏れていないかを確認します。</td></tr>
+            <tr><td>「転送メールの受信用メールボックスに接続できません」</td><td>アプリパスワードの失効・作り直し、専用ユーザーの停止、IMAP の無効化。直したら <code>INBOUND_IMAP_PASSWORD</code> を更新して再デプロイします。</td></tr>
+            <tr><td>契約状態が Stripe と合わない</td><td>テナントの詳細の Stripe の欄で状況を確認し、数量の同期ボタンを押します。運営が手で「停止」にした会社は自動では戻りません。</td></tr>
+            <tr><td>特定の会社でだけエラーが出る</td><td>通知メールの件名にテナント名が入っています。その会社の「設定 → ログ」で前後の記録を確認します。</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <footer class="end">
+        この文書は 2026年9月20日 時点の機能にもとづいています。本文は <code>docs/admin/manual.html</code>、公開用の変換は <code>node scripts/build-docs.mjs</code>。
+      </footer>
+    </main>
+  </div>
+</div>

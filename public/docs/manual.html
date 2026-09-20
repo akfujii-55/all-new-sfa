@@ -128,8 +128,8 @@
     <p class="lede">メールから始まる、中小企業向けの営業支援ツール。Web でのお申し込みから、メールの取り込み、問い合わせ・案件・売上の管理、担当者やタグの整理、お支払いまでを一通りまとめています。</p>
     <div class="meta">
       <span>提供: アートトレーディング株式会社</span>
-      <span>版: 2026年9月15日(第 8 版)</span>
-      <span>対象: テナントの利用者(営業担当者)と運営者</span>
+      <span>版: 2026年9月20日(第 9 版)</span>
+      <span>対象: ご利用者(営業担当者・管理者)</span>
       <span>URL: <a href="https://sfa.art-trading.net/login">sfa.art-trading.net</a></span>
     </div>
     <ul class="flow" aria-label="業務の流れ">
@@ -285,8 +285,7 @@
         <li><a href="#s8"><span class="n">8</span>取引先・担当者・タグ</a></li>
         <li><a href="#s9"><span class="n">9</span>営業担当者(ログインユーザー)</a></li>
         <li><a href="#s10"><span class="n">10</span>ご契約とお支払い</a></li>
-        <li><a href="#s11"><span class="n">11</span>運営管理(運営者向け)</a></li>
-        <li><a href="#s12"><span class="n">12</span>困ったときは</a></li>
+        <li><a href="#s11"><span class="n">11</span>困ったときは</a></li>
       </ol>
     </nav>
 
@@ -329,7 +328,7 @@
         <p>Microsoft 365 のように IMAP のパスワード連携ができないメールサービスでも、メールサーバーの<strong>自動転送</strong>を使えばこのアプリにメールを取り込めます。アカウントごとに専用の「受け口アドレス」が発行され、そこへ転送されたメールが、元の差出人・宛先・日時のまま取り込まれます。送信は、ご利用のメールサービスの SMTP から行います。</p>
         <dl class="kv">
           <dt>用意するもの</dt><dd>連携するメールアドレス、そのメールサービスで自動転送を設定できる権限、送信に使う SMTP のサーバー名・ポート・パスワード(メールサービスの「メールソフトの設定」に記載)。</dd>
-          <dt>選択肢に出ないとき</dt><dd>メールサービスの選択肢に「メール転送で受信」が無い場合は、運営側の準備が済んでいません。運営にお問い合わせください。</dd>
+          <dt>選択肢に出ないとき</dt><dd>メールサービスの選択肢に「メール転送で受信」が無い場合は、運営までお問い合わせください。</dd>
         </dl>
         <ol>
           <li><span class="menu">設定</span> の <span class="btn">メールアカウントを追加</span> を押し、メールサービスで <strong>メール転送で受信(IMAP が使えない場合)+ SMTP で送信</strong> を選びます。IMAP の入力欄が消えます。</li>
@@ -588,28 +587,7 @@
       </section>
 
       <section id="s11">
-        <h2><span class="n">11</span>運営管理(運営者向け)</h2>
-        <p>運営者のアカウントでログインすると <span class="path">https://sfa.art-trading.net/admin</span> が使えます。運営専用のアカウントで招待された運営者はテナント側の画面には入れません。</p>
-        <dl class="kv">
-          <dt>テナント一覧</dt><dd>全社の契約状態と課金中の月額合計。各社の詳細で、利用状況、上限、契約状態(お試し / 契約中 / 停止 / 解約)、Stripe の状況、利用者の一覧を確認・変更できます。運営が手で「停止」にした会社は Stripe の状態で上書きされません。</dd>
-          <dt>テナント作成</dt><dd>Web 申し込みを使わずに運営が会社を作る場合。最初の管理者宛に招待メールを送ります。</dd>
-          <dt>料金・既定値</dt><dd>月額基本料金、追加ユーザー・追加メールアカウントの単価、新規テナントの既定の上限とお試し期間。申し込み画面と特定商取引法の表記の価格はここに連動します。</dd>
-          <dt>エラー通知先(運営)</dt><dd>同じページの下にあります。システム全体のエラー、各テナントで起きたエラーの控え(件名にテナント名付き)、Web からの新規申し込みを、通知先メールアドレス(カンマ区切りで複数可)と Lark のグループチャット(カスタムボットの Webhook URL、署名検証を使う場合はシークレットも)へ送ります。<span class="btn">テスト通知を送る</span> で確認できます。各テナント自身のエラーは、そのテナントの設定画面の通知先にも届きます。</dd>
-          <dt>ユーザー管理</dt><dd>運営者の招待と削除。スーパーユーザーのみ操作できます。運営側の会社(自社)の利用者はそのままのログインで運営者にもなれ、テナント側の画面と運営管理の両方を使えます(サイドバーの下に「運営管理」が出ます)。まだ登録のないメールアドレスを招待すると運営専用のアカウントになります。他社の利用者は運営者にできません。</dd>
-          <dt>転送受信の受け口</dt><dd>テナントが「メール転送で受信」(<a href="#forward">2 章</a>)を使うための、全テナント共通の受け口です。運営側で専用のメールボックスを 1 つ用意し、アプリが IMAP で読みに行って、宛先のトークンでテナントのアカウントに振り分けます。現在は Google Workspace(art-trading.co.jp の組織)にセカンダリドメイン <code>in.sfa.art-trading.net</code> を追加し、専用ユーザー <code>sfa-inbox@in.sfa.art-trading.net</code> のプラスアドレス(<code>sfa-inbox+トークン@…</code>)で受けています。
-            <ol>
-              <li><strong>ドメイン</strong>: Google 管理コンソール → アカウント → ドメイン → ドメインの管理 → 「ドメインを追加」で、セカンダリドメインとして登録します。DNS(お名前.com)に、ホスト名 <code>in.sfa</code> で所有権確認の TXT(<code>google-site-verification=…</code>)と MX(<code>smtp.google.com</code>、優先 1)を追加します。<strong>ホスト名の欄を空にしないでください</strong>。空のまま登録すると art-trading.net 本体(Lark メール)の MX に入り、既存のメールの一部が届かなくなります。お名前.com は保存から反映まで 10 分ほどかかります。反映後に管理コンソールで所有権の確認と Gmail の有効化を行います。</li>
-              <li><strong>専用ユーザー</strong>: ディレクトリ → ユーザー で、ドメインに <code>in.sfa.art-trading.net</code> を選んで作成します(ライセンス 1 名分)。組織で 2 段階認証が必須のため、初回は管理者がユーザーの「セキュリティ → 2 段階認証プロセス → バックアップ確認コードを取得」で発行したコードでログインし、2 段階認証を登録してから、アプリパスワードを発行します。Gmail の設定で IMAP を有効にします。</li>
-              <li><strong>環境変数</strong>(Vercel の Production): <code>INBOUND_IMAP_HOST</code>(imap.gmail.com)、<code>INBOUND_IMAP_PORT</code>(993)、<code>INBOUND_IMAP_USER</code>、<code>INBOUND_IMAP_PASSWORD</code>(アプリパスワード)、<code>INBOUND_ADDRESS_FORMAT</code>(<code>sfa-inbox+{token}@in.sfa.art-trading.net</code>)。登録後に再デプロイすると、テナントの設定画面に「メール転送で受信」の選択肢が出ます。どれかが欠けている間は選択肢に出ず、保存もできません。</li>
-            </ol>
-            このメールボックスは<strong>専用</strong>にし、ほかの用途のメールを受けないでください。毎日の定期同期が、どのアカウント宛てでもないメール(Google からの通知など)を既読にして取り込みの対象から外し、30 日を過ぎたメールを削除します。取り込めたメールはその場で受信箱から消えます。定期ヘルスチェックはこのメールボックスへのログインも確認し、失敗するとエラー通知先に届きます。アプリパスワードを作り直したときは <code>INBOUND_IMAP_PASSWORD</code> を更新して再デプロイします。Gmail は同じ Message-ID のメールを 1 通にまとめるため、同じメールが 2 つのテナントから同時に転送されると片方にしか取り込まれません。受け口のドメインを変えると全テナントで転送先の設定し直しが必要になるので、変更は避けてください。</dd>
-          <dt>メールテンプレート</dt><dd>申し込み確認、招待、パスワード再設定などアプリが送るメールの件名と本文。<code>{{name}}</code> や <code>{{link}}</code> などの差し込みが使えます。</dd>
-        </dl>
-        <p>申し込み確認や運営からの招待メールは、運営側テナント(最初に作られた会社)の既定メールアカウントから送られます。</p>
-      </section>
-
-      <section id="s12">
-        <h2><span class="n">12</span>困ったときは</h2>
+        <h2><span class="n">11</span>困ったときは</h2>
         <div class="tablewrap">
         <table>
           <thead><tr><th>症状</th><th>確認すること</th></tr></thead>
@@ -629,7 +607,7 @@
       </section>
 
       <footer class="end">
-        関連: <a href="https://sfa.art-trading.net/legal/terms">利用規約</a>、<a href="https://sfa.art-trading.net/legal/privacy">プライバシーポリシー</a>、<a href="https://sfa.art-trading.net/legal/tokushoho">特定商取引法に基づく表記</a>(いずれも sfa.art-trading.net 配下の公開ページ)。この文書は 2026年9月14日 時点の機能にもとづいています。
+        関連: <a href="https://sfa.art-trading.net/legal/terms">利用規約</a>、<a href="https://sfa.art-trading.net/legal/privacy">プライバシーポリシー</a>、<a href="https://sfa.art-trading.net/legal/tokushoho">特定商取引法に基づく表記</a>(いずれも sfa.art-trading.net 配下の公開ページ)。この文書は 2026年9月20日 時点の機能にもとづいています。
       </footer>
     </main>
   </div>
