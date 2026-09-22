@@ -42,7 +42,10 @@ export function ReplyForm({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
-  const [accountId, setAccountId] = useState(defaultAccountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
+  // 送信元はこのスレッドを受信したアカウント。無効化されていて選べないときは既定のアカウント
+  const [accountId, setAccountId] = useState(
+    (defaultAccountId && accounts.some((a) => a.id === defaultAccountId) ? defaultAccountId : null) ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "",
+  );
   const { signature: commonSignature, signatures, replySubject, memberName, companyName, templates } = useMailDefaults();
   // 署名は送信元アカウントで変わる。切り替えたら本文に入っている署名も差し替える
   const signatureOf = (id: string) => signatures[id] || commonSignature;
