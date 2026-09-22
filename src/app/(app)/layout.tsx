@@ -67,7 +67,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject} memberName={memberName} companyName={mailSettings.signature_company} templates={templates}>
       <div className="flex min-h-screen">
-        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} isOperator={Boolean(isOperator)} />
+        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} tenantName={tenant.name} isOperator={Boolean(isOperator)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header user={{ email: profile?.email ?? auth.user.email ?? null, full_name: profile?.full_name ?? null }} tenantName={tenant.name} />
           {!access.writable && (

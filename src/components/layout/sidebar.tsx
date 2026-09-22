@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck, CalendarCheck, BookOpen,
@@ -28,15 +27,26 @@ const MOBILE_NAV = ["/", "/inbox", "/inquiries", "/deals", "/activities", "/comp
 
 export type NavCounts = { unread: number; inquiries: number; overdue: number };
 
-export function Sidebar({ counts, isOperator = false }: { counts: NavCounts; isOperator?: boolean }) {
+/** アプリのマーク(漏斗 = 問い合わせを案件に絞る)。テナントごとのロゴは持たず、どの契約企業でも同じ */
+function BrandMark() {
+  return (
+    <span aria-hidden className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18l-7 8v5l-4 2v-7L3 6z" />
+      </svg>
+    </span>
+  );
+}
+
+export function Sidebar({ counts, tenantName, isOperator = false }: { counts: NavCounts; tenantName: string; isOperator?: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+      {/* 左上はアプリのマーク + ログイン中の会社名(tenants.name)+ サービス名 */}
       <Link href="/" className="flex h-14 items-center gap-2.5 px-4 border-b">
-        <Image src="/art-logo-mark.png" alt="" width={30} height={30} priority className="size-[30px] shrink-0" />
-        <span className="flex flex-col gap-1">
-          {/* ワードマークは黒文字のため、ダークモードでは白に反転する */}
-          <Image src="/art-logo-wordmark.png" alt="ART TRADING" width={100} height={12} priority className="h-3 w-auto dark:brightness-0 dark:invert" />
+        <BrandMark />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-bold leading-tight" title={tenantName}>{tenantName}</span>
           <span className="text-[10px] font-semibold leading-none tracking-[0.3em] text-muted-foreground">SFA</span>
         </span>
       </Link>
