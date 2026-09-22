@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createInquiriesFromEmails } from "@/actions/inquiries";
 import { deleteEmailThreads, restoreEmailThreads } from "@/actions/emails";
-import { TRASH_RETENTION_DAYS } from "@/lib/mail/trash";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 
 import { actionErrorMessage } from "@/lib/errors";
 export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInquiry: boolean }) {

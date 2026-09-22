@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { purgeEmailThreads, restoreEmailThreads } from "@/actions/emails";
 import { actionErrorMessage } from "@/lib/errors";
 import { fmtDateTime, fmtRelative } from "@/lib/format";
-import { trashDaysLeft } from "@/lib/mail/trash";
+import { trashDaysLeft } from "@/lib/trash";
 import { cn } from "@/lib/utils";
 
 export interface TrashThread {

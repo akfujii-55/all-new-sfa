@@ -1,19 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { removeAttachmentObjects } from "@/lib/mail/attachments";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 
 /**
- * メールのゴミ箱(0028)。削除は emails.deleted_at を入れるだけで、RLS の select が削除済みを隠す。
- * ゴミ箱画面はビュー email_trash を読み、復元・完全削除は DB 関数 email_trash_restore / email_trash_purge で行う。
+ * メールのゴミ箱(0028)のサーバー側処理。削除は emails.deleted_at を入れるだけで、RLS の select が削除済みを隠す。
+ * ゴミ箱画面はビュー email_trash を読み、移動・復元・完全削除は DB 関数 email_trash_move / email_trash_restore / email_trash_purge で行う。
+ * 定数と表示用の計算はクライアントからも読める src/lib/trash.ts にある。
  */
-
-/** ゴミ箱に残す日数。これを過ぎたものは cron が完全に削除する */
-export const TRASH_RETENTION_DAYS = 14;
-
-/** 削除日時からゴミ箱に残る日数(0 以上) */
-export function trashDaysLeft(deletedAt: string, now = new Date()): number {
-  const passed = Math.floor((now.getTime() - new Date(deletedAt).getTime()) / 86_400_000);
-  return Math.max(0, TRASH_RETENTION_DAYS - passed);
-}
 
 /** ゴミ箱のメールを id 指定で完全に削除する(添付の実体 → 行の順)。消した件数を返す */
 export async function purgeEmails(db: SupabaseClient, ids: string[]): Promise<number> {

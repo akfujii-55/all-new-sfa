@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createInquiriesFromEmails } from "@/actions/inquiries";
 import { deleteEmailThreads, restoreEmailThreads } from "@/actions/emails";
-import { TRASH_RETENTION_DAYS } from "@/lib/mail/trash";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 import { setEmailTags } from "@/actions/tags";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { TagBadges } from "@/components/tags/tag-badge";

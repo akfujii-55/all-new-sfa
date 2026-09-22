@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { TrashList, type TrashThread } from "@/components/inbox/trash-list";
-import { TRASH_RETENTION_DAYS } from "@/lib/mail/trash";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 import type { EmailTrashRow } from "@/lib/types";
 
 export const metadata = { title: "ゴミ箱" };
