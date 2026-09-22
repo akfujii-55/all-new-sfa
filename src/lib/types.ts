@@ -58,6 +58,8 @@ export interface Tenant {
   current_period_end: string | null;
   /** 期間末で解約する予定(Stripe の cancel_at_period_end) */
   cancel_at_period_end: boolean;
+  /** 運営からのステップメールを送る(0030。運営管理のテナント詳細で切り替え) */
+  step_mails_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

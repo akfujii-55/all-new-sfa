@@ -66,6 +66,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/docs") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/mail") ||
+    path.startsWith("/api/step-mails") ||
     path.startsWith("/api/stripe") ||
     path === "/api/health";
 

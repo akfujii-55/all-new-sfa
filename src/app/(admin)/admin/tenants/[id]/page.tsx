@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getPricingSettings, getTenantWithUsage, listTenantMembers } from "@/actions/admin";
+import { listTenantStepMailLogs } from "@/actions/step-mails";
+import { TenantStepMails } from "@/components/admin/tenant-step-mails";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +25,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   const [tenant, pricing] = await Promise.all([getTenantWithUsage(id), getPricingSettings()]);
   if (!tenant) notFound();
   const members = await listTenantMembers(id);
+  const stepMailLogs = await listTenantStepMailLogs(id);
   const fee = monthlyFee(tenant.usage, pricing);
   const u = tenant.usage;
 
@@ -134,6 +137,14 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
           <CardContent><TenantContactForm tenant={tenant} /></CardContent>
         </Card>
       </div>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle className="text-base">ステップメール</CardTitle>
+          <CardDescription>お試し中の案内メールの送信状況。文面と日数は「ステップメール」メニューで設定します。</CardDescription>
+        </CardHeader>
+        <CardContent><TenantStepMails tenantId={tenant.id} enabled={tenant.step_mails_enabled} logs={stepMailLogs} /></CardContent>
+      </Card>
 
       <Card className="mt-4">
         <CardHeader>

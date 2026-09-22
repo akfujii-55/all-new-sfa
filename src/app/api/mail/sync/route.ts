@@ -6,6 +6,7 @@ import { listMailAccounts } from "@/lib/mail/accounts";
 import { backfillAttachments, syncMail } from "@/lib/mail/sync";
 import { cleanupInboundMailbox } from "@/lib/mail/inbound";
 import { purgeExpiredEmailTrash } from "@/lib/mail/trash";
+import { runStepMails } from "@/lib/step-mails";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -100,6 +101,16 @@ async function handle(request: NextRequest) {
       } catch (e) {
         await logSystem({ source: "cron.sync", message: `ゴミ箱の完全削除に失敗: ${errorMessage(e)}`, detail: errorDetail(e) }, db);
       }
+    }
+  }
+
+  // ステップメール(お試し中の顧客への案内)。Vercel の cron 本数を増やさないよう、毎朝の同期と同じタイミングで送る
+  if (fromCron && !backfill) {
+    try {
+      const r = await runStepMails();
+      if (r.sent || r.failed) out.push({ step_mails: { sent: r.sent, failed: r.failed, skipped: r.skipped } });
+    } catch (e) {
+      await logSystem({ source: "cron.step_mails", message: `ステップメールの送信処理が中断しました: ${errorMessage(e)}`, detail: errorDetail(e) });
     }
   }
 
