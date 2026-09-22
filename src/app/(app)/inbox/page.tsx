@@ -10,6 +10,7 @@ import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { InboxList, type InboxThread } from "@/components/inbox/inbox-list";
 import { getMailAccountOptions } from "@/lib/mail/options";
 import { TagFilter } from "@/components/tags/tag-filter";
+import { AccountFilter } from "@/components/inbox/account-filter";
 import { tagsFromRows } from "@/lib/tags";
 import type { Email, Tag } from "@/lib/types";
 
@@ -58,6 +59,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const target: SearchTarget = SEARCH_TARGETS.some((t) => t.key === sp.in) ? (sp.in as SearchTarget) : "all";
   const tagId = typeof sp.tag === "string" && sp.tag ? sp.tag : null;
+  const accountId = typeof sp.account === "string" && sp.account ? sp.account : null;
   const pages = Math.min(50, Math.max(1, Number(sp.n) || 1));
   const limit = PAGE_SIZE * pages;
 
@@ -70,12 +72,13 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
       let query = supabase
         .from("emails")
         .select(
-          "id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, company:companies(id,name), deal:deals(id,title), attachments:email_attachments(count), tags:email_tags(tag:tags(id,name,color,sort_order,created_at))" +
+          "id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, account_id, company:companies(id,name), deal:deals(id,title), attachments:email_attachments(count), tags:email_tags(tag:tags(id,name,color,sort_order,created_at))" +
             (tagId ? ", filter_tags:email_tags!inner(tag_id)" : ""),
         )
         .order("received_at", { ascending: false })
         .range(from, Math.min(limit, from + CHUNK) - 1);
       if (tagId) query = query.eq("filter_tags.tag_id", tagId);
+      if (accountId) query = query.eq("account_id", accountId);
       if (filter === "unread") query = query.eq("is_read", false).eq("direction", "inbound");
       if (filter === "inbound" || filter === "outbound") query = query.eq("direction", filter);
       if (filter === "no_inquiry") query = query.is("inquiry_id", null).eq("direction", "inbound");
@@ -97,6 +100,9 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   ]);
   const allTags = (tagRows ?? []) as Tag[];
   const trashCount = new Set((trashRows ?? []).map((r) => r.thread_key as string)).size;
+  // アカウントが 2 つ以上あるときだけ、絞り込みの行と各行のアカウント名を出す
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const showAccounts = accounts.length > 1;
   // 上限いっぱいまで読めたら、まだ古いメールが残っている可能性がある
   const hasMore = emails.length >= limit;
 
@@ -128,12 +134,15 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
       inquiry_id: e.inquiry_id,
       company: e.company ?? null,
       deal: e.deal ?? null,
+      account: showAccounts && !accountId && e.account_id ? (accountById.get(e.account_id)?.label ?? accountById.get(e.account_id)?.email ?? null) : null,
       ...counts.get(e.thread_key)!,
     });
   }
 
-  const searchQuery = (q ? `&q=${encodeURIComponent(q)}&in=${target}` : "") + (tagId ? `&tag=${tagId}` : "");
-  const hrefForTag = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${id ? `&tag=${id}` : ""}`;
+  const accountQuery = accountId ? `&account=${accountId}` : "";
+  const searchQuery = (q ? `&q=${encodeURIComponent(q)}&in=${target}` : "") + (tagId ? `&tag=${tagId}` : "") + accountQuery;
+  const hrefForTag = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${id ? `&tag=${id}` : ""}${accountQuery}`;
+  const hrefForAccount = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${tagId ? `&tag=${tagId}` : ""}${id ? `&account=${id}` : ""}`;
   const moreHref = `/inbox?filter=${filter}${searchQuery}&n=${pages + 1}`;
 
   return (
@@ -158,6 +167,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         <form className="ml-auto flex items-center gap-2" action="/inbox">
           <input type="hidden" name="filter" value={filter} />
           {tagId && <input type="hidden" name="tag" value={tagId} />}
+          {accountId && <input type="hidden" name="account" value={accountId} />}
           {pages > 1 && <input type="hidden" name="n" value={pages} />}
           <select
             name="in"
@@ -175,7 +185,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
           </Button>
           {q && (
             <Button asChild size="sm" variant="ghost" aria-label="検索を解除">
-              <Link href={`/inbox?filter=${filter}${tagId ? `&tag=${tagId}` : ""}`}><X className="size-4" /> 解除</Link>
+              <Link href={`/inbox?filter=${filter}${tagId ? `&tag=${tagId}` : ""}${accountQuery}`}><X className="size-4" /> 解除</Link>
             </Button>
           )}
         </form>
@@ -184,6 +194,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         </Button>
       </div>
 
+      {showAccounts && <AccountFilter accounts={accounts} active={accountId} hrefFor={hrefForAccount} />}
       <TagFilter tags={allTags} active={tagId} hrefFor={hrefForTag} />
 
       {q && (
@@ -192,8 +203,8 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         </p>
       )}
 
-      {threads.length === 0 && (q || tagId) ? (
-        <EmptyState icon={Search} title="該当するメールがありません" description="語句・検索対象・タグを変えて再度お試しください。" />
+      {threads.length === 0 && (q || tagId || accountId) ? (
+        <EmptyState icon={Search} title="該当するメールがありません" description="語句・検索対象・タグ・アカウントを変えて再度お試しください。" />
       ) : threads.length === 0 ? (
         <EmptyState
           icon={Inbox}

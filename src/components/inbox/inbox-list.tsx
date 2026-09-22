@@ -35,6 +35,8 @@ export interface InboxThread {
   attachments: number;
   company: { id: string; name: string } | null;
   deal: { id: string; title: string } | null;
+  /** 受信・送信に使ったメールアカウントの表示名(アカウントが複数あり、絞り込んでいないときだけ) */
+  account?: string | null;
   /** スレッド内のメールに付いたタグ */
   tags: Tag[];
 }
@@ -180,6 +182,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
                     {t.inquiry_id && <Badge className="hidden sm:inline-flex">問い合わせ</Badge>}
                     {t.company && <Badge variant="secondary" className="hidden sm:inline-flex">{t.company.name}</Badge>}
                     {t.deal && <Badge variant="outline" className="hidden md:inline-flex">{t.deal.title}</Badge>}
+                    {t.account && <span className="hidden truncate text-xs text-muted-foreground lg:inline">@ {t.account}</span>}
                     <TagBadges tags={t.tags} max={3} />
                   </div>
                   <p className={cn("truncate text-sm", unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.subject || "(件名なし)"}</p>
