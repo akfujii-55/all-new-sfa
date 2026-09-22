@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createInquiriesFromEmails } from "@/actions/inquiries";
-import { deleteEmailThreads } from "@/actions/emails";
+import { deleteEmailThreads, restoreEmailThreads } from "@/actions/emails";
+import { TRASH_RETENTION_DAYS } from "@/lib/mail/trash";
 
 import { actionErrorMessage } from "@/lib/errors";
 export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInquiry: boolean }) {
@@ -31,8 +32,22 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
   function remove() {
     start(async () => {
       try {
-        await deleteEmailThreads([emailId]);
-        toast.success("メールを削除しました");
+        const r = await deleteEmailThreads([emailId]);
+        toast.success(`${r.deleted}件のメールをゴミ箱に移動しました`, {
+          action: {
+            label: "元に戻す",
+            onClick: () =>
+              start(async () => {
+                try {
+                  await restoreEmailThreads(r.threadKeys);
+                  toast.success("メールを元に戻しました");
+                  router.refresh();
+                } catch (e) {
+                  toast.error(actionErrorMessage(e));
+                }
+              }),
+          },
+        });
         router.push("/inbox");
       } catch (e) {
         toast.error(actionErrorMessage(e));
@@ -54,12 +69,12 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>このスレッドを削除しますか?</DialogTitle>
-            <DialogDescription>スレッド内のメールをすべてこのアプリから削除します。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。</DialogDescription>
+            <DialogTitle>このスレッドをゴミ箱に移動しますか?</DialogTitle>
+            <DialogDescription>スレッド内のメールをすべてゴミ箱に移動します。{TRASH_RETENTION_DAYS} 日間は「ゴミ箱」から元に戻せます。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={pending}>キャンセル</Button>
-            <Button variant="destructive" onClick={remove} disabled={pending}>{pending ? "削除中..." : "削除する"}</Button>
+            <Button variant="destructive" onClick={remove} disabled={pending}>{pending ? "移動中..." : "ゴミ箱に移動"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

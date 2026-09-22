@@ -18,7 +18,7 @@ async function requireUser() {
 
 function parseRule(formData: FormData): { field: TagRuleField; keywords: string; tag_id: string } {
   const field = String(formData.get("field") ?? "").trim() as TagRuleField;
-  if (!TAG_RULE_FIELDS.some((f) => f.key === field)) throw userError("判定する場所(件名・差出人)を選んでください");
+  if (!TAG_RULE_FIELDS.some((f) => f.key === field)) throw userError("判定する場所(件名・差出人・宛先)を選んでください");
   const keywords = String(formData.get("keywords") ?? "").trim();
   if (!keywords) throw userError("キーワードを入力してください");
   if (keywords.length > 500) throw userError("キーワードは 500 文字以内にしてください");
@@ -67,12 +67,19 @@ export async function applyTagRuleToExisting(id: string): Promise<{ matched: num
   for (let from = 0; ; from += page) {
     const { data, error } = await supabase
       .from("emails")
-      .select("thread_key, subject, from_name, from_address")
+      .select("thread_key, subject, from_name, from_address, to_addresses, cc_addresses")
       .order("received_at", { ascending: false })
       .range(from, from + page - 1);
     if (error) throw userError(error.message);
     for (const e of data ?? []) {
-      if (ruleMatches(r, { subject: e.subject as string | null, fromName: e.from_name as string | null, fromAddress: e.from_address as string | null })) {
+      const target = {
+        subject: e.subject as string | null,
+        fromName: e.from_name as string | null,
+        fromAddress: e.from_address as string | null,
+        toAddresses: e.to_addresses as string[] | null,
+        ccAddresses: e.cc_addresses as string[] | null,
+      };
+      if (ruleMatches(r, target)) {
         matched++;
         threadKeys.add(e.thread_key as string);
       }

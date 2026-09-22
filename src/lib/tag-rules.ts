@@ -2,14 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * メールの自動タグ付けルール(email_tag_rules)。
- * 同期で取り込んだメールの件名・差出人がキーワードを含めば、そのメールと同じスレッドのメールにタグを付ける(担当者には付けない)。
+ * 同期で取り込んだメールの件名・差出人・宛先がキーワードを含めば、そのメールと同じスレッドのメールにタグを付ける(担当者には付けない)。
  * 判定は全角半角・大文字小文字・空白の有無を区別しない(NFKC 正規化 + 小文字化 + 空白除去)。
  */
 
 export const MAX_TAG_RULES = 20;
 export const TAG_RULE_FIELDS = [
-  { key: "subject", label: "件名" },
-  { key: "from", label: "差出人" },
+  { key: "subject", label: "件名", placeholder: "キーワード(「、」区切りでいずれか)" },
+  { key: "from", label: "差出人", placeholder: "名前またはメールアドレス(「、」区切りでいずれか)" },
+  { key: "to", label: "宛先", placeholder: "メールアドレス(「、」区切りでいずれか)" },
 ] as const;
 export type TagRuleField = (typeof TAG_RULE_FIELDS)[number]["key"];
 
@@ -37,10 +38,24 @@ export interface MatchTarget {
   subject: string | null | undefined;
   fromName: string | null | undefined;
   fromAddress: string | null | undefined;
+  /** 宛先(To と CC)のメールアドレス。「宛先」ルールの判定に使う */
+  toAddresses?: string[] | null;
+  ccAddresses?: string[] | null;
+}
+
+function haystack(field: TagRuleField, target: MatchTarget): string {
+  switch (field) {
+    case "subject":
+      return normalizeText(target.subject);
+    case "from":
+      return normalizeText(`${target.fromName ?? ""} <${target.fromAddress ?? ""}>`);
+    case "to":
+      return normalizeText([...(target.toAddresses ?? []), ...(target.ccAddresses ?? [])].join(","));
+  }
 }
 
 export function ruleMatches(rule: Pick<TagRule, "field" | "keywords">, target: MatchTarget): boolean {
-  const hay = rule.field === "subject" ? normalizeText(target.subject) : normalizeText(`${target.fromName ?? ""} <${target.fromAddress ?? ""}>`);
+  const hay = haystack(rule.field, target);
   if (!hay) return false;
   return splitKeywords(rule.keywords).some((k) => hay.includes(k));
 }

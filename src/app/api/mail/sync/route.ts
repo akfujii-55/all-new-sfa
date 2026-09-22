@@ -5,6 +5,7 @@ import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
 import { listMailAccounts } from "@/lib/mail/accounts";
 import { backfillAttachments, syncMail } from "@/lib/mail/sync";
 import { cleanupInboundMailbox } from "@/lib/mail/inbound";
+import { purgeExpiredEmailTrash } from "@/lib/mail/trash";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -87,6 +88,18 @@ async function handle(request: NextRequest) {
         },
         db,
       );
+    }
+  }
+
+  // ゴミ箱の期限切れ(TRASH_RETENTION_DAYS 日超)を完全に削除する。メールアカウント未設定のテナントも対象。失敗しても同期結果には影響させない
+  if (fromCron && !backfill) {
+    for (const { label, db } of targets) {
+      try {
+        const purged = await purgeExpiredEmailTrash(db);
+        if (purged > 0) out.push({ tenant: label, trash_purged: purged });
+      } catch (e) {
+        await logSystem({ source: "cron.sync", message: `ゴミ箱の完全削除に失敗: ${errorMessage(e)}`, detail: errorDetail(e) }, db);
+      }
     }
   }
 

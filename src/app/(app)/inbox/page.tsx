@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, PenSquare, Search, X } from "lucide-react";
+import { ChevronDown, Inbox, PenSquare, Search, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -14,6 +14,10 @@ import { tagsFromRows } from "@/lib/tags";
 import type { Email, Tag } from "@/lib/types";
 
 export const metadata = { title: "メール" };
+
+/** 一度に読むメールの通数(スレッドにまとめる前)。「さらに表示」で n 倍ずつ増やす */
+const PAGE_SIZE = 300;
+const CHUNK = 1000;
 
 const FILTERS = [
   { key: "all", label: "すべて" },
@@ -54,30 +58,47 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const target: SearchTarget = SEARCH_TARGETS.some((t) => t.key === sp.in) ? (sp.in as SearchTarget) : "all";
   const tagId = typeof sp.tag === "string" && sp.tag ? sp.tag : null;
+  const pages = Math.min(50, Math.max(1, Number(sp.n) || 1));
+  const limit = PAGE_SIZE * pages;
 
   const supabase = await createClient();
-  let query = supabase
-    .from("emails")
-    .select(
-      "id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, company:companies(id,name), deal:deals(id,title), attachments:email_attachments(count), tags:email_tags(tag:tags(id,name,color,sort_order,created_at))" +
-        (tagId ? ", filter_tags:email_tags!inner(tag_id)" : ""),
-    )
-    .order("received_at", { ascending: false })
-    .limit(300);
-  if (tagId) query = query.eq("filter_tags.tag_id", tagId);
-  if (filter === "unread") query = query.eq("is_read", false).eq("direction", "inbound");
-  if (filter === "inbound" || filter === "outbound") query = query.eq("direction", filter);
-  if (filter === "no_inquiry") query = query.is("inquiry_id", null).eq("direction", "inbound");
-  if (filter === "unlinked") query = query.is("deal_id", null).eq("direction", "inbound");
-  if (q) query = query.or(buildSearchFilter(q, target));
+  type Row = Email & { tags?: { tag: Tag | Tag[] | null }[] };
+  // PostgREST は 1 回の要求で最大 1000 行なので、上限まで 1000 行ずつ読む
+  const fetchEmails = async () => {
+    const rows: Row[] = [];
+    for (let from = 0; from < limit; from += CHUNK) {
+      let query = supabase
+        .from("emails")
+        .select(
+          "id, thread_key, direction, from_address, from_name, to_addresses, subject, snippet, received_at, is_read, deal_id, inquiry_id, company:companies(id,name), deal:deals(id,title), attachments:email_attachments(count), tags:email_tags(tag:tags(id,name,color,sort_order,created_at))" +
+            (tagId ? ", filter_tags:email_tags!inner(tag_id)" : ""),
+        )
+        .order("received_at", { ascending: false })
+        .range(from, Math.min(limit, from + CHUNK) - 1);
+      if (tagId) query = query.eq("filter_tags.tag_id", tagId);
+      if (filter === "unread") query = query.eq("is_read", false).eq("direction", "inbound");
+      if (filter === "inbound" || filter === "outbound") query = query.eq("direction", filter);
+      if (filter === "no_inquiry") query = query.is("inquiry_id", null).eq("direction", "inbound");
+      if (filter === "unlinked") query = query.is("deal_id", null).eq("direction", "inbound");
+      if (q) query = query.or(buildSearchFilter(q, target));
+      const { data } = await query;
+      const chunk = (data ?? []) as unknown as Row[];
+      rows.push(...chunk);
+      if (chunk.length < Math.min(CHUNK, limit - from)) break;
+    }
+    return rows;
+  };
 
-  const [{ data }, accounts, { data: tagRows }] = await Promise.all([
-    query,
+  const [emails, accounts, { data: tagRows }, { data: trashRows }] = await Promise.all([
+    fetchEmails(),
     getMailAccountOptions(supabase),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
+    supabase.from("email_trash").select("thread_key"),
   ]);
-  const emails = (data ?? []) as unknown as (Email & { tags?: { tag: Tag | Tag[] | null }[] })[];
   const allTags = (tagRows ?? []) as Tag[];
+  const trashCount = new Set((trashRows ?? []).map((r) => r.thread_key as string)).size;
+  // 上限いっぱいまで読めたら、まだ古いメールが残っている可能性がある
+  const hasMore = emails.length >= limit;
 
   // スレッド単位で最新1件にまとめる
   const seen = new Set<string>();
@@ -113,6 +134,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
 
   const searchQuery = (q ? `&q=${encodeURIComponent(q)}&in=${target}` : "") + (tagId ? `&tag=${tagId}` : "");
   const hrefForTag = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${id ? `&tag=${id}` : ""}`;
+  const moreHref = `/inbox?filter=${filter}${searchQuery}&n=${pages + 1}`;
 
   return (
     <div>
@@ -136,6 +158,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         <form className="ml-auto flex items-center gap-2" action="/inbox">
           <input type="hidden" name="filter" value={filter} />
           {tagId && <input type="hidden" name="tag" value={tagId} />}
+          {pages > 1 && <input type="hidden" name="n" value={pages} />}
           <select
             name="in"
             defaultValue={target}
@@ -156,6 +179,9 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
             </Button>
           )}
         </form>
+        <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
+          <Link href="/inbox/trash"><Trash2 className="size-4" /> ゴミ箱{trashCount > 0 ? `(${trashCount})` : ""}</Link>
+        </Button>
       </div>
 
       <TagFilter tags={allTags} active={tagId} hrefFor={hrefForTag} />
@@ -176,7 +202,17 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
           action={<MailSyncButton label="今すぐ同期" />}
         />
       ) : (
-        <InboxList threads={threads} tags={allTags} />
+        <>
+          <InboxList threads={threads} tags={allTags} />
+          {hasMore && (
+            <div className="mt-3 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+              <span>新しい順に {emails.length} 通まで表示しています</span>
+              <Button asChild size="sm" variant="outline">
+                <Link href={moreHref}><ChevronDown className="size-4" /> さらに表示</Link>
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

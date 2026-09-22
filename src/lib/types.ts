@@ -182,7 +182,7 @@ export interface EmailTemplate {
 /** メールの自動タグ付けルール(src/lib/tag-rules.ts) */
 export interface EmailTagRule {
   id: string;
-  field: "subject" | "from";
+  field: "subject" | "from" | "to";
   keywords: string;
   tag_id: string;
   sort_order: number;
@@ -268,6 +268,29 @@ export interface Email {
   contact?: Pick<Contact, "id" | "name"> | null;
   deal?: Pick<Deal, "id" | "title"> | null;
   attachments?: EmailAttachment[];
+  /** ゴミ箱に入れた日時(0028)。通常のクエリでは RLS が隠すので null のものしか見えない */
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+}
+
+/** ゴミ箱のビュー email_trash の行(src/lib/mail/trash.ts) */
+export interface EmailTrashRow {
+  id: string;
+  thread_key: string;
+  direction: "inbound" | "outbound";
+  from_address: string;
+  from_name: string | null;
+  to_addresses: string[];
+  subject: string | null;
+  snippet: string | null;
+  received_at: string;
+  company_id: string | null;
+  deal_id: string | null;
+  inquiry_id: string | null;
+  deleted_at: string;
+  deleted_by: string | null;
+  deleted_by_name: string | null;
+  company?: Pick<Company, "id" | "name"> | null;
 }
 
 export interface EmailAttachment {

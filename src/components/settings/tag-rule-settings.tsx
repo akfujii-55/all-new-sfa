@@ -18,13 +18,15 @@ function fieldLabel(key: string) {
 }
 
 function RuleFields({ rule, tags }: { rule?: EmailTagRule; tags: Tag[] }) {
+  const [field, setField] = useState<EmailTagRule["field"]>(rule?.field ?? "subject");
+  const placeholder = TAG_RULE_FIELDS.find((f) => f.key === field)?.placeholder;
   return (
     <>
-      <select name="field" defaultValue={rule?.field ?? "subject"} className={selectClass} aria-label="判定する場所">
+      <select name="field" value={field} onChange={(e) => setField(e.target.value as EmailTagRule["field"])} className={selectClass} aria-label="判定する場所">
         {TAG_RULE_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
       </select>
       <span className="text-sm text-muted-foreground">に</span>
-      <Input name="keywords" defaultValue={rule?.keywords ?? ""} placeholder="キーワード(「、」区切りでいずれか)" className="h-8 w-64 max-w-full" maxLength={500} required />
+      <Input name="keywords" defaultValue={rule?.keywords ?? ""} placeholder={placeholder} className="h-8 w-64 max-w-full" maxLength={500} required />
       <span className="text-sm text-muted-foreground">を含む →</span>
       <select name="tag_id" defaultValue={rule?.tag_id ?? ""} className={selectClass} aria-label="付けるタグ" required>
         <option value="">タグを選ぶ</option>
@@ -102,7 +104,7 @@ function RuleRow({ rule, tags }: { rule: EmailTagRule; tags: Tag[] }) {
   );
 }
 
-/** 自動タグ付けルールの設定(タグの設定の下)。同期で取り込んだメールの件名・差出人がキーワードを含めば、スレッドにタグを付ける */
+/** 自動タグ付けルールの設定(タグの設定の下)。同期で取り込んだメールの件名・差出人・宛先がキーワードを含めば、スレッドにタグを付ける */
 export function TagRuleSettings({ rules, tags }: { rules: EmailTagRule[]; tags: Tag[] }) {
   const [pending, start] = useTransition();
   const full = rules.length >= MAX_TAG_RULES;
@@ -132,6 +134,7 @@ export function TagRuleSettings({ rules, tags }: { rules: EmailTagRule[]; tags: 
       </form>
       <p className="text-xs text-muted-foreground">
         同期で取り込んだメールに自動で付きます(スレッド内のメールにも付き、担当者には付きません)。全角半角・大文字小文字は区別せず、「、」で区切るとどれか 1 つ含めば一致します。
+        「宛先」は To と CC のメールアドレスで判定するので、特定のアドレス(例: info@example.com)宛てに届いたメール全部にタグを付けられます。
         今あるメールには「過去分にも適用」で付けられます。「削除リスト」が付いたメールは「問い合わせに登録」の対象から外れます。ルールは {MAX_TAG_RULES} 個まで(現在 {rules.length} 個)。
       </p>
     </div>

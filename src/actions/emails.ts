@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/mail/smtp";
 import { syncMail } from "@/lib/mail/sync";
 import { resolveSendAccount } from "@/lib/mail/accounts";
+import { purgeEmails } from "@/lib/mail/trash";
 import { unresolvedMerges } from "@/lib/mail/merge";
 import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertStorageAvailable, assertTenantWritable } from "@/lib/tenant-quota";
@@ -12,7 +13,6 @@ import {
   attachOutgoing,
   discardOutgoing,
   loadOutgoingAttachments,
-  removeAttachmentObjects,
   validateOutgoingRefs,
   type OutgoingAttachmentRef,
 } from "@/lib/mail/attachments";
@@ -223,29 +223,66 @@ export async function runMailSync() {
   return results;
 }
 
-/** 選択されたメールをスレッド単位で削除する。紐付いた問い合わせ・案件は残る。 */
-export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted: number }> {
+function revalidateAfterTrashChange() {
+  revalidatePath("/inbox", "layout");
+  revalidatePath("/inquiries");
+  revalidatePath("/");
+}
+
+/**
+ * 選択されたメールをスレッド単位でゴミ箱に移動する(deleted_at を入れるだけ。添付・タグ・紐付けはそのまま残す)。
+ * 紐付いた問い合わせ・案件は残る。TRASH_RETENTION_DAYS 日以内なら restoreEmailThreads で元に戻せる。
+ */
+export async function deleteEmailThreads(emailIds: string[]): Promise<{ deleted: number; threadKeys: string[] }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw userError("ログインが必要です");
 
   const ids = Array.from(new Set(emailIds.filter(Boolean)));
-  if (ids.length === 0) return { deleted: 0 };
+  if (ids.length === 0) return { deleted: 0, threadKeys: [] };
 
   const { data: seeds, error: seedErr } = await supabase.from("emails").select("thread_key").in("id", ids);
   if (seedErr) throw userError(seedErr.message);
-  const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key)));
-  if (threadKeys.length === 0) return { deleted: 0 };
+  const threadKeys = Array.from(new Set((seeds ?? []).map((e) => e.thread_key as string)));
+  if (threadKeys.length === 0) return { deleted: 0, threadKeys: [] };
 
-  // 添付ファイルの実体を先に消す(行は emails の削除で cascade)
-  const { data: members } = await supabase.from("emails").select("id").in("thread_key", threadKeys);
-  await removeAttachmentObjects(supabase, (members ?? []).map((m) => m.id));
-
-  const { count, error } = await supabase.from("emails").delete({ count: "exact" }).in("thread_key", threadKeys);
+  const { data, error } = await supabase.rpc("email_trash_move", { p_thread_keys: threadKeys });
   if (error) throw userError(error.message);
 
-  revalidatePath("/inbox");
-  revalidatePath("/inquiries");
-  revalidatePath("/");
-  return { deleted: count ?? 0 };
+  revalidateAfterTrashChange();
+  return { deleted: Number(data ?? 0), threadKeys };
+}
+
+/** ゴミ箱のスレッドを元に戻す。戻したメールの件数を返す */
+export async function restoreEmailThreads(threadKeys: string[]): Promise<{ restored: number }> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw userError("ログインが必要です");
+  const keys = Array.from(new Set(threadKeys.filter(Boolean)));
+  if (keys.length === 0) return { restored: 0 };
+
+  const { data, error } = await supabase.rpc("email_trash_restore", { p_thread_keys: keys });
+  if (error) throw userError(error.message);
+  revalidateAfterTrashChange();
+  return { restored: Number(data ?? 0) };
+}
+
+/** ゴミ箱のスレッドを今すぐ完全に削除する(添付の実体も消す)。消したメールの件数を返す */
+export async function purgeEmailThreads(threadKeys: string[]): Promise<{ purged: number }> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw userError("ログインが必要です");
+  const keys = Array.from(new Set(threadKeys.filter(Boolean)));
+  if (keys.length === 0) return { purged: 0 };
+
+  const { data, error } = await supabase.from("email_trash").select("id").in("thread_key", keys);
+  if (error) throw userError(error.message);
+  let purged = 0;
+  try {
+    purged = await purgeEmails(supabase, (data ?? []).map((r) => r.id as string));
+  } catch (e) {
+    throw userError(`完全な削除に失敗しました: ${errorMessage(e)}`);
+  }
+  revalidateAfterTrashChange();
+  return { purged };
 }

@@ -445,7 +445,13 @@ export async function ingestParsedMail(
 
   // 自動タグ付け: 件名・差出人がルールに一致したら、このメールと同じスレッドのメールにタグを付ける(担当者には付けない)
   if (rules?.length) {
-    const tagIds = matchTagRules(rules, { subject: parsed.subject, fromName: from.name, fromAddress: from.address });
+    const tagIds = matchTagRules(rules, {
+      subject: parsed.subject,
+      fromName: from.name,
+      fromAddress: from.address,
+      toAddresses: to.map((t) => t.address),
+      ccAddresses: cc.map((c) => c.address),
+    });
     if (tagIds.length > 0) {
       try {
         await tagThreads(db, [effectiveThreadKey], tagIds);
