@@ -267,15 +267,20 @@ export async function restoreEmailThreads(threadKeys: string[]): Promise<{ resto
   return { restored: Number(data ?? 0) };
 }
 
-/** ゴミ箱のスレッドを今すぐ完全に削除する(添付の実体も消す)。消したメールの件数を返す */
-export async function purgeEmailThreads(threadKeys: string[]): Promise<{ purged: number }> {
+/**
+ * ゴミ箱のスレッドを今すぐ完全に削除する(添付の実体も消す)。消したメールの件数を返す。
+ * threadKeys が null ならゴミ箱を空にする
+ */
+export async function purgeEmailThreads(threadKeys: string[] | null): Promise<{ purged: number }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw userError("ログインが必要です");
-  const keys = Array.from(new Set(threadKeys.filter(Boolean)));
-  if (keys.length === 0) return { purged: 0 };
+  const keys = threadKeys ? Array.from(new Set(threadKeys.filter(Boolean))) : null;
+  if (keys && keys.length === 0) return { purged: 0 };
 
-  const { data, error } = await supabase.from("email_trash").select("id").in("thread_key", keys);
+  let query = supabase.from("email_trash").select("id");
+  if (keys) query = query.in("thread_key", keys);
+  const { data, error } = await query;
   if (error) throw userError(error.message);
   let purged = 0;
   try {
