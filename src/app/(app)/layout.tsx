@@ -6,6 +6,7 @@ import { nowIso } from "@/lib/activities";
 import { Header } from "@/components/layout/header";
 import { SignatureProvider } from "@/components/mail/signature-provider";
 import { buildSignature } from "@/lib/mail/signature";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import { getMailSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { signOut } from "@/actions/auth";
@@ -58,6 +59,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // メール署名の担当者名: 営業担当者(members)の名前 → プロフィール名 → メールアドレスの @ より前
   const memberName = member?.name || profile?.full_name || (auth.user.email ?? "").split("@")[0];
   const signature = buildSignature(mailSettings, memberName);
+  // 送信元アカウントごとの署名(専用の署名があればそれ、無ければ共通の署名にそのアカウントのアドレス)
+  const mailAccounts = await getMailAccountOptions(supabase);
+  const signatures = Object.fromEntries(mailAccounts.map((a) => [a.id, buildSignature(mailSettings, memberName, a)]));
   // 停止中・解約・お試し期限切れは閲覧のみ(書き込み系の Server Action は個別に拒否する)
   const access = tenantAccess(tenant);
   // お試し終了が近く、まだお支払い方法が未登録なら知らせる(7 日前から)
@@ -65,7 +69,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const trialEndingSoon = access.writable && !tenant.stripe_subscription_id && trialDaysLeft !== null && trialDaysLeft <= 7;
 
   return (
-    <SignatureProvider signature={signature} replySubject={mailSettings.reply_subject} memberName={memberName} companyName={mailSettings.signature_company} templates={templates}>
+    <SignatureProvider signature={signature} signatures={signatures} replySubject={mailSettings.reply_subject} memberName={memberName} companyName={mailSettings.signature_company} templates={templates}>
       <div className="flex min-h-screen">
         <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} tenantName={tenant.name} isOperator={Boolean(isOperator)} />
         <div className="flex-1 flex flex-col min-w-0">

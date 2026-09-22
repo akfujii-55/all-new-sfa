@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GMAIL_HOSTS, PROVIDER_EXAMPLES, PROVIDER_LABEL, providerOf, type MailProvider } from "@/lib/mail/providers";
 import type { MailAccount } from "@/lib/types";
@@ -186,6 +187,21 @@ export function MailAccountDialog({ trigger, account, forwardEnabled = false }: 
               </details>
             </>
           )}
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="signature">このアカウント専用の署名(任意)</Label>
+            <Textarea
+              id="signature"
+              name="signature"
+              rows={4}
+              defaultValue={account?.signature ?? ""}
+              placeholder={"株式会社サンプル 営業部\n{{自社担当者}}\nメールアドレス: {{自社メール}}\nTEL: 03-0000-0000"}
+            />
+            <p className="text-xs text-muted-foreground">
+              空欄なら設定画面の共通の署名を使います(メールアドレスの行はこのアカウントのアドレスになります)。
+              入力すると、このアカウントから送るときはこの文面が署名になります。<code>{"{{自社担当者}}"}</code> はログイン中の営業担当者名、<code>{"{{自社メール}}"}</code> はこのアカウントのアドレス、<code>{"{{自社会社名}}"}</code> は共通の署名の会社名に置き換わります。区切り線は自動で付きます。
+            </p>
+          </div>
 
           {account && (
             <label className="flex items-center gap-2 text-sm">

@@ -62,6 +62,8 @@ export async function saveMailAccount(id: string | null, formData: FormData): Pr
     label,
     email,
     from_name: s(formData.get("from_name")),
+    // アカウント専用の署名。空なら共通の署名
+    signature: s(formData.get("signature")),
     imap_host: imapHost,
     imap_port: forward ? 993 : port(formData.get("imap_port"), 993),
     receive_mode: forward ? "forward" : "imap",

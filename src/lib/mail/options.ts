@@ -5,7 +5,7 @@ import type { MailAccountOption } from "@/lib/types";
 export async function getMailAccountOptions(db: SupabaseClient): Promise<MailAccountOption[]> {
   const { data } = await db
     .from("mail_accounts")
-    .select("id, label, email, is_default")
+    .select("id, label, email, is_default, signature")
     .eq("is_active", true)
     .order("is_default", { ascending: false })
     .order("created_at");

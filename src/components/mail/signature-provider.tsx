@@ -4,8 +4,10 @@ import { createContext, useContext, type ReactNode } from "react";
 import type { EmailTemplate } from "@/lib/types";
 
 interface MailDefaults {
-  /** ログイン中の営業担当者の署名 */
+  /** ログイン中の営業担当者の署名(送信元アカウントが決まらないときの共通の署名) */
   signature: string;
+  /** 送信元アカウントごとの署名(mail_accounts.id → 署名)。アカウント専用の署名があればそれ、無ければ共通の署名にそのアカウントのメールアドレスを入れたもの */
+  signatures: Record<string, string>;
   /** 返信メールの件名の初期値 */
   replySubject: string;
   /** 差し込み項目 {{自社担当者}} に入る、ログイン中の営業担当者の名前 */
@@ -16,7 +18,7 @@ interface MailDefaults {
   templates: EmailTemplate[];
 }
 
-const MailDefaultsContext = createContext<MailDefaults>({ signature: "", replySubject: "", memberName: "", companyName: "", templates: [] });
+const MailDefaultsContext = createContext<MailDefaults>({ signature: "", signatures: {}, replySubject: "", memberName: "", companyName: "", templates: [] });
 
 /** 署名・返信件名・テンプレートを、返信フォームや新規作成ダイアログに配る */
 export function SignatureProvider({ children, ...defaults }: MailDefaults & { children: ReactNode }) {

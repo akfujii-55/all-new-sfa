@@ -16,7 +16,7 @@ import { useMailDefaults } from "@/components/mail/signature-provider";
 import { TemplateSelect, applyTemplate } from "@/components/mail/template-select";
 import { SendPreviewDialog } from "@/components/mail/send-preview-dialog";
 import { MergeInsertMenu, RecipientLine, useCaretInsert } from "@/components/mail/merge-insert";
-import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
+import { initialBodyWithSignature, isBodyEmpty, swapSignature } from "@/lib/mail/signature";
 import { selfMergeVars, type MergeVars } from "@/lib/mail/merge";
 import type { MailAccountOption } from "@/lib/types";
 
@@ -43,7 +43,14 @@ export function ReplyForm({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(defaultAccountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
-  const { signature, replySubject, memberName, companyName, templates } = useMailDefaults();
+  const { signature: commonSignature, signatures, replySubject, memberName, companyName, templates } = useMailDefaults();
+  // 署名は送信元アカウントで変わる。切り替えたら本文に入っている署名も差し替える
+  const signatureOf = (id: string) => signatures[id] || commonSignature;
+  const signature = signatureOf(accountId);
+  function changeAccount(id: string) {
+    setForm((f) => ({ ...f, body: swapSignature(f.body, signature, signatureOf(id)) }));
+    setAccountId(id);
+  }
   // 件名は設定画面の「返信メールの件名」。送信前にフォームで変更できる
   const [form, setForm] = useState({ to, cc: cc ?? "", subject: replySubject, body: initialBodyWithSignature(signature) });
   const [templateId, setTemplateId] = useState("");
@@ -119,7 +126,7 @@ export function ReplyForm({
   return (
     <Card>
       <CardContent className="space-y-3 pt-0">
-        <MailAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
+        <MailAccountSelect accounts={accounts} value={accountId} onChange={changeAccount} />
         <TemplateSelect templates={templates} value={templateId} onChange={selectTemplate} disabled={pending} />
         <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-3">
           <div className="grid gap-1.5">

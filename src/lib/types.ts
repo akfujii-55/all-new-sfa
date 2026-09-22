@@ -133,6 +133,8 @@ export interface MailAccount {
   /** 転送の受け口アドレスのトークン(receive_mode=forward のときだけ) */
   inbound_token: string | null;
   password_enc: string;
+  /** このアカウント専用の署名(0029)。null なら共通の署名。{{自社担当者}} {{自社メール}} を差し込める */
+  signature: string | null;
   is_active: boolean;
   is_default: boolean;
   last_error: string | null;
@@ -141,7 +143,7 @@ export interface MailAccount {
 }
 
 /** クライアントに渡す用のアカウント情報(認証情報を含まない) */
-export type MailAccountOption = Pick<MailAccount, "id" | "label" | "email" | "is_default">;
+export type MailAccountOption = Pick<MailAccount, "id" | "label" | "email" | "is_default" | "signature">;
 
 /** メール・担当者に付けるタグ(テナントごとに設定画面で管理) */
 export interface Tag {

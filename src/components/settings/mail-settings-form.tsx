@@ -37,14 +37,14 @@ export function MailSettingsForm({ settings, memberName }: { settings: MailSetti
           <Input id="signature_company" name="signature_company" value={form.signature_company} onChange={set("signature_company")} />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="signature_email">メールアドレス</Label>
-          <Input id="signature_email" name="signature_email" type="email" value={form.signature_email} onChange={set("signature_email")} />
+          <Label htmlFor="signature_email">メールアドレス(任意)</Label>
+          <Input id="signature_email" name="signature_email" type="email" value={form.signature_email} onChange={set("signature_email")} placeholder="空欄なら送信元アカウントのアドレス" />
         </div>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="signature_extra">追加行(任意)</Label>
         <Textarea id="signature_extra" name="signature_extra" rows={3} value={form.signature_extra} onChange={set("signature_extra")} placeholder={"TEL: 03-0000-0000\nhttps://example.co.jp"} />
-        <p className="text-xs text-muted-foreground">電話番号や住所、URL など。1 行ずつ署名の末尾に追加されます。</p>
+        <p className="text-xs text-muted-foreground">電話番号や住所、URL など。1 行ずつ署名の末尾に追加されます。メールアカウントごとに違う署名を使いたいときは、メールアカウントの編集画面の「このアカウント専用の署名」に入力してください。</p>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="reply_subject">返信メールの件名</Label>
@@ -52,7 +52,7 @@ export function MailSettingsForm({ settings, memberName }: { settings: MailSetti
         <p className="text-xs text-muted-foreground">受信トレイから返信するときの件名の初期値。送信前に変更できます。</p>
       </div>
       <div className="grid gap-1.5">
-        <Label>署名のプレビュー(担当者名はログイン中の営業担当者の名前)</Label>
+        <Label>署名のプレビュー(担当者名はログイン中の営業担当者の名前。メールアドレスは送信時に送信元アカウントのものになります)</Label>
         <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-xs">{buildSignature(form, memberName)}</pre>
       </div>
       <div className="flex justify-end">

@@ -17,7 +17,7 @@ import { useMailDefaults } from "@/components/mail/signature-provider";
 import { TemplateSelect, applyTemplate } from "@/components/mail/template-select";
 import { SendPreviewDialog } from "@/components/mail/send-preview-dialog";
 import { MergeInsertMenu, RecipientLine, useCaretInsert } from "@/components/mail/merge-insert";
-import { initialBodyWithSignature, isBodyEmpty } from "@/lib/mail/signature";
+import { initialBodyWithSignature, isBodyEmpty, swapSignature } from "@/lib/mail/signature";
 import { selfMergeVars, type MergeVars } from "@/lib/mail/merge";
 import type { MailAccountOption } from "@/lib/types";
 
@@ -38,7 +38,14 @@ export function ComposeDialog({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(defaults?.accountId ?? accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? "");
-  const { signature, memberName, companyName, templates } = useMailDefaults();
+  const { signature: commonSignature, signatures, memberName, companyName, templates } = useMailDefaults();
+  // 署名は送信元アカウントで変わる。切り替えたら本文に入っている署名も差し替える
+  const signatureOf = (id: string) => signatures[id] || commonSignature;
+  const signature = signatureOf(accountId);
+  function changeAccount(id: string) {
+    setForm((f) => ({ ...f, body: swapSignature(f.body, signature, signatureOf(id)) }));
+    setAccountId(id);
+  }
   const initialBody = defaults?.body ? `${defaults.body}\n\n${signature}` : initialBodyWithSignature(signature);
   const [form, setForm] = useState({
     to: defaults?.to ?? "",
@@ -137,7 +144,7 @@ export function ComposeDialog({
           <DialogDescription>登録したメールアカウントから送信し、履歴に保存します。</DialogDescription>
         </DialogHeader>
         <div className="-mx-1 min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-1">
-          <MailAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
+          <MailAccountSelect accounts={accounts} value={accountId} onChange={changeAccount} />
           <TemplateSelect templates={templates} value={templateId} onChange={selectTemplate} disabled={pending} />
           <div className="grid gap-1.5">
             <Label>宛先</Label>
