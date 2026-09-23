@@ -8,7 +8,14 @@ import { OPERATOR } from "@/lib/legal";
 import { errorMessage, logSystem } from "@/lib/log";
 import { userError } from "@/lib/errors";
 import type { Tenant } from "@/lib/types";
-import { STEP_MAIL_GRACE_DAYS, renderStepMail, type StepMail, type StepMailLog, type StepMailVars } from "@/lib/step-mails-shared";
+import {
+  STEP_MAIL_GRACE_DAYS,
+  renderStepMail,
+  type StepMail,
+  type StepMailLog,
+  type StepMailSenderSettings,
+  type StepMailVars,
+} from "@/lib/step-mails-shared";
 
 export * from "@/lib/step-mails-shared";
 
@@ -17,7 +24,9 @@ export * from "@/lib/step-mails-shared";
  * - 起点はテナント作成日(日本時間の日付)。作成日 + day_offset が今日以前で未送信の回を送る。
  * - 予定日から STEP_MAIL_GRACE_DAYS 日以上過ぎた回は送らず「見送り」に記録する(導入前からあるテナントに一斉に届かないように)。
  * - 停止・解約のテナント、「送らない」にしたテナントには送らない。課金開始後は send_after_paid の回だけ送る。
- * - 差出人は運営側テナントの既定のメールアカウント、宛先はテナントの連絡先メール(無ければ最初の利用者)。
+ * - 差出人は運営側テナントのメールアカウント(運営設定 step_mail_account_id、無ければ既定)。差出人アドレス・名前は
+ *   step_mail_from_email / step_mail_from_name で上書きできる(SMTP はアカウントのまま。返信先も上書き先にする)。
+ * - 宛先はテナントの連絡先メール(無ければ最初の利用者)。
  */
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -69,6 +78,47 @@ export function buildStepMail(step: Pick<StepMail, "subject" | "body">, vars: St
   return { subject: renderStepMail(step.subject, vars), text: renderStepMail(step.body, vars) + stepMailFooter() };
 }
 
+export const STEP_MAIL_SENDER_KEYS = ["step_mail_account_id", "step_mail_from_email", "step_mail_from_name"] as const;
+
+export function stepMailSenderFromRows(rows: { key: string; value: string }[] | null | undefined): StepMailSenderSettings {
+  const m = new Map((rows ?? []).map((r) => [r.key, r.value]));
+  return {
+    account_id: (m.get("step_mail_account_id") ?? "").trim(),
+    from_email: (m.get("step_mail_from_email") ?? "").trim().toLowerCase(),
+    from_name: (m.get("step_mail_from_name") ?? "").trim(),
+  };
+}
+
+/** 送信に使うアカウントと、sendMail に渡す差出人の上書き */
+export interface StepMailSender {
+  account: Awaited<ReturnType<typeof resolveSendAccount>>;
+  from?: { name?: string | null; address: string };
+  replyTo?: string;
+  /** 設定したアカウントが無効・削除済みで既定に倒したとき */
+  fallbackNote: string | null;
+}
+
+/**
+ * 運営設定から送信元を決める。設定したアカウントが見つからなければ既定のアカウントに倒す。
+ * 差出人アドレスを上書きするときは返信先も同じにする(SMTP 側が From を書き換えても返信が届くように)。
+ */
+export async function resolveStepMailSender(admin: SupabaseClient): Promise<StepMailSender> {
+  const { data: rows } = await admin.from("operator_settings").select("key, value").in("key", [...STEP_MAIL_SENDER_KEYS]);
+  const settings = stepMailSenderFromRows(rows as { key: string; value: string }[] | null);
+  const operator = await operatorTenantClient();
+  if (!operator) throw userError("運営側のテナントがありません");
+  const account = await resolveSendAccount(operator, { accountId: settings.account_id || null });
+  const fallbackNote = settings.account_id && account.id !== settings.account_id ? "設定した送信元アカウントが見つからないため既定のアカウントで送りました" : null;
+  const override = settings.from_email && settings.from_email !== account.email;
+  const name = settings.from_name || undefined;
+  return {
+    account,
+    from: override ? { name, address: settings.from_email } : name ? { name, address: account.email } : undefined,
+    replyTo: override ? settings.from_email : undefined,
+    fallbackNote,
+  };
+}
+
 /** 課金が始まっている(カード登録済み、または運営が契約中にした)。billing_status の trialing はカード未登録でも付くので見ない */
 function isPaid(t: Tenant): boolean {
   return Boolean(t.stripe_subscription_id) || t.status === "active" || ["active", "past_due"].includes(t.billing_status);
@@ -107,14 +157,11 @@ export async function runStepMails(now = new Date()): Promise<StepMailRunResult>
   const logs = new Map<string, { status: string; due_on: string }>();
   for (const l of (logRows ?? []) as { tenant_id: string; step_id: string; status: string; due_on: string }[]) logs.set(`${l.tenant_id}:${l.step_id}`, l);
 
-  // 差出人は運営側テナントの既定アカウント。無ければ全部失敗として記録する(通知が飛ぶ)
-  let operator: SupabaseClient | null = null;
-  let account: Awaited<ReturnType<typeof resolveSendAccount>> | null = null;
+  // 差出人は運営設定の送信元(無ければ運営側テナントの既定アカウント)。決められなければ全部失敗として記録する(通知が飛ぶ)
+  let sender: StepMailSender | null = null;
   let accountError: string | null = null;
   try {
-    operator = await operatorTenantClient();
-    if (!operator) throw userError("運営側のテナントがありません");
-    account = await resolveSendAccount(operator, {});
+    sender = await resolveStepMailSender(admin);
   } catch (e) {
     accountError = errorMessage(e);
   }
@@ -156,7 +203,7 @@ export async function runStepMails(now = new Date()): Promise<StepMailRunResult>
         result.details.push({ tenant: tenant.slug, step: step.name, status: "failed", to: null, error: "宛先なし" });
         continue;
       }
-      if (!account) {
+      if (!sender) {
         await record("failed", toEmail, accountError ?? "送信用のメールアカウントがありません");
         result.failed++;
         result.details.push({ tenant: tenant.slug, step: step.name, status: "failed", to: toEmail, error: accountError ?? "" });
@@ -164,8 +211,8 @@ export async function runStepMails(now = new Date()): Promise<StepMailRunResult>
       }
       try {
         const mail = buildStepMail(step, stepMailVarsFor(tenant, now));
-        await sendMail(account, { to: [toEmail], subject: mail.subject, text: mail.text });
-        await record("sent", toEmail, null);
+        await sendMail(sender.account, { to: [toEmail], subject: mail.subject, text: mail.text, from: sender.from, replyTo: sender.replyTo });
+        await record("sent", toEmail, sender.fallbackNote);
         result.sent++;
         result.details.push({ tenant: tenant.slug, step: step.name, status: "sent", to: toEmail });
       } catch (e) {
@@ -197,10 +244,9 @@ async function recipientOf(admin: SupabaseClient, tenant: Tenant): Promise<strin
 }
 
 /** テストとして 1 通送る(運営管理の編集画面から自分宛て)。サンプルの差し込みで送る */
-export async function sendStepMailTest(step: Pick<StepMail, "subject" | "body">, to: string, vars: StepMailVars): Promise<void> {
-  const operator = await operatorTenantClient();
-  if (!operator) throw userError("運営側のテナントがありません");
-  const account = await resolveSendAccount(operator, {});
+export async function sendStepMailTest(step: Pick<StepMail, "subject" | "body">, to: string, vars: StepMailVars): Promise<{ from: string }> {
+  const sender = await resolveStepMailSender(createAdminClient());
   const mail = buildStepMail(step, vars);
-  await sendMail(account, { to: [to], subject: `[テスト] ${mail.subject}`, text: mail.text });
+  const r = await sendMail(sender.account, { to: [to], subject: `[テスト] ${mail.subject}`, text: mail.text, from: sender.from, replyTo: sender.replyTo });
+  return { from: r.from };
 }

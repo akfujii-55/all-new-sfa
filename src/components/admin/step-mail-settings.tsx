@@ -101,7 +101,7 @@ function StepMailForm({ step, onDone }: { step: StepMail | null; onDone: () => v
     start(async () => {
       try {
         const r = await sendStepMailTestToMe(toFormData());
-        toast.success(`${r.to} にテスト送信しました`);
+        toast.success(`${r.to} にテスト送信しました(差出人 ${r.from})`);
       } catch (e) {
         toast.error(actionErrorMessage(e));
       }

@@ -4,7 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireOperator } from "@/actions/admin";
 import { userError } from "@/lib/errors";
 import { errorMessage } from "@/lib/log";
-import { STEP_MAIL_SAMPLE_VARS, sendStepMailTest, stepMailVarsFor, type StepMail, type StepMailLog } from "@/lib/step-mails";
+import { operatorTenantClient } from "@/lib/supabase/tenant";
+import { listMailAccounts } from "@/lib/mail/accounts";
+import {
+  STEP_MAIL_SAMPLE_VARS,
+  STEP_MAIL_SENDER_KEYS,
+  sendStepMailTest,
+  stepMailSenderFromRows,
+  stepMailVarsFor,
+  type StepMail,
+  type StepMailAccountOption,
+  type StepMailLog,
+  type StepMailSenderSettings,
+} from "@/lib/step-mails";
 
 /** ステップメール(運営管理)。運営者だけが service role で読み書きする */
 
@@ -64,7 +76,7 @@ export async function deleteStepMail(id: string): Promise<void> {
 }
 
 /** 編集中の文面をログイン中の運営者宛てにテスト送信する(サンプルの差し込み) */
-export async function sendStepMailTestToMe(formData: FormData): Promise<{ to: string }> {
+export async function sendStepMailTestToMe(formData: FormData): Promise<{ to: string; from: string }> {
   const { user } = await requireOperator();
   const to = user.email;
   if (!to) throw userError("ログイン中のユーザーにメールアドレスがありません");
@@ -72,11 +84,47 @@ export async function sendStepMailTestToMe(formData: FormData): Promise<{ to: st
   // リンクは本番のものにしておく(サンプル値の example.com ではなく)
   const vars = { ...STEP_MAIL_SAMPLE_VARS, ...linksOnly(stepMailVarsFor({ name: STEP_MAIL_SAMPLE_VARS.company, contact_name: STEP_MAIL_SAMPLE_VARS.name, trial_ends_at: null })) };
   try {
-    await sendStepMailTest(values, to, vars);
+    const r = await sendStepMailTest(values, to, vars);
+    return { to, from: r.from };
   } catch (e) {
     throw userError(`テスト送信に失敗しました: ${errorMessage(e)}`);
   }
-  return { to };
+}
+
+// ---------- 送信元 ----------
+
+/** 送信元の設定と、選べる運営側のメールアカウント(有効なもの。パスワードは返さない) */
+export async function getStepMailSender(): Promise<{ settings: StepMailSenderSettings; accounts: StepMailAccountOption[] }> {
+  const { admin } = await requireOperator();
+  const { data } = await admin.from("operator_settings").select("key, value").in("key", [...STEP_MAIL_SENDER_KEYS]);
+  const settings = stepMailSenderFromRows(data as { key: string; value: string }[] | null);
+  const operator = await operatorTenantClient();
+  const accounts: StepMailAccountOption[] = operator
+    ? (await listMailAccounts(operator)).map((a) => ({ id: a.id, label: a.label, email: a.email, from_name: a.fromName, is_default: a.isDefault }))
+    : [];
+  return { settings, accounts };
+}
+
+export async function saveStepMailSender(formData: FormData): Promise<void> {
+  const { admin } = await requireOperator();
+  const accountId = String(formData.get("account_id") ?? "").trim();
+  if (accountId) {
+    const operator = await operatorTenantClient();
+    const ok = operator ? (await listMailAccounts(operator)).some((a) => a.id === accountId) : false;
+    if (!ok) throw userError("選んだメールアカウントが見つかりません。運営側の設定画面で有効になっているか確認してください");
+  }
+  const fromEmail = String(formData.get("from_email") ?? "").trim().toLowerCase();
+  if (fromEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) throw userError("差出人アドレスの形式が正しくありません");
+  const fromName = String(formData.get("from_name") ?? "").trim();
+  if (fromName.length > 100) throw userError("差出人名は 100 文字以内にしてください");
+  const rows = [
+    { key: "step_mail_account_id", value: accountId },
+    { key: "step_mail_from_email", value: fromEmail },
+    { key: "step_mail_from_name", value: fromName },
+  ];
+  const { error } = await admin.from("operator_settings").upsert(rows, { onConflict: "key" });
+  if (error) throw userError(error.message);
+  revalidatePath("/admin/step-mails");
 }
 
 function linksOnly(v: ReturnType<typeof stepMailVarsFor>) {

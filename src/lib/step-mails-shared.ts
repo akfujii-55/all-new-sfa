@@ -81,3 +81,22 @@ export function renderStepMail(text: string, vars: StepMailVars): string {
 
 /** 予定日を過ぎてもこの日数未満なら送る(cron が止まった翌日に追いつく)。これ以上過ぎた回は送らずに「見送り」にする */
 export const STEP_MAIL_GRACE_DAYS = 2;
+
+/** 送信元の設定(operator_settings の step_mail_* )。空文字は「既定のアカウント / アカウントの値を使う」 */
+export interface StepMailSenderSettings {
+  /** 送信に使う運営側テナントのメールアカウント id。空なら既定のアカウント */
+  account_id: string;
+  /** 差出人アドレスの上書き。空ならアカウントのアドレス */
+  from_email: string;
+  /** 差出人名の上書き。空ならアカウントの差出人名 */
+  from_name: string;
+}
+
+/** 送信元の選択肢に出す運営側のメールアカウント(パスワード等は含めない) */
+export interface StepMailAccountOption {
+  id: string;
+  label: string;
+  email: string;
+  from_name: string;
+  is_default: boolean;
+}

@@ -26,13 +26,19 @@ export interface SendMailInput {
   inReplyTo?: string | null;
   references?: string[];
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  /** 差出人の上書き(SMTP の認証はアカウントのまま)。そのアカウントで送信できるエイリアスに限る */
+  from?: { name?: string | null; address: string };
+  /** 返信先。差出人を上書きしたときに返信が上書き先へ届くように付ける */
+  replyTo?: string;
 }
 
 /** 指定アカウントの SMTP で送信する */
 export async function sendMail(account: MailAccountConfig, input: SendMailInput) {
   const transport = createTransport(account);
+  const from = input.from ? { name: input.from.name || account.fromName, address: input.from.address } : { name: account.fromName, address: account.email };
   const info = await transport.sendMail({
-    from: { name: account.fromName, address: account.email },
+    from,
+    replyTo: input.replyTo || undefined,
     to: input.to,
     cc: input.cc && input.cc.length ? input.cc : undefined,
     subject: input.subject,
@@ -42,7 +48,7 @@ export async function sendMail(account: MailAccountConfig, input: SendMailInput)
     references: input.references && input.references.length ? input.references : undefined,
     attachments: input.attachments && input.attachments.length ? input.attachments : undefined,
   });
-  return { messageId: info.messageId as string, from: account.email };
+  return { messageId: info.messageId as string, from: from.address };
 }
 
 /** SMTP にログインできるか確認する(設定画面の接続テスト用) */
