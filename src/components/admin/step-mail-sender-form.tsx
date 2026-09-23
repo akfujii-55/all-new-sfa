@@ -50,22 +50,22 @@ export function StepMailSenderForm({ settings, accounts }: { settings: StepMailS
         </p>
       )}
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-1.5">
           <Label htmlFor="sm-account">送信に使うアカウント</Label>
-          <select id="sm-account" name="account_id" value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
-            <option value="">既定のアカウント{selected && !accountId ? `(${selected.email})` : ""}</option>
+          <select id="sm-account" name="account_id" value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 w-full min-w-0 max-w-full truncate rounded-md border bg-background px-2 text-sm">
+            <option value="">既定のアカウント</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.label} ({a.email}){a.is_default ? " ★既定" : ""}
+                {a.label === a.email ? a.email : `${a.label} <${a.email}>`}{a.is_default ? "(既定)" : ""}
               </option>
             ))}
           </select>
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-1.5">
           <Label htmlFor="sm-from-email">差出人アドレス(任意)</Label>
           <Input id="sm-from-email" name="from_email" type="email" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} placeholder={selected?.email ?? "info@example.co.jp"} autoComplete="off" />
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-1.5">
           <Label htmlFor="sm-from-name">差出人名(任意)</Label>
           <Input id="sm-from-name" name="from_name" value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder={selected?.from_name ?? "SFA サポート"} autoComplete="off" />
         </div>
