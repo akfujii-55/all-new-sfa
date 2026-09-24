@@ -70,6 +70,22 @@ function mailboxClient(config: InboundConfig) {
   return imapClient({ imapHost: config.host, imapPort: config.port, loginUser: config.user, password: config.password });
 }
 
+/**
+ * 走査するフォルダ: 受信トレイと迷惑メール。
+ * 転送されたメールは差出人の認証(SPF / DMARC)が崩れて迷惑メールに振り分けられやすいが、
+ * 受け口アドレスのトークンを知っている相手からしか届かないので、迷惑メールに入っていても取り込んでよい。
+ */
+async function inboundMailboxes(client: ReturnType<typeof mailboxClient>): Promise<string[]> {
+  const paths = ["INBOX"];
+  try {
+    const junk = (await client.list()).find((m) => m.specialUse === "\\Junk")?.path;
+    if (junk) paths.push(junk);
+  } catch {
+    // フォルダ一覧が取れなくても受信トレイだけは見る
+  }
+  return paths;
+}
+
 /** 受信用メールボックスの未処理メール(未読)の UID とヘッダーを集める。fetch の途中では他のコマンドを送れないので先に全部読む */
 async function listPending(client: ReturnType<typeof mailboxClient>): Promise<{ uid: number; headers: string }[]> {
   const uids = (await client.search({ seen: false }, { uid: true })) || [];
@@ -120,29 +136,31 @@ export async function syncForwardAccounts(
   const client = mailboxClient(config);
   await connectOrThrow(client, "転送メールの受信用メールボックス");
   try {
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      for (const { uid, headers } of await listPending(client)) {
-        const account = tokensIn(headers, config).map((t) => byToken.get(t)).find(Boolean);
-        if (!account) continue;
-        const res = results.get(account.id)!;
-        try {
-          const msg = await client.fetchOne(String(uid), { source: true, uid: true }, { uid: true });
-          if (!msg || !msg.source) continue;
-          res.fetched++;
-          const parsed = await simpleParser(msg.source);
-          const fromSelf = lowerSelves.includes(parsed.from?.value[0]?.address?.toLowerCase() ?? "");
-          const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves) ? "outbound" : "inbound";
-          if (await ingestParsedMail(db, parsed, direction, selves, undefined, account.id, opts.form, opts.rules)) res.inserted++;
-          // 取り込み済み(重複を含む)は受信用メールボックスから消す
-          await client.messageDelete(String(uid), { uid: true });
-        } catch (e) {
-          // 残しておけば次回の同期でやり直す
-          res.error = (e as Error).message;
+    for (const path of await inboundMailboxes(client)) {
+      const lock = await client.getMailboxLock(path);
+      try {
+        for (const { uid, headers } of await listPending(client)) {
+          const account = tokensIn(headers, config).map((t) => byToken.get(t)).find(Boolean);
+          if (!account) continue;
+          const res = results.get(account.id)!;
+          try {
+            const msg = await client.fetchOne(String(uid), { source: true, uid: true }, { uid: true });
+            if (!msg || !msg.source) continue;
+            res.fetched++;
+            const parsed = await simpleParser(msg.source);
+            const fromSelf = lowerSelves.includes(parsed.from?.value[0]?.address?.toLowerCase() ?? "");
+            const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves) ? "outbound" : "inbound";
+            if (await ingestParsedMail(db, parsed, direction, selves, undefined, account.id, opts.form, opts.rules)) res.inserted++;
+            // 取り込み済み(重複を含む)は受信用メールボックスから消す
+            await client.messageDelete(String(uid), { uid: true });
+          } catch (e) {
+            // 残しておけば次回の同期でやり直す
+            res.error = (e as Error).message;
+          }
         }
+      } finally {
+        lock.release();
       }
-    } finally {
-      lock.release();
     }
   } finally {
     await client.logout().catch(() => {});
@@ -159,7 +177,7 @@ export interface InboundCleanupResult {
 
 /**
  * 受信用メールボックスの掃除(cron から 1 日 1 回)。
- * - どのアカウントのトークンにも一致しないメール(宛先違い・削除済みアカウント宛て・迷惑メール)は既読にして、次回以降の走査から外す。
+ * - 受信トレイと迷惑メールの両方を対象に、どのアカウントのトークンにも一致しないメール(宛先違い・削除済みアカウント宛て・迷惑メール)は既読にして、次回以降の走査から外す。
  * - 利用停止中のテナント宛てなどで取り込まれないまま PURGE_DAYS を過ぎたメールは消す。
  * トークンの照合はテナントをまたぐので service role で mail_accounts の inbound_token だけを読む(業務データは読み書きしない)。
  */
@@ -174,21 +192,23 @@ export async function cleanupInboundMailbox(): Promise<InboundCleanupResult | nu
   const client = mailboxClient(config);
   await connectOrThrow(client, "転送メールの受信用メールボックス");
   try {
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      const unknown = (await listPending(client)).filter((m) => !tokensIn(m.headers, config).some((t) => known.has(t))).map((m) => m.uid);
-      if (unknown.length > 0) {
-        await client.messageFlagsAdd(unknown, ["\\Seen"], { uid: true });
-        result.unknown = unknown.length;
+    for (const path of await inboundMailboxes(client)) {
+      const lock = await client.getMailboxLock(path);
+      try {
+        const unknown = (await listPending(client)).filter((m) => !tokensIn(m.headers, config).some((t) => known.has(t))).map((m) => m.uid);
+        if (unknown.length > 0) {
+          await client.messageFlagsAdd(unknown, ["\\Seen"], { uid: true });
+          result.unknown += unknown.length;
+        }
+        const before = new Date(Date.now() - PURGE_DAYS * 86400000);
+        const old = (await client.search({ before }, { uid: true })) || [];
+        if (old.length > 0) {
+          await client.messageDelete(old, { uid: true });
+          result.purged += old.length;
+        }
+      } finally {
+        lock.release();
       }
-      const before = new Date(Date.now() - PURGE_DAYS * 86400000);
-      const old = (await client.search({ before }, { uid: true })) || [];
-      if (old.length > 0) {
-        await client.messageDelete(old, { uid: true });
-        result.purged = old.length;
-      }
-    } finally {
-      lock.release();
     }
   } finally {
     await client.logout().catch(() => {});
