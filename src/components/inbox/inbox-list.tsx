@@ -177,8 +177,8 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
           const meta = hasMeta && (
             <>
               {t.inquiry_id && <Badge className="h-5 px-1.5 text-[11px]">問い合わせ</Badge>}
-              {t.company && <Badge variant="secondary" className="h-5 max-w-40 truncate px-1.5 text-[11px]">{t.company.name}</Badge>}
-              {t.deal && <Badge variant="outline" className="hidden h-5 max-w-48 truncate px-1.5 text-[11px] md:inline-flex">{t.deal.title}</Badge>}
+              {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-[11px]"><span className="truncate">{t.company.name}</span></Badge>}
+              {t.deal && <Badge variant="outline" className="hidden h-5 max-w-48 px-1.5 text-[11px] md:inline-flex"><span className="truncate">{t.deal.title}</span></Badge>}
               <TagBadges tags={t.tags} max={3} />
               {t.account && <span className="hidden truncate text-[11px] text-muted-foreground lg:inline">@ {t.account}</span>}
             </>
@@ -204,9 +204,9 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-baseline gap-3">
-                    <span className={cn("w-28 shrink-0 truncate text-sm sm:w-44", unread ? "font-bold text-foreground" : "font-medium text-foreground/80")} title={whoTitle}>
-                      {who}
-                      {t.count > 1 && <span className="ml-1 text-xs font-normal text-muted-foreground">{t.count}</span>}
+                    <span className="flex w-28 shrink-0 items-baseline gap-1 sm:w-48 lg:w-56">
+                      <span className={cn("min-w-0 truncate text-sm", unread ? "font-bold text-foreground" : "font-medium text-foreground/80")} title={whoTitle}>{who}</span>
+                      {t.count > 1 && <span className="shrink-0 text-xs text-muted-foreground">{t.count}</span>}
                     </span>
                     <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                       <span className={cn("truncate text-sm", compact ? "min-w-0" : "max-w-[60%] shrink-0", unread ? "font-bold text-foreground" : "text-foreground/80")}>{t.subject || "(件名なし)"}</span>

@@ -138,9 +138,9 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-baseline gap-3">
-                  <span className="w-28 shrink-0 truncate text-sm font-medium text-foreground/80 sm:w-44" title={whoTitle}>
-                    {who}
-                    {t.count > 1 && <span className="ml-1 text-xs font-normal text-muted-foreground">{t.count}</span>}
+                  <span className="flex w-28 shrink-0 items-baseline gap-1 sm:w-48 lg:w-56">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground/80" title={whoTitle}>{who}</span>
+                    {t.count > 1 && <span className="shrink-0 text-xs text-muted-foreground">{t.count}</span>}
                   </span>
                   <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                     <span className="max-w-[60%] shrink-0 truncate text-sm text-foreground/80">{t.subject || "(件名なし)"}</span>
@@ -148,7 +148,7 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
                   </span>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
-                  {t.company && <Badge variant="secondary" className="h-5 max-w-40 truncate px-1.5 text-[11px]">{t.company.name}</Badge>}
+                  {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-[11px]"><span className="truncate">{t.company.name}</span></Badge>}
                   <span className="truncate">
                     {t.deleted_by_name ? `${t.deleted_by_name} さんが ` : ""}{fmtMailTime(t.deleted_at)} に削除
                     <span className="mx-1.5">·</span>
