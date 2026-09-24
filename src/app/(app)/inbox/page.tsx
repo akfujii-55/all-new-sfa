@@ -109,10 +109,11 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   // スレッド単位で最新1件にまとめる
   const seen = new Set<string>();
   const threads: InboxThread[] = [];
-  const counts = new Map<string, { count: number; unread: number; attachments: number; tags: Tag[] }>();
+  const counts = new Map<string, { count: number; unread: number; attachments: number; tags: Tag[]; hasInbound: boolean }>();
   for (const e of emails) {
-    const c = counts.get(e.thread_key) ?? { count: 0, unread: 0, attachments: 0, tags: [] };
+    const c = counts.get(e.thread_key) ?? { count: 0, unread: 0, attachments: 0, tags: [], hasInbound: false };
     c.count++;
+    if (e.direction === "inbound") c.hasInbound = true;
     c.attachments += (e as unknown as { attachments?: { count: number }[] }).attachments?.[0]?.count ?? 0;
     if (!e.is_read && e.direction === "inbound") c.unread++;
     // スレッド内のメールに付いたタグをまとめる(重複は除く)
@@ -122,6 +123,10 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   for (const e of emails) {
     if (seen.has(e.thread_key)) continue;
     seen.add(e.thread_key);
+    const { hasInbound, ...summary } = counts.get(e.thread_key)!;
+    // 「すべて」では、こちらから送っただけで返信の無いスレッドは出さない(案件の履歴には残る)。
+    // 相手から返信が来ればスレッドごと一覧に現れる。送信分だけ見るときは「送信」で絞り込む
+    if (filter === "all" && !hasInbound) continue;
     threads.push({
       id: e.id,
       direction: e.direction,
@@ -135,7 +140,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
       company: e.company ?? null,
       deal: e.deal ?? null,
       account: showAccounts && !accountId && e.account_id ? (accountById.get(e.account_id)?.label ?? accountById.get(e.account_id)?.email ?? null) : null,
-      ...counts.get(e.thread_key)!,
+      ...summary,
     });
   }
 
