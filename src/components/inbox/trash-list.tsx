@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { purgeEmailThreads, restoreEmailThreads } from "@/actions/emails";
 import { actionErrorMessage } from "@/lib/errors";
-import { fmtDateTime, fmtRelative } from "@/lib/format";
+import { fmtDateTime, fmtMailTime } from "@/lib/format";
 import { trashDaysLeft } from "@/lib/trash";
 import { cn } from "@/lib/utils";
 
@@ -127,30 +127,37 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
         {threads.map((t) => {
           const left = trashDaysLeft(t.deleted_at);
           const checked = selected.has(t.thread_key);
+          const who = t.direction === "inbound" ? t.from_name || t.from_address : `To: ${t.to_addresses.join(", ")}`;
+          const whoTitle = t.direction === "inbound" ? t.from_address : t.to_addresses.join(", ");
           return (
-            <div key={t.id} className={cn("flex items-start gap-3 px-4 py-3", checked && "bg-accent/60 dark:bg-accent/40")}>
-              <Checkbox className="mt-3" checked={checked} onCheckedChange={(v) => toggle(t.thread_key, v === true)} aria-label="選択" />
-              <div className={cn("mt-1 flex size-8 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}>
-                {t.direction === "inbound" ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
+            // メール一覧(inbox-list.tsx)と同じ並び: 差出人の固定幅の列 + 「件名 – 本文の冒頭」、2 行目に取引先と削除の情報
+            <div key={t.id} className={cn("flex items-center gap-3 px-4 py-2.5", checked && "bg-accent/60 dark:bg-accent/40")}>
+              <Checkbox checked={checked} onCheckedChange={(v) => toggle(t.thread_key, v === true)} aria-label="選択" />
+              <div className={cn("flex size-5 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")} title={t.direction === "inbound" ? "受信" : "送信"}>
+                {t.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-foreground/75">
-                    {t.direction === "inbound" ? t.from_name || t.from_address : `To: ${t.to_addresses.join(", ")}`}
+                <div className="flex min-w-0 items-baseline gap-3">
+                  <span className="w-28 shrink-0 truncate text-sm font-medium text-foreground/80 sm:w-44" title={whoTitle}>
+                    {who}
+                    {t.count > 1 && <span className="ml-1 text-xs font-normal text-muted-foreground">{t.count}</span>}
                   </span>
-                  {t.count > 1 && <span className="text-xs text-muted-foreground">({t.count})</span>}
-                  {t.company && <Badge variant="secondary" className="hidden sm:inline-flex">{t.company.name}</Badge>}
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                    <span className="max-w-[60%] shrink-0 truncate text-sm text-foreground/80">{t.subject || "(件名なし)"}</span>
+                    {t.snippet && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">– {t.snippet}</span>}
+                  </span>
                 </div>
-                <p className="truncate text-sm text-muted-foreground">{t.subject || "(件名なし)"}</p>
-                {t.snippet && <p className="truncate text-xs text-muted-foreground/80">{t.snippet}</p>}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t.deleted_by_name ? `${t.deleted_by_name} さんが` : ""}{fmtDateTime(t.deleted_at)} に削除
-                  <span className="mx-1.5">·</span>
-                  受信 {fmtRelative(t.received_at)}
-                </p>
+                <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+                  {t.company && <Badge variant="secondary" className="h-5 max-w-40 truncate px-1.5 text-[11px]">{t.company.name}</Badge>}
+                  <span className="truncate">
+                    {t.deleted_by_name ? `${t.deleted_by_name} さんが ` : ""}{fmtMailTime(t.deleted_at)} に削除
+                    <span className="mx-1.5">·</span>
+                    受信 <span title={fmtDateTime(t.received_at)}>{fmtMailTime(t.received_at)}</span>
+                  </span>
+                </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <Badge variant={left <= 3 ? "destructive" : "outline"}>{left === 0 ? "まもなく完全に削除" : `あと ${left} 日`}</Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                <Badge variant={left <= 3 ? "destructive" : "outline"} className="whitespace-nowrap">{left === 0 ? "まもなく完全に削除" : `あと ${left} 日`}</Badge>
                 <div className="flex gap-1">
                   <Button size="sm" variant="outline" disabled={pending} onClick={() => restore([t.thread_key])}>
                     <Undo2 className="size-4" /> 元に戻す
