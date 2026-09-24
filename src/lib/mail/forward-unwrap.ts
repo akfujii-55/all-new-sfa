@@ -12,14 +12,16 @@ export function unwrapManualForward(parsed: ParsedMail, selves: string[], text: 
   const from = parsed.from?.value[0]?.address?.toLowerCase();
   if (!from || !selves.includes(from)) return false;
   if (!isForwardSubject(parsed.subject)) return false;
-  const line = text.match(/^[>\s]*\**(?:From|差出人|送信者)\**\s*[::]\s*(.+)$/im)?.[1];
+  // 「差出人:」の後ろから、行末か次の見出し(件名・日付・宛先など)までを差出人の欄とみなす。
+  // iCloud / Apple Mail は転送ヘッダーを 1 行にまとめることがあるので行頭には固定しない
+  const line = text.match(/(?:^|[>\s*])(?:From|差出人|送信者)\**\s*[::]\s*(.+?)(?=\s*(?:\n|$|(?<![a-z0-9])(?:件名|Subject|日付|Date|送信日時|Sent|宛先|To|Cc)\s*[::]))/i)?.[1];
   const address = line?.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0]?.toLowerCase();
   if (!line || !address || selves.includes(address)) return false;
   const name = line
     .replace(/<[^>]*>|\[mailto:[^\]]*\]|\(mailto:[^)]*\)/gi, "")
     .replace(address, "")
     .replace(/["'<>]/g, "")
-    .replace(/\s+$/, "")
+    .replace(/\[\s*\]|\(\s*\)/g, "")
     .trim();
   parsed.from = { value: [{ address, name }], text: line.trim(), html: "" };
   return true;

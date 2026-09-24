@@ -137,8 +137,11 @@ export async function syncForwardAccounts(
       const lock = await client.getMailboxLock(path);
       try {
         for (const { uid, headers } of await listPending(client)) {
-          const account = tokensIn(headers, config).map((t) => byToken.get(t)).find(Boolean);
+          const tokens = tokensIn(headers, config);
+          const account = tokens.map((t) => byToken.get(t)).find(Boolean);
           if (!account) continue;
+          // 受け口アドレス(古いトークンも含む)は自社側として扱い、送信の控えで相手として登録されないようにする
+          const selvesHere = [...selves, ...tokens.map((t) => config.addressFormat.replace("{token}", t))];
           const res = results.get(account.id)!;
           try {
             const msg = await client.fetchOne(String(uid), { source: true, uid: true }, { uid: true });
@@ -149,7 +152,7 @@ export async function syncForwardAccounts(
             // 自社発のメール: 手動転送(Fwd:)なら本文の差出人を相手にして受信、それ以外は BCC の控えとして送信
             const bodyText = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
             const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves, bodyText) ? "outbound" : "inbound";
-            if (await ingestParsedMail(db, parsed, direction, selves, undefined, account.id, opts.form, opts.rules)) res.inserted++;
+            if (await ingestParsedMail(db, parsed, direction, selvesHere, undefined, account.id, opts.form, opts.rules)) res.inserted++;
             // 取り込み済み(重複を含む)は受信用メールボックスから捨てる
             await discard(client, String(uid), trash);
           } catch (e) {
