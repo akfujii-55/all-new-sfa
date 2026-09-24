@@ -131,7 +131,7 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
           const whoTitle = t.direction === "inbound" ? t.from_address : t.to_addresses.join(", ");
           return (
             // メール一覧(inbox-list.tsx)と同じ並び: 差出人の固定幅の列 + 「件名 – 本文の冒頭」、2 行目に取引先と削除の情報
-            <div key={t.id} className={cn("flex items-center gap-3 px-4 py-2.5", checked && "bg-accent/60 dark:bg-accent/40")}>
+            <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", checked && "bg-accent/60 dark:bg-accent/40")}>
               <Checkbox checked={checked} onCheckedChange={(v) => toggle(t.thread_key, v === true)} aria-label="選択" />
               <div className={cn("flex size-5 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")} title={t.direction === "inbound" ? "受信" : "送信"}>
                 {t.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
@@ -139,16 +139,16 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-baseline gap-3">
                   <span className="flex w-28 shrink-0 items-baseline gap-1 sm:w-48 lg:w-56">
-                    <span className="min-w-0 truncate text-sm font-medium text-foreground/80" title={whoTitle}>{who}</span>
+                    <span className="min-w-0 truncate text-[15px] leading-6 font-medium text-foreground/80" title={whoTitle}>{who}</span>
                     {t.count > 1 && <span className="shrink-0 text-xs text-muted-foreground">{t.count}</span>}
                   </span>
                   <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                    <span className="max-w-[60%] shrink-0 truncate text-sm text-foreground/80">{t.subject || "(件名なし)"}</span>
-                    {t.snippet && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">– {t.snippet}</span>}
+                    <span className="max-w-[60%] shrink-0 truncate text-[15px] leading-6 text-foreground/80">{t.subject || "(件名なし)"}</span>
+                    {t.snippet && <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">– {t.snippet}</span>}
                   </span>
                 </div>
-                <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
-                  {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-[11px]"><span className="truncate">{t.company.name}</span></Badge>}
+                <div className="mt-1 flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+                  {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-xs"><span className="truncate">{t.company.name}</span></Badge>}
                   <span className="truncate">
                     {t.deleted_by_name ? `${t.deleted_by_name} さんが ` : ""}{fmtMailTime(t.deleted_at)} に削除
                     <span className="mx-1.5">·</span>

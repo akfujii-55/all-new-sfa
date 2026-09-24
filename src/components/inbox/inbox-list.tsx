@@ -176,11 +176,11 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
           // 問い合わせ・取引先・案件・アカウント・タグ。通常は 2 行目、コンパクトでは 1 行目の右側(狭い画面では省略)
           const meta = hasMeta && (
             <>
-              {t.inquiry_id && <Badge className="h-5 px-1.5 text-[11px]">問い合わせ</Badge>}
-              {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-[11px]"><span className="truncate">{t.company.name}</span></Badge>}
-              {t.deal && <Badge variant="outline" className="hidden h-5 max-w-48 px-1.5 text-[11px] md:inline-flex"><span className="truncate">{t.deal.title}</span></Badge>}
+              {t.inquiry_id && <Badge className="h-5 px-1.5 text-xs">問い合わせ</Badge>}
+              {t.company && <Badge variant="secondary" className="h-5 max-w-40 px-1.5 text-xs"><span className="truncate">{t.company.name}</span></Badge>}
+              {t.deal && <Badge variant="outline" className="hidden h-5 max-w-48 px-1.5 text-xs md:inline-flex"><span className="truncate">{t.deal.title}</span></Badge>}
               <TagBadges tags={t.tags} max={3} />
-              {t.account && <span className="hidden truncate text-[11px] text-muted-foreground lg:inline">@ {t.account}</span>}
+              {t.account && <span className="hidden truncate text-xs text-muted-foreground lg:inline">@ {t.account}</span>}
             </>
           );
           return (
@@ -190,7 +190,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
               key={t.id}
               className={cn(
                 "relative flex items-center gap-3 px-4 transition-colors",
-                compact ? "py-1.5" : "py-2.5",
+                compact ? "py-2" : "py-3",
                 unread
                   ? "bg-sky-50/70 hover:bg-sky-100/70 dark:bg-sky-950/30 dark:hover:bg-sky-950/50 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-sky-500"
                   : "hover:bg-accent/50",
@@ -205,16 +205,16 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-baseline gap-3">
                     <span className="flex w-28 shrink-0 items-baseline gap-1 sm:w-48 lg:w-56">
-                      <span className={cn("min-w-0 truncate text-sm", unread ? "font-bold text-foreground" : "font-medium text-foreground/80")} title={whoTitle}>{who}</span>
+                      <span className={cn("min-w-0 truncate text-[15px] leading-6", unread ? "font-bold text-foreground" : "font-medium text-foreground/80")} title={whoTitle}>{who}</span>
                       {t.count > 1 && <span className="shrink-0 text-xs text-muted-foreground">{t.count}</span>}
                     </span>
                     <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                      <span className={cn("truncate text-sm", compact ? "min-w-0" : "max-w-[60%] shrink-0", unread ? "font-bold text-foreground" : "text-foreground/80")}>{t.subject || "(件名なし)"}</span>
-                      {!compact && t.snippet && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">– {t.snippet}</span>}
+                      <span className={cn("truncate text-[15px] leading-6", compact ? "min-w-0" : "max-w-[60%] shrink-0", unread ? "font-bold text-foreground" : "text-foreground/80")}>{t.subject || "(件名なし)"}</span>
+                      {!compact && t.snippet && <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">– {t.snippet}</span>}
                     </span>
                     {compact && meta && <span className="hidden shrink-0 items-center gap-1.5 md:inline-flex">{meta}</span>}
                   </div>
-                  {!compact && meta && <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">{meta}</div>}
+                  {!compact && meta && <div className="mt-1 flex items-center gap-1.5 overflow-hidden">{meta}</div>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className={cn("flex items-center gap-1.5 whitespace-nowrap text-xs tabular-nums", unread ? "font-semibold text-sky-700 dark:text-sky-300" : "text-muted-foreground")} title={fmtDateTime(t.received_at)}>
