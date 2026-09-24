@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { simpleParser, type ParsedMail } from "mailparser";
+import { simpleParser } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MailAccountConfig } from "./accounts";
 import type { FormProfile } from "./extract";
-import { connectOrThrow, imapClient, ingestParsedMail, type SyncResult } from "./sync";
+import { connectOrThrow, htmlToText, imapClient, ingestParsedMail, type SyncResult } from "./sync";
+import { unwrapManualForward } from "./forward-unwrap";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { TagRule } from "@/lib/tag-rules";
 
@@ -98,22 +99,6 @@ async function listPending(client: ReturnType<typeof mailboxClient>): Promise<{ 
 }
 
 /**
- * 手動転送(メールソフトの「転送」ボタン)は差出人が自社の人になり、元の差出人は本文にしか残らない。
- * 件名が Fwd: / FW: / 転送: で始まる自社発のメールに限り、本文の「From: 名前 <アドレス>」から相手を拾って受信メールとして扱う。
- */
-function unwrapManualForward(parsed: ParsedMail, selves: string[]): boolean {
-  const from = parsed.from?.value[0]?.address?.toLowerCase();
-  if (!from || !selves.includes(from)) return false;
-  if (!/^\s*(fwd?|fw|転送)\s*[::]/i.test(parsed.subject ?? "")) return false;
-  const line = (parsed.text ?? "").match(/^[>\s]*(?:From|差出人|送信者)\s*[::]\s*(.+)$/im)?.[1];
-  const address = line?.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0]?.toLowerCase();
-  if (!line || !address || selves.includes(address)) return false;
-  const name = line.replace(/<[^>]*>|\[mailto:[^\]]*\]/gi, "").replace(address, "").replace(/["'<>]/g, "").trim();
-  parsed.from = { value: [{ address, name }], text: line.trim(), html: "" };
-  return true;
-}
-
-/**
  * 自テナントの転送受信アカウント宛てに届いたメールを取り込む(syncMail から呼ばれる)。
  * 他のテナント宛てのメールには触らない。
  */
@@ -149,7 +134,9 @@ export async function syncForwardAccounts(
             res.fetched++;
             const parsed = await simpleParser(msg.source);
             const fromSelf = lowerSelves.includes(parsed.from?.value[0]?.address?.toLowerCase() ?? "");
-            const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves) ? "outbound" : "inbound";
+            // 自社発のメール: 手動転送(Fwd:)なら本文の差出人を相手にして受信、それ以外は BCC の控えとして送信
+            const bodyText = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
+            const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves, bodyText) ? "outbound" : "inbound";
             if (await ingestParsedMail(db, parsed, direction, selves, undefined, account.id, opts.form, opts.rules)) res.inserted++;
             // 取り込み済み(重複を含む)は受信用メールボックスから消す
             await client.messageDelete(String(uid), { uid: true });
