@@ -42,6 +42,19 @@ export function fmtRelative(d: string | Date | null | undefined) {
   return formatDistanceToNow(new Date(d), { addSuffix: true, locale: ja });
 }
 
+/**
+ * メール一覧の日時。今日なら時刻だけ(10:32)、今年なら「9/23 18:12」、それ以前は年付き。
+ * 並び順(新しい順)と実際の時刻を結び付けやすいよう、相対表示(3 時間前)は使わない。
+ */
+export function fmtMailTime(d: string | Date | null | undefined) {
+  if (!d) return "-";
+  const date = new Date(d);
+  const now = nowInTz();
+  if (format(date, "yyyy-MM-dd", inTz) === format(now, "yyyy-MM-dd", inTz)) return format(date, "HH:mm", inTz);
+  if (format(date, "yyyy", inTz) === format(now, "yyyy", inTz)) return format(date, "M/d HH:mm", inTz);
+  return format(date, "yyyy/M/d HH:mm", inTz);
+}
+
 export function fmtMonth(d: string | Date) {
   return format(new Date(d), "yyyy年M月", { locale: ja, ...inTz });
 }

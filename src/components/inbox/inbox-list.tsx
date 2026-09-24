@@ -15,7 +15,8 @@ import { setEmailTags } from "@/actions/tags";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { TagBadges } from "@/components/tags/tag-badge";
 import type { Tag } from "@/lib/types";
-import { fmtRelative } from "@/lib/format";
+import { fmtDateTime, fmtMailTime } from "@/lib/format";
+import { useLocalPref } from "@/lib/local-pref";
 import { cn } from "@/lib/utils";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -41,8 +42,13 @@ export interface InboxThread {
   tags: Tag[];
 }
 
+/** 一覧の密度。コンパクトは本文の冒頭を隠して 1 スレッド 1 行にする(ブラウザごとに記憶) */
+const DENSITIES = ["normal", "compact"] as const;
+
 export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [density, setDensity] = useLocalPref("inbox_density", "normal", DENSITIES);
+  const compact = density === "compact";
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
 
@@ -150,50 +156,72 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
         ) : (
           <span className="text-sm text-muted-foreground">メールを選択して問い合わせに登録、タグ付け、削除ができます</span>
         )}
+        <div className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <span className="mr-1 hidden sm:inline">表示</span>
+          {DENSITIES.map((d) => (
+            <Button key={d} size="sm" variant={density === d ? "secondary" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setDensity(d)} aria-pressed={density === d}>
+              {d === "normal" ? "通常" : "コンパクト"}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="divide-y">
         {threads.map((t) => {
           const checked = selected.has(t.id);
           const unread = t.unread > 0;
+          const who = t.direction === "inbound" ? t.from_name || t.from_address : `To: ${t.to_addresses.join(", ")}`;
+          const whoTitle = t.direction === "inbound" ? t.from_address : t.to_addresses.join(", ");
+          const hasMeta = Boolean(t.inquiry_id || t.company || t.deal || t.account || t.tags.length > 0);
+          // 問い合わせ・取引先・案件・アカウント・タグ。通常は 2 行目、コンパクトでは 1 行目の右側(狭い画面では省略)
+          const meta = hasMeta && (
+            <>
+              {t.inquiry_id && <Badge className="h-5 px-1.5 text-[11px]">問い合わせ</Badge>}
+              {t.company && <Badge variant="secondary" className="h-5 max-w-40 truncate px-1.5 text-[11px]">{t.company.name}</Badge>}
+              {t.deal && <Badge variant="outline" className="hidden h-5 max-w-48 truncate px-1.5 text-[11px] md:inline-flex">{t.deal.title}</Badge>}
+              <TagBadges tags={t.tags} max={3} />
+              {t.account && <span className="hidden truncate text-[11px] text-muted-foreground lg:inline">@ {t.account}</span>}
+            </>
+          );
           return (
-            // 未読: 薄い青の背景 + 左端のアクセント線 + 太字。既読: 白背景で文字を少し落として、どちらからでも見分けられるようにする
+            // 差出人を固定幅の列にして縦に揃え、件名と本文の冒頭を同じ行に置く(Gmail と同じ考え方)。
+            // 未読: 薄い青の背景 + 左端のアクセント線 + 太字。既読: 白背景で文字を少し落とす
             <div
               key={t.id}
               className={cn(
-                "relative flex items-start gap-3 px-4 py-3 transition-colors",
+                "relative flex items-center gap-3 px-4 transition-colors",
+                compact ? "py-1.5" : "py-2.5",
                 unread
                   ? "bg-sky-50/70 hover:bg-sky-100/70 dark:bg-sky-950/30 dark:hover:bg-sky-950/50 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-sky-500"
                   : "hover:bg-accent/50",
                 checked && "bg-accent/60 dark:bg-accent/40",
               )}
             >
-              <Checkbox className="mt-3" checked={checked} onCheckedChange={(v) => toggle(t.id, v === true)} aria-label="選択" />
-              <Link href={`/inbox/${t.id}`} className="flex min-w-0 flex-1 items-start gap-3">
-                <div className={cn("mt-1 flex size-8 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}>
-                  {t.direction === "inbound" ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
+              <Checkbox checked={checked} onCheckedChange={(v) => toggle(t.id, v === true)} aria-label="選択" />
+              <Link href={`/inbox/${t.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                <div className={cn("flex size-5 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")} title={t.direction === "inbound" ? "受信" : "送信"}>
+                  {t.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className={cn("truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground/75")}>
-                      {t.direction === "inbound" ? t.from_name || t.from_address : `To: ${t.to_addresses.join(", ")}`}
+                  <div className="flex min-w-0 items-baseline gap-3">
+                    <span className={cn("w-28 shrink-0 truncate text-sm sm:w-44", unread ? "font-bold text-foreground" : "font-medium text-foreground/80")} title={whoTitle}>
+                      {who}
+                      {t.count > 1 && <span className="ml-1 text-xs font-normal text-muted-foreground">{t.count}</span>}
                     </span>
-                    {t.count > 1 && <span className="text-xs text-muted-foreground">({t.count})</span>}
-                    {t.inquiry_id && <Badge className="hidden sm:inline-flex">問い合わせ</Badge>}
-                    {t.company && <Badge variant="secondary" className="hidden sm:inline-flex">{t.company.name}</Badge>}
-                    {t.deal && <Badge variant="outline" className="hidden md:inline-flex">{t.deal.title}</Badge>}
-                    {t.account && <span className="hidden truncate text-xs text-muted-foreground lg:inline">@ {t.account}</span>}
-                    <TagBadges tags={t.tags} max={3} />
+                    <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                      <span className={cn("truncate text-sm", compact ? "min-w-0" : "max-w-[60%] shrink-0", unread ? "font-bold text-foreground" : "text-foreground/80")}>{t.subject || "(件名なし)"}</span>
+                      {!compact && t.snippet && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">– {t.snippet}</span>}
+                    </span>
+                    {compact && meta && <span className="hidden shrink-0 items-center gap-1.5 md:inline-flex">{meta}</span>}
                   </div>
-                  <p className={cn("truncate text-sm", unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.subject || "(件名なし)"}</p>
-                  <p className="truncate text-xs text-muted-foreground">{t.snippet}</p>
+                  {!compact && meta && <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">{meta}</div>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                  <span className={cn("flex items-center gap-1.5 whitespace-nowrap text-xs tabular-nums", unread ? "font-semibold text-sky-700 dark:text-sky-300" : "text-muted-foreground")} title={fmtDateTime(t.received_at)}>
                     {t.attachments > 0 && <Paperclip className="size-3.5" aria-label={`添付ファイル ${t.attachments}件`} />}
-                    {fmtRelative(t.received_at)}
+                    {fmtMailTime(t.received_at)}
                   </span>
-                  {unread && <span className="size-2 rounded-full bg-sky-500" aria-label="未読" />}
+                  {unread && !compact && <span className="size-2 rounded-full bg-sky-500" aria-label="未読" />}
                 </div>
               </Link>
             </div>
