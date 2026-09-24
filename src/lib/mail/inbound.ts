@@ -72,19 +72,30 @@ function mailboxClient(config: InboundConfig) {
 }
 
 /**
- * 走査するフォルダ: 受信トレイと迷惑メール。
+ * 走査するフォルダ(受信トレイと迷惑メール)と、処理済みを捨てる先(ゴミ箱)。
  * 転送されたメールは差出人の認証(SPF / DMARC)が崩れて迷惑メールに振り分けられやすいが、
  * 受け口アドレスのトークンを知っている相手からしか届かないので、迷惑メールに入っていても取り込んでよい。
+ * 捨てるときは削除ではなくゴミ箱へ移す: Gmail は受信トレイで削除したメールを「すべてのメール」に残し続けるため
+ * (ゴミ箱に入れれば 30 日で自動的に消える)。ゴミ箱の無いサーバーでは削除する。
  */
-async function inboundMailboxes(client: ReturnType<typeof mailboxClient>): Promise<string[]> {
-  const paths = ["INBOX"];
+async function inboundMailboxes(client: ReturnType<typeof mailboxClient>): Promise<{ scan: string[]; trash: string | null }> {
+  const scan = ["INBOX"];
+  let trash: string | null = null;
   try {
-    const junk = (await client.list()).find((m) => m.specialUse === "\\Junk")?.path;
-    if (junk) paths.push(junk);
+    const list = await client.list();
+    const junk = list.find((m) => m.specialUse === "\\Junk")?.path;
+    if (junk) scan.push(junk);
+    trash = list.find((m) => m.specialUse === "\\Trash")?.path ?? null;
   } catch {
     // フォルダ一覧が取れなくても受信トレイだけは見る
   }
-  return paths;
+  return { scan, trash };
+}
+
+/** 処理済みのメールを受信用メールボックスから捨てる(ゴミ箱があれば移動、無ければ削除) */
+async function discard(client: ReturnType<typeof mailboxClient>, uids: number[] | string, trash: string | null) {
+  if (trash) await client.messageMove(uids, trash, { uid: true });
+  else await client.messageDelete(uids, { uid: true });
 }
 
 /** 受信用メールボックスの未処理メール(未読)の UID とヘッダーを集める。fetch の途中では他のコマンドを送れないので先に全部読む */
@@ -121,7 +132,8 @@ export async function syncForwardAccounts(
   const client = mailboxClient(config);
   await connectOrThrow(client, "転送メールの受信用メールボックス");
   try {
-    for (const path of await inboundMailboxes(client)) {
+    const { scan, trash } = await inboundMailboxes(client);
+    for (const path of scan) {
       const lock = await client.getMailboxLock(path);
       try {
         for (const { uid, headers } of await listPending(client)) {
@@ -138,8 +150,8 @@ export async function syncForwardAccounts(
             const bodyText = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
             const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves, bodyText) ? "outbound" : "inbound";
             if (await ingestParsedMail(db, parsed, direction, selves, undefined, account.id, opts.form, opts.rules)) res.inserted++;
-            // 取り込み済み(重複を含む)は受信用メールボックスから消す
-            await client.messageDelete(String(uid), { uid: true });
+            // 取り込み済み(重複を含む)は受信用メールボックスから捨てる
+            await discard(client, String(uid), trash);
           } catch (e) {
             // 残しておけば次回の同期でやり直す
             res.error = (e as Error).message;
@@ -179,7 +191,8 @@ export async function cleanupInboundMailbox(): Promise<InboundCleanupResult | nu
   const client = mailboxClient(config);
   await connectOrThrow(client, "転送メールの受信用メールボックス");
   try {
-    for (const path of await inboundMailboxes(client)) {
+    const { scan, trash } = await inboundMailboxes(client);
+    for (const path of scan) {
       const lock = await client.getMailboxLock(path);
       try {
         const unknown = (await listPending(client)).filter((m) => !tokensIn(m.headers, config).some((t) => known.has(t))).map((m) => m.uid);
@@ -190,7 +203,7 @@ export async function cleanupInboundMailbox(): Promise<InboundCleanupResult | nu
         const before = new Date(Date.now() - PURGE_DAYS * 86400000);
         const old = (await client.search({ before }, { uid: true })) || [];
         if (old.length > 0) {
-          await client.messageDelete(old, { uid: true });
+          await discard(client, old, trash);
           result.purged += old.length;
         }
       } finally {
