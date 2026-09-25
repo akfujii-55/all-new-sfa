@@ -77,7 +77,7 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
           {members && !done ? (
             <ActivityOwnerInline activityId={a.id} dealId={a.deal_id} ownerId={a.owner_id ?? null} ownerName={a.owner?.name ?? null} members={members} />
           ) : a.owner?.name ? (
-            <span className="inline-flex items-center gap-1"><UserRound className="size-3" /> {a.owner.name}</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-foreground"><UserRound className="size-3 text-muted-foreground" /> {a.owner.name}</span>
           ) : null}
         </p>
       </div>

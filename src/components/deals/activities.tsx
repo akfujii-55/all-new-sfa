@@ -187,7 +187,7 @@ export function DealActivities({
                     </span>
                   )}
                   {due && <Badge className={cn("h-5 px-1.5 text-[10px]", due.className)}>{due.text}</Badge>}
-                  {a.owner?.name && <span className="inline-flex items-center gap-1 text-muted-foreground"><UserRound className="size-3.5" /> {a.owner.name}</span>}
+                  {a.owner?.name && <span className="inline-flex items-center gap-1 font-semibold text-foreground"><UserRound className="size-3.5 text-muted-foreground" /> {a.owner.name}</span>}
                   {done && <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><Check className="size-3.5" /> 完了 {fmtDateTime(a.done_at)}</span>}
                   <span className="ml-auto text-muted-foreground">{a.author?.full_name ?? ""} · {fmtDateTime(a.created_at)}</span>
                 </div>

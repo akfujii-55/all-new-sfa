@@ -87,8 +87,9 @@ export function ActivityOwnerInline({
         size="sm"
         aria-label="担当者"
         className={cn(
-          "h-5 gap-1 rounded border-0 bg-transparent px-1 py-0 text-xs shadow-none hover:bg-muted data-[size=sm]:h-5 [&_svg:last-child]:size-3",
-          ownerId ? "text-muted-foreground" : "text-muted-foreground/70 italic",
+          "h-5 gap-1 rounded border-0 bg-transparent px-1 py-0 text-xs shadow-none hover:bg-muted data-[size=sm]:h-5 [&_svg:last-child]:size-3 [&_svg:last-child]:text-muted-foreground",
+          // 担当者名は他の副情報より目立つよう本文色の太字。未割当は薄い斜体のまま
+          ownerId ? "font-semibold text-foreground" : "text-muted-foreground italic",
         )}
       >
         <UserRound className="size-3" />
