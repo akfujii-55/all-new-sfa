@@ -31,10 +31,12 @@ export async function syncAppointmentTodo(
     /** 変更前のアポイント日時(ISO)。新規作成時は undefined */
     previousAppointmentAt?: string | null;
     userId?: string | null;
+    /** 案件の担当者(members.id)。自動登録する Todo の担当者にする */
+    ownerId?: string | null;
   },
 ): Promise<void> {
   try {
-    const { dealId, appointmentAt, previousAppointmentAt, userId } = input;
+    const { dealId, appointmentAt, previousAppointmentAt, userId, ownerId } = input;
     if (appointmentAt === previousAppointmentAt) return;
     const kindId = await appointmentKindId(db);
     if (!kindId) return;
@@ -74,6 +76,7 @@ export async function syncAppointmentTodo(
       due_at: appointmentAt,
       done_at: null,
       author_id: userId ?? null,
+      owner_id: ownerId ?? null,
     });
   } catch (e) {
     console.warn("[appointment-todo] 自動登録に失敗:", (e as Error).message);

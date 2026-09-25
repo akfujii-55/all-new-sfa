@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarClock, Check, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Pencil, Trash2, UserRound } from "lucide-react";
 import { addActivity, deleteActivity, setActivityDone, updateActivity } from "@/actions/activities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/date-picker/date-picker";
 import { dueState, sortActivities, type DueState } from "@/lib/activities";
 import { fmtDateTime, fmtDue, toLocalInput } from "@/lib/format";
-import type { ActivityKind, DealActivity } from "@/lib/types";
+import type { ActivityKind, DealActivity, Member } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ActivityKindIcon } from "./activity-kind-icon";
+import { ActivityOwnerField } from "./activity-owner-select";
 import { CalendarAddButton } from "./calendar-add-button";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -67,18 +68,28 @@ export function DealActivities({
   deal,
   activities,
   kinds,
+  members = [],
+  defaultOwnerId = null,
 }: {
   dealId: string;
   /** 「Google カレンダーに追加」の予定名・メモに使う案件名と取引先 */
   deal?: { id: string; title: string; company?: { name: string } | null } | null;
   activities: DealActivity[];
   kinds: KindOption[];
+  /** 担当者の選択肢(自社の営業担当者) */
+  members?: Pick<Member, "id" | "name">[];
+  /** 新規登録の担当者の初期値(案件の担当者 → 自分 → なし) */
+  defaultOwnerId?: string | null;
 }) {
   const [pending, start] = useTransition();
   const ref = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState<string>(kinds[0]?.id ?? "");
+  const [owner, setOwner] = useState<string | null>(defaultOwnerId);
   const [editing, setEditing] = useState<DealActivity | null>(null);
   const [editKind, setEditKind] = useState<string>(kinds[0]?.id ?? "");
+  const [editOwner, setEditOwner] = useState<string | null>(null);
+  // 退職などで選択肢に無い担当者が付いている行動を編集するときも、その名前を選択肢に出す
+  const editMembers = editing?.owner_id && !members.some((m) => m.id === editing.owner_id) ? [...members, { id: editing.owner_id, name: editing.owner?.name ?? "(不明)" }] : members;
   // 登録後に期限の選択部品を初期状態に戻すためのキー(form.reset() では React の state は戻らない)
   const [formKey, setFormKey] = useState(0);
   const sorted = sortActivities(activities);
@@ -113,6 +124,7 @@ export function DealActivities({
               fd.set("kind_id", kind);
               await addActivity(dealId, fd);
               ref.current?.reset();
+              setOwner(defaultOwnerId);
               setFormKey((k) => k + 1);
               toast.success("行動を登録しました");
             } catch (e) {
@@ -127,6 +139,12 @@ export function DealActivities({
           <Label htmlFor="activity-due-open">期限(Todo の場合)</Label>
           <DatePicker key={formKey} name="due_at" mode="datetime" idPrefix="activity-due" emptyLabel="期限なし(履歴として記録)" />
         </div>
+        {members.length > 0 && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="activity-owner">担当者(誰がやるか)</Label>
+            <ActivityOwnerField id="activity-owner" members={members} value={owner} onChange={setOwner} />
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
             <Checkbox name="done" id="activity-done" /> 済んだ行動として記録する
@@ -169,6 +187,7 @@ export function DealActivities({
                     </span>
                   )}
                   {due && <Badge className={cn("h-5 px-1.5 text-[10px]", due.className)}>{due.text}</Badge>}
+                  {a.owner?.name && <span className="inline-flex items-center gap-1 text-muted-foreground"><UserRound className="size-3.5" /> {a.owner.name}</span>}
                   {done && <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><Check className="size-3.5" /> 完了 {fmtDateTime(a.done_at)}</span>}
                   <span className="ml-auto text-muted-foreground">{a.author?.full_name ?? ""} · {fmtDateTime(a.created_at)}</span>
                 </div>
@@ -176,7 +195,7 @@ export function DealActivities({
               </div>
               <CalendarAddButton activity={a} deal={deal} />
               <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind_id); }}><Pencil className="size-3.5" /></Button>
+                <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind_id); setEditOwner(a.owner_id ?? null); }}><Pencil className="size-3.5" /></Button>
                 <Button size="sm" variant="ghost" className="text-destructive" aria-label="削除" disabled={pending} onClick={() => run(() => deleteActivity(a.id, dealId), "削除しました")}><Trash2 className="size-3.5" /></Button>
               </div>
             </div>
@@ -209,6 +228,12 @@ export function DealActivities({
                 <Label htmlFor="edit-activity-due-open">期限</Label>
                 <DatePicker name="due_at" mode="datetime" idPrefix="edit-activity-due" defaultValue={toLocalInput(editing.due_at)} emptyLabel="期限なし" />
               </div>
+              {(editMembers.length > 0 || editing.owner_id) && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="edit-activity-owner">担当者</Label>
+                  <ActivityOwnerField id="edit-activity-owner" members={editMembers} value={editOwner} onChange={setEditOwner} />
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>
                 <Button type="submit" disabled={pending}>{pending ? "保存中..." : "保存"}</Button>

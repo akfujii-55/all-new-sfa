@@ -61,7 +61,7 @@ export async function createDeal(formData: FormData) {
   if (error) throw userError(error.message);
 
   // アポイント日時が入っていれば、行動「アポイント」の Todo(期限 = アポの日時)を自動で作る
-  await syncAppointmentTodo(supabase, { dealId: data.id, appointmentAt, userId: auth.user?.id ?? null });
+  await syncAppointmentTodo(supabase, { dealId: data.id, appointmentAt, userId: auth.user?.id ?? null, ownerId });
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "converted", deal_id: data.id }).eq("id", inquiryId);
@@ -108,7 +108,13 @@ export async function updateDeal(id: string, formData: FormData) {
     .eq("id", id);
   if (error) throw userError(error.message);
   // アポイント日時を変えたら「アポイント」Todo の期限も合わせる(無ければ作る)
-  await syncAppointmentTodo(supabase, { dealId: id, appointmentAt, previousAppointmentAt: (before?.appointment_at as string | null) ?? null, userId: auth.user?.id ?? null });
+  await syncAppointmentTodo(supabase, {
+    dealId: id,
+    appointmentAt,
+    previousAppointmentAt: (before?.appointment_at as string | null) ?? null,
+    userId: auth.user?.id ?? null,
+    ownerId: s(formData.get("owner_id")),
+  });
   revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
 }

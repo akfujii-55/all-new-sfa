@@ -356,9 +356,12 @@ export interface DealActivity {
   due_at: string | null;
   done_at: string | null;
   author_id: string | null;
+  /** 行動の担当者(自社の営業担当者 members)。案件の担当者とは別に、行動ごとに「誰がやるか」を持つ */
+  owner_id: string | null;
   created_at: string;
   updated_at: string;
   author?: Pick<Profile, "id" | "full_name"> | null;
+  owner?: Pick<Member, "id" | "name"> | null;
   kind?: Pick<ActivityKind, "id" | "name" | "icon"> | null;
   deal?: (Pick<Deal, "id" | "title" | "stage"> & { company?: Pick<Company, "id" | "name"> | null }) | null;
 }

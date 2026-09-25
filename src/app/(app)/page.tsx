@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   const thisMonth = monthStart();
 
   const weekAhead = daysAhead(7);
-  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage, upcoming] = await Promise.all([
+  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage, upcoming, memberRows] = await Promise.all([
     supabase.from("deals").select("amount, probability").not("stage", "in", '("won","lost")'),
     supabase.from("revenues").select("amount").eq("year_month", thisMonth),
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
@@ -41,13 +41,16 @@ export default async function DashboardPage() {
     // 期限超過と 7 日以内の未完了の行動
     supabase
       .from("deal_activities")
-      .select("*, kind:activity_kinds(id,name,icon), deal:deals(id,title,stage,company:companies(id,name))")
+      .select("*, kind:activity_kinds(id,name,icon), owner:members(id,name), deal:deals(id,title,stage,company:companies(id,name))")
       .is("done_at", null)
       .not("due_at", "is", null)
       .lte("due_at", weekAhead)
       .order("due_at")
       .limit(30),
+    // 行動の担当者の付け替え用(在籍中の営業担当者)
+    supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
+  const members = memberRows.data ?? [];
   const todos = sortActivities((upcoming.data ?? []) as unknown as DealActivity[]);
   const overdueCount = todos.filter((a) => dueState(a) === "overdue").length;
 
@@ -84,7 +87,7 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent className="divide-y">
           {todos.length ? (
-            todos.slice(0, 8).map((a) => <ActivityRow key={a.id} activity={a} />)
+            todos.slice(0, 8).map((a) => <ActivityRow key={a.id} activity={a} members={members} />)
           ) : (
             <p className="text-sm text-muted-foreground">期限超過や 7 日以内の行動はありません。案件の「行動」タブから期限付きの Todo を登録できます。</p>
           )}

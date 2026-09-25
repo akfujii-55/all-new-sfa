@@ -3,15 +3,16 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Building2, CalendarClock, KanbanSquare } from "lucide-react";
+import { Building2, CalendarClock, KanbanSquare, UserRound } from "lucide-react";
 import { setActivityDone } from "@/actions/activities";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ActivityKindIcon } from "@/components/deals/activity-kind-icon";
 import { CalendarAddButton } from "@/components/deals/calendar-add-button";
+import { ActivityOwnerInline } from "@/components/deals/activity-owner-select";
 import { dueState, type DueState } from "@/lib/activities";
 import { fmtDue } from "@/lib/format";
-import type { DealActivity } from "@/lib/types";
+import type { DealActivity, Member } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -25,10 +26,10 @@ const DUE_CHIP: Record<DueState, { text: string; className: string } | null> = {
 };
 
 /**
- * ダッシュボードと行動一覧で使う 1 行。主役は「何をするか」(種類と内容)、副情報が案件と取引先。
- * 左のチェックでその場で完了にできる。
+ * ダッシュボードと行動一覧で使う 1 行。主役は「何をするか」(種類と内容)、副情報が案件と取引先と担当者。
+ * 左のチェックでその場で完了にできる。members を渡すと担当者をその場で付け替えられる。
  */
-export function ActivityRow({ activity: a, showDeal = true }: { activity: DealActivity; showDeal?: boolean }) {
+export function ActivityRow({ activity: a, showDeal = true, members }: { activity: DealActivity; showDeal?: boolean; members?: Pick<Member, "id" | "name">[] }) {
   const [pending, start] = useTransition();
   const state = dueState(a);
   const chip = DUE_CHIP[state];
@@ -73,6 +74,11 @@ export function ActivityRow({ activity: a, showDeal = true }: { activity: DealAc
               <CalendarClock className="size-3" /> 期限 {fmtDue(a.due_at)}
             </span>
           )}
+          {members && !done ? (
+            <ActivityOwnerInline activityId={a.id} dealId={a.deal_id} ownerId={a.owner_id ?? null} ownerName={a.owner?.name ?? null} members={members} />
+          ) : a.owner?.name ? (
+            <span className="inline-flex items-center gap-1"><UserRound className="size-3" /> {a.owner.name}</span>
+          ) : null}
         </p>
       </div>
       {chip && <Badge className={cn("shrink-0 h-5 px-1.5 text-[10px]", chip.className)}>{chip.text}</Badge>}

@@ -26,6 +26,15 @@ async function kindIdOf(supabase: SupabaseClient, v: FormDataEntryValue | null):
   return data.id as string;
 }
 
+/** 担当者 ID。空なら null、入っていれば自テナントの members にあるものだけ受け付ける */
+async function ownerIdOf(supabase: SupabaseClient, v: FormDataEntryValue | null): Promise<string | null> {
+  const id = s(v);
+  if (!id) return null;
+  const { data } = await supabase.from("members").select("id").eq("id", id).maybeSingle();
+  if (!data) throw userError("担当者が見つかりません。営業担当者の画面で確認してください");
+  return data.id as string;
+}
+
 async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -52,6 +61,7 @@ export async function addActivity(dealId: string, formData: FormData): Promise<v
     due_at: parseLocalInput(s(formData.get("due_at"))),
     done_at: formData.get("done") === "on" ? new Date().toISOString() : null,
     author_id: userId,
+    owner_id: await ownerIdOf(supabase, formData.get("owner_id")),
   });
   if (error) throw userError(error.message);
   revalidate(dealId);
@@ -63,8 +73,22 @@ export async function updateActivity(id: string, dealId: string, formData: FormD
   if (!body) throw userError("内容を入力してください");
   const { error } = await supabase
     .from("deal_activities")
-    .update({ kind_id: await kindIdOf(supabase, formData.get("kind_id")), body, due_at: parseLocalInput(s(formData.get("due_at"))) })
+    .update({
+      kind_id: await kindIdOf(supabase, formData.get("kind_id")),
+      body,
+      due_at: parseLocalInput(s(formData.get("due_at"))),
+      owner_id: await ownerIdOf(supabase, formData.get("owner_id")),
+    })
     .eq("id", id);
+  if (error) throw userError(error.message);
+  revalidate(dealId);
+}
+
+/** 担当者だけの変更(ダッシュボード・行動一覧の行から) */
+export async function setActivityOwner(id: string, dealId: string, ownerId: string | null): Promise<void> {
+  const { supabase } = await requireUser();
+  const owner = ownerId ? await ownerIdOf(supabase, ownerId) : null;
+  const { error } = await supabase.from("deal_activities").update({ owner_id: owner }).eq("id", id);
   if (error) throw userError(error.message);
   revalidate(dealId);
 }

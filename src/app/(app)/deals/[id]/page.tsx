@@ -25,11 +25,14 @@ import { cn } from "@/lib/utils";
 export default async function DealDetailPage({ params }: PageProps<"/deals/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("deals")
-    .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name)")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data }, { data: auth }] = await Promise.all([
+    supabase
+      .from("deals")
+      .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name)")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
   if (!data) notFound();
   const deal = data as unknown as Deal;
 
@@ -38,15 +41,18 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
     supabase.from("deal_notes").select("*, author:profiles(id,full_name)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("revenues").select("*").eq("deal_id", id).order("year_month"),
     supabase.from("contacts").select("id, name").eq("company_id", deal.company_id).order("name"),
-    supabase.from("members").select("id, name, is_active").order("sort_order").order("created_at"),
+    supabase.from("members").select("id, name, is_active, profile_id").order("sort_order").order("created_at"),
     getMailAccountOptions(supabase),
-    supabase.from("deal_activities").select("*, author:profiles(id,full_name), kind:activity_kinds(id,name,icon)").eq("deal_id", id).order("created_at", { ascending: false }),
+    supabase.from("deal_activities").select("*, author:profiles(id,full_name), owner:members(id,name), kind:activity_kinds(id,name,icon)").eq("deal_id", id).order("created_at", { ascending: false }),
     supabase.from("activity_kinds").select("id, name, icon").order("sort_order").order("created_at"),
   ]);
   const activities = (activityRows ?? []) as unknown as DealActivity[];
   const openActivities = activities.filter((a) => !a.done_at).length;
   const overdueActivities = activities.filter((a) => dueState(a) === "overdue").length;
   const memberOptions = (members ?? []).filter((m) => m.is_active || m.id === deal.owner_id);
+  // 行動(Todo)の担当者の初期値: 案件の担当者 → ログインしている自分 → なし
+  const me = (members ?? []).find((m) => m.profile_id === auth.user?.id);
+  const defaultActivityOwner = deal.owner_id ?? me?.id ?? null;
 
   const revTotal = (revenues ?? []).reduce((a, r) => a + Number(r.amount), 0);
 
@@ -107,7 +113,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
         </TabsList>
 
         <TabsContent value="activities" className="mt-4">
-          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} deal={{ id: deal.id, title: deal.title, company: deal.company }} activities={activities} kinds={kindRows ?? []} /></CardContent></Card>
+          <Card><CardContent className="pt-0"><DealActivities dealId={deal.id} deal={{ id: deal.id, title: deal.title, company: deal.company }} activities={activities} kinds={kindRows ?? []} members={memberOptions.map((m) => ({ id: m.id, name: m.name }))} defaultOwnerId={defaultActivityOwner} /></CardContent></Card>
         </TabsContent>
 
         <TabsContent value="emails" className="mt-4 space-y-3">
