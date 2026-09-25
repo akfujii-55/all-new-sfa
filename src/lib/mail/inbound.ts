@@ -7,6 +7,7 @@ import { connectOrThrow, htmlToText, imapClient, ingestParsedMail, type SyncResu
 import { unwrapManualForward } from "./forward-unwrap";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { TagRule } from "@/lib/tag-rules";
+import type { IngestedMail } from "./notify";
 
 type Db = SupabaseClient;
 
@@ -117,7 +118,7 @@ export async function syncForwardAccounts(
   db: Db,
   accounts: MailAccountConfig[],
   selves: string[],
-  opts: { form?: FormProfile | null; rules?: TagRule[] | null } = {},
+  opts: { form?: FormProfile | null; rules?: TagRule[] | null; collect?: IngestedMail[] } = {},
 ): Promise<SyncResult[]> {
   const results = new Map(accounts.map((a) => [a.id, { account: a.email, mailbox: "転送", fetched: 0, inserted: 0 } as SyncResult]));
   const out = () => [...results.values()];
@@ -152,7 +153,11 @@ export async function syncForwardAccounts(
             // 自社発のメール: 手動転送(Fwd:)なら本文の差出人を相手にして受信、それ以外は BCC の控えとして送信
             const bodyText = parsed.text ?? (parsed.html ? htmlToText(parsed.html) : "");
             const direction = fromSelf && !unwrapManualForward(parsed, lowerSelves, bodyText) ? "outbound" : "inbound";
-            if (await ingestParsedMail(db, parsed, direction, selvesHere, undefined, account.id, opts.form, opts.rules)) res.inserted++;
+            const inserted = await ingestParsedMail(db, parsed, direction, selvesHere, undefined, account.id, opts.form, opts.rules);
+            if (inserted) {
+              res.inserted++;
+              opts.collect?.push(inserted);
+            }
             // 取り込み済み(重複を含む)は受信用メールボックスから捨てる
             await discard(client, String(uid), trash);
           } catch (e) {

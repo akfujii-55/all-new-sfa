@@ -18,6 +18,8 @@ import { TagSettings } from "@/components/settings/tag-settings";
 import { TagRuleSettings } from "@/components/settings/tag-rule-settings";
 import { ActivityKindSettings } from "@/components/settings/activity-kind-settings";
 import { EmailTemplateSettings } from "@/components/settings/email-template-settings";
+import { MailNotificationSettings } from "@/components/settings/mail-notification-settings";
+import type { MailNotification } from "@/lib/mail-notifications-shared";
 import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
 import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
@@ -59,6 +61,12 @@ export default async function SettingsPage() {
     .order("member_id", { ascending: true, nullsFirst: true })
     .order("sort_order")
     .order("created_at");
+  // 新着メールのチャット通知先(0033)。secret_enc はクライアントに渡さず、有無だけにする
+  const { data: notifyRows } = await supabase
+    .from("mail_notifications")
+    .select("id, kind, name, url, room_id, mail_account_id, mode, is_active, last_sent_at, last_error, secret_enc, created_at")
+    .order("created_at");
+  const notifications: MailNotification[] = (notifyRows ?? []).map(({ secret_enc, ...r }) => ({ ...(r as Omit<MailNotification, "has_secret">), has_secret: Boolean(secret_enc) }));
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
   const accounts = (accountRows ?? []) as AccountRow[];
@@ -256,6 +264,16 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <EmailTemplateSettings templates={(templateRows ?? []) as EmailTemplate[]} canPersonal={Boolean(member)} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">新着メールの通知</CardTitle>
+            <CardDescription>同期で新しい受信メールを取り込んだとき、Lark、Slack、Chatwork などのチャットに知らせます。通知先ごとに対象のメールアカウントと送り方を選べます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MailNotificationSettings items={notifications} accounts={accounts.map((a) => ({ id: a.id, email: a.email }))} />
           </CardContent>
         </Card>
 

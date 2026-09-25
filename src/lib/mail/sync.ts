@@ -10,6 +10,7 @@ import { cleanupOutbox, saveAttachments } from "./attachments";
 import { syncForwardAccounts } from "./inbound";
 import { errorDetail, logSystem } from "@/lib/log";
 import { loadTagRules, matchTagRules, tagThreads, type TagRule } from "@/lib/tag-rules";
+import { notifyNewMail, type IngestedMail } from "./notify";
 
 import { userError } from "@/lib/errors";
 type Db = SupabaseClient;
@@ -75,11 +76,13 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   if (accounts.length === 0) throw userError("メールアカウントが設定されていません。設定画面から追加してください。");
   const form = await loadFormProfile(db);
   const rules = await loadTagRules(db);
+  // 今回の同期で新しく取り込んだメール(最後に新着メールのチャット通知へ渡す)
+  const collect: IngestedMail[] = [];
 
   const results: SyncResult[] = [];
   for (const account of accounts.filter((a) => a.receiveMode !== "forward")) {
     try {
-      results.push(...(await syncAccount(db, account, selves, { ...opts, form, rules })));
+      results.push(...(await syncAccount(db, account, selves, { ...opts, form, rules, collect })));
       await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
     } catch (e) {
       const message = (e as Error).message;
@@ -96,7 +99,7 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   if (forwards.length > 0) {
     let forwarded: SyncResult[];
     try {
-      forwarded = await syncForwardAccounts(db, forwards, selves, { form, rules });
+      forwarded = await syncForwardAccounts(db, forwards, selves, { form, rules, collect });
     } catch (e) {
       forwarded = forwards.map((a) => ({ account: a.email, mailbox: "-", fetched: 0, inserted: 0, error: (e as Error).message }));
       await logSystem({ source: "mail.sync", message: `転送メールの取り込みに失敗: ${(e as Error).message}`, detail: errorDetail(e) }, db);
@@ -113,6 +116,8 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
       await logSystem({ source: "mail.sync", message: `メール同期でエラー(${r.account} ${r.mailbox}): ${r.error}`, detail: { ...r } }, db);
     }
   }
+  // 新着メールのチャット通知(Lark / Slack / Chatwork)。失敗しても同期結果には影響させない
+  if (collect.length > 0) await notifyNewMail(db, collect).catch((e) => console.error("[mail/sync] notify", (e as Error).message));
   // 送信に至らずに残った添付ファイル(outbox)の掃除。失敗しても同期結果には影響させない
   await cleanupOutbox(db).catch((e) => console.error("[mail/sync] outbox cleanup", (e as Error).message));
   return results;
@@ -159,7 +164,7 @@ async function syncAccount(
   db: Db,
   account: MailAccountConfig,
   selves: string[],
-  opts: { initialDays?: number; form?: FormProfile | null; rules?: TagRule[] },
+  opts: { initialDays?: number; form?: FormProfile | null; rules?: TagRule[]; collect?: IngestedMail[] },
 ): Promise<SyncResult[]> {
   const client = imapClient(account);
   const results: SyncResult[] = [];
@@ -204,7 +209,10 @@ async function syncAccount(
           res.fetched++;
           const parsed = await simpleParser(msg.source);
           const inserted = await ingestParsedMail(db, parsed, mb.direction, selves, uid, account.id, opts.form, opts.rules);
-          if (inserted) res.inserted++;
+          if (inserted) {
+            res.inserted++;
+            opts.collect?.push(inserted);
+          }
           maxUid = Math.max(maxUid, uid);
         }
 
@@ -323,7 +331,7 @@ export async function backfillAttachments(db: Db, opts: { days?: number; account
   return results;
 }
 
-/** 1通のメールを DB に登録し、顧客・担当者・問い合わせ・案件へ紐付ける。既存なら false */
+/** 1通のメールを DB に登録し、顧客・担当者・問い合わせ・案件へ紐付ける。登録したメールの情報を返し、既存なら null */
 export async function ingestParsedMail(
   db: Db,
   parsed: ParsedMail,
@@ -335,11 +343,11 @@ export async function ingestParsedMail(
   form?: FormProfile | null,
   /** 自動タグ付けルール(件名・差出人が一致したらスレッドにタグを付ける) */
   rules?: TagRule[] | null,
-): Promise<boolean> {
+): Promise<IngestedMail | null> {
   const messageId = parsed.messageId?.trim();
   if (messageId) {
     const { data: dup } = await db.from("emails").select("id").eq("message_id", messageId).maybeSingle();
-    if (dup) return false;
+    if (dup) return null;
   }
 
   const from = addrList(parsed.from)[0] ?? { address: "unknown", name: "" };
@@ -426,7 +434,7 @@ export async function ingestParsedMail(
     .select("id")
     .single();
   if (error) {
-    if (error.code === "23505") return false; // 重複
+    if (error.code === "23505") return null; // 重複
     throw error;
   }
 
@@ -464,7 +472,17 @@ export async function ingestParsedMail(
   // 問い合わせは自動登録しない。メール画面でユーザーが選択したものだけを
   // createInquiriesFromEmails(src/actions/inquiries.ts)で登録する。
   // 既存スレッドに問い合わせが付いていれば sibling から inquiry_id を引き継ぐ。
-  return true;
+  return {
+    id: row.id as string,
+    direction,
+    threadKey: effectiveThreadKey,
+    fromName: from.name || null,
+    fromAddress: from.address,
+    subject: parsed.subject ?? null,
+    companyId,
+    accountId: accountId ?? null,
+    receivedAt,
+  };
 }
 
 function escapeOr(v: string) {

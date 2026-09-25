@@ -223,7 +223,7 @@ async function currentTenantLabel(db: SupabaseClient): Promise<{ name: string; s
  * Webhook にテキストを POST する。Lark / 飛書のカスタム Bot なら {msg_type:"text"} の形式と署名(timestamp + "\n" + secret を鍵にした HMAC-SHA256 の Base64)、
  * それ以外は Slack 互換の {text}。成功なら null、失敗なら理由を返す
  */
-async function postWebhook(url: string, larkSecret: string | null, text: string): Promise<string | null> {
+export async function postWebhook(url: string, larkSecret: string | null, text: string): Promise<string | null> {
   try {
     let payload: Record<string, unknown> = { text };
     if (isLarkWebhook(url)) {
