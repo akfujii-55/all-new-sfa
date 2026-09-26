@@ -17,6 +17,7 @@ const STATUS_VARIANT: Record<TenantStatus, "default" | "secondary" | "outline" |
   active: "default",
   suspended: "destructive",
   cancelled: "outline",
+  complimentary: "secondary",
 };
 const BILLING_VARIANT: Record<BillingStatus, "default" | "secondary" | "outline" | "destructive"> = {
   none: "outline",

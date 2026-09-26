@@ -147,7 +147,7 @@ export async function runStepMails(now = new Date()): Promise<StepMailRunResult>
     .from("tenants")
     .select("*")
     .eq("step_mails_enabled", true)
-    .in("status", ["trial", "active"])
+    .in("status", ["trial", "active"]) // 無償利用・停止・解約は対象外
     .order("created_at");
   if (tenantErr) throw userError(`テナント一覧の取得に失敗しました: ${tenantErr.message}`);
   const tenants = (tenantRows ?? []) as Tenant[];

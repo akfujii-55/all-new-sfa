@@ -6,7 +6,7 @@ import type { Tenant, TenantUsage } from "@/lib/types";
 import { userError } from "@/lib/errors";
 /**
  * テナントの利用可否と上限。
- * - 利用可否: status が suspended / cancelled、または trial の期限切れなら書き込み系の操作を止める(閲覧は可)。
+ * - 利用可否: status が suspended / cancelled、または trial の期限切れなら書き込み系の操作を止める(閲覧は可)。complimentary(無償利用)と active は常に可。
  * - 上限: ユーザー数(招待時)、メールアカウント数(追加時)、容量(添付ファイル保存時)を tenants の値と比べる。
  * どちらもログインユーザーのクライアントで動く(tenants は自テナントの行だけ、利用量は my_tenant_usage())。
  */

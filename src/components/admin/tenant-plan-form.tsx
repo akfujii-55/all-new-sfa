@@ -61,7 +61,10 @@ export function TenantPlanForm({ tenant }: { tenant: Tenant }) {
           <Input id="trial_ends_at" name="trial_ends_at" type="date" defaultValue={toDateInput(tenant.trial_ends_at)} />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">Stripe 連携後は課金状態と次回請求日を Webhook で自動更新します。それまでは手動で管理してください。</p>
+      <p className="text-xs text-muted-foreground">
+        「無償利用」にすると、決済なしで期限なく使えます(自社や特別契約の会社向け。お試し期限・Stripe の状態・ステップメールの影響を受けません)。
+        Stripe 連携後は課金状態と次回請求日を Webhook で自動更新します(停止中・無償利用は上書きしません)。
+      </p>
       <div className="flex justify-end"><Button type="submit" size="sm" disabled={pending}>{pending ? "保存中..." : "保存"}</Button></div>
     </form>
   );

@@ -495,7 +495,7 @@ export async function updateTenantContact(id: string, formData: FormData) {
   revalidatePath("/admin", "layout");
 }
 
-const TENANT_STATUSES: TenantStatus[] = ["trial", "active", "suspended", "cancelled"];
+const TENANT_STATUSES: TenantStatus[] = ["trial", "active", "suspended", "cancelled", "complimentary"];
 const BILLING_STATUSES: BillingStatus[] = ["none", "trialing", "active", "past_due", "cancelled"];
 
 export async function updateTenantPlan(id: string, formData: FormData) {

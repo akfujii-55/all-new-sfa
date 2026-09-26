@@ -64,13 +64,18 @@ export interface Tenant {
   updated_at: string;
 }
 
-export type TenantStatus = "trial" | "active" | "suspended" | "cancelled";
+/**
+ * 契約状態。complimentary(無償利用)は決済なしで本番を使い続けられる状態(自社・特別契約)。
+ * 運営管理画面からだけ設定でき、お試し期限・Stripe の Webhook・ステップメールの対象外
+ */
+export type TenantStatus = "trial" | "active" | "suspended" | "cancelled" | "complimentary";
 
 export const TENANT_STATUS_LABEL: Record<TenantStatus, string> = {
   trial: "お試し期間",
   active: "契約中",
   suspended: "停止中",
   cancelled: "解約",
+  complimentary: "無償利用",
 };
 
 export type BillingStatus = "none" | "trialing" | "active" | "past_due" | "cancelled";

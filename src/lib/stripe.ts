@@ -287,10 +287,15 @@ export async function applySubscriptionToTenant(sub: Stripe.Subscription): Promi
     // Stripe 側でお試し中なら、その終了日をお試し期限にそろえる
     if (sub.status === "trialing" && sub.trial_end) values.trial_ends_at = new Date(sub.trial_end * 1000).toISOString();
   }
-  // 停止中のテナントは運営が手で解除するまで Stripe の状態で上書きしない(運営による停止を優先)
+  // 停止中のテナントは運営が手で解除するまで Stripe の状態で上書きしない(運営による停止を優先)。
+  // 無償利用(complimentary)も運営が決めた状態なので Stripe の状態では変えない
   const { data: current } = await admin.from("tenants").select("status, stripe_subscription_id").eq("id", tenantId).single();
   if (current?.status === "suspended" && mapped && mapped.status !== "suspended" && current.stripe_subscription_id === sub.id) {
     delete values.status;
+  }
+  if (current?.status === "complimentary") {
+    delete values.status;
+    delete values.billing_status;
   }
   const { error } = await admin.from("tenants").update(values).eq("id", tenantId);
   if (error) throw userError(`tenants の更新に失敗しました: ${error.message}`);
@@ -307,8 +312,10 @@ export async function syncTenantBilling(tenantId: string): Promise<void> {
   if (!stripeConfigured()) return;
   const admin = createAdminClient();
   try {
-    const { data: tenant } = await admin.from("tenants").select("id, slug, stripe_subscription_id").eq("id", tenantId).maybeSingle();
+    const { data: tenant } = await admin.from("tenants").select("id, slug, status, stripe_subscription_id").eq("id", tenantId).maybeSingle();
     if (!tenant?.stripe_subscription_id) return;
+    // 無償利用のテナントは Stripe の数量を追わない(契約が残っていれば運営が Stripe 側で解約する)
+    if (tenant.status === "complimentary") return;
     const { data: usageRow, error: usageErr } = await admin.rpc("tenant_usage_of", { p_tenant: tenantId }).single();
     if (usageErr) throw userError(usageErr.message);
     const u = usageRow as Record<string, number | string>;

@@ -429,6 +429,7 @@
             <tr><td>past_due</td><td>契約中</td><td>支払い遅延</td><td>利用可(警告表示、Stripe が再試行)</td></tr>
             <tr><td>unpaid / paused</td><td>停止中</td><td>支払い遅延</td><td>閲覧のみ</td></tr>
             <tr><td>canceled</td><td>解約</td><td>解約済み</td><td>閲覧のみ、「再開する」ボタン</td></tr>
+            <tr><td>(運営が設定)</td><td>無償利用</td><td>変更しない</td><td>期限なく利用可。Webhook で上書きされず、Checkout も不要(0034)</td></tr>
           </tbody>
         </table></div>
         <div class="note warn">運営が手で「停止中」にしたテナントは、Stripe の状態で上書きされません(運営の停止が優先)。</div>

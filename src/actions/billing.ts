@@ -35,6 +35,7 @@ export async function startCheckout(): Promise<never> {
   if (!stripeConfigured()) throw userError("オンライン決済は準備中です。運営にお問い合わせください");
   const { supabase, tenant, user } = await requireTenant();
   if (tenant.status === "suspended") throw userError("このアカウントは利用停止中のため契約手続きができません。運営にお問い合わせください");
+  if (tenant.status === "complimentary") throw userError("無償でご利用いただいているため、お支払いの手続きは不要です");
   if (tenant.stripe_subscription_id && tenant.billing_status !== "cancelled") throw userError("既に契約済みです。お支払い方法の変更は「お支払い方法・請求書を管理」から行ってください");
   const usage = await getMyUsage(supabase);
   let url: string;

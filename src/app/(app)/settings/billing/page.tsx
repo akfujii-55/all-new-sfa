@@ -62,6 +62,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/settings
               {tenant.status === "active" && !subscribed && "ご契約中です(請求は運営から個別にご案内しています)。"}
               {tenant.status === "cancelled" && "解約済みです。データの閲覧のみ可能です。再開するにはお支払い方法を登録してください。"}
               {tenant.status === "suspended" && "利用停止中です。運営にお問い合わせください。"}
+              {tenant.status === "complimentary" && "無償でご利用いただいています。お支払いの手続きは不要です。"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -76,7 +77,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/settings
                 {tenant.current_period_end ? fmtDate(tenant.current_period_end) : "期間末"} で解約する予定になっています。解約を取り消す場合は「お支払い方法・請求書を管理」から行えます。
               </p>
             )}
-            {!configured ? (
+            {tenant.status === "complimentary" ? null : !configured ? (
               <p className="rounded-md border border-dashed p-3 text-muted-foreground">オンラインでのお支払い登録は準備中です。ご契約については運営までお問い合わせください。</p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -95,6 +96,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/settings
           <CardHeader>
             <CardTitle className="text-base">月額料金</CardTitle>
             <CardDescription>
+              {tenant.status === "complimentary" && "無償利用のため請求はありません。参考として、通常の料金体系で計算した金額を表示しています。"}
               現在の利用数から計算した金額です。基本料金にはメールアカウント 1 件・ユーザー 1 名・容量 1GB が含まれ、超えた分がオプション料金になります。
               利用数が変わると次回のご請求から反映されます(月の途中の変更は日割りです)。
             </CardDescription>
