@@ -879,9 +879,9 @@
               <div><div class="l">期待結果</div><ul><li>「どの会社(テナント)にも所属していません」の案内とログアウトだけが表示され、データは見えない</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
 
-          <div class="case" data-id="IS-04"><div><div class="cid">IS-04</div><span class="pri">通常</span></div><div class="title">日次 cron の対象</div>
+          <div class="case" data-id="IS-04"><div><div class="cid">IS-04</div><span class="pri">通常</span></div><div class="title">定期 cron の対象</div>
             <div class="body"><div class="pre"><span class="l">前提</span>CRON_SECRET を知っている運営者が実施。</div>
-              <div><div class="l">手順</div><ol><li><code>Authorization: Bearer 〔CRON_SECRET〕</code> を付けて /api/mail/sync と /api/health を呼ぶ</li></ol></div>
+              <div><div class="l">手順</div><ol><li><code>Authorization: Bearer 〔CRON_SECRET〕</code> を付けて /api/mail/sync、/api/mail/maintenance、/api/health を呼ぶ</li></ol></div>
               <div><div class="l">期待結果</div><ul><li>お試し期限内・契約中のテナントだけが同期され、停止中・解約・期限切れは対象外(応答の tenants 一覧で確認)</li><li>シークレットなしは 401</li></ul></div></div>
             <div class="res"></div><div class="memo"><input placeholder="メモ"></div></div>
         </div>

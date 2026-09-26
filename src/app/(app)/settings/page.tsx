@@ -293,7 +293,7 @@ export default async function SettingsPage() {
                     直近 24 時間のエラー: {errorCount ?? 0} 件
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {lastCron ? `最後の定期処理: ${fmtDateTime(lastCron.created_at)} ${lastCron.message}` : "定期処理はまだ記録されていません"}
+                    {lastCron ? `最後の定期処理(取り込みやエラーがあった回): ${fmtDateTime(lastCron.created_at)} ${lastCron.message}` : "定期処理はまだ記録されていません"}
                   </p>
                 </div>
                 <Button asChild size="sm" variant="outline"><Link href="/settings/logs"><ScrollText className="size-4" /> システムログを見る</Link></Button>
@@ -331,7 +331,7 @@ export default async function SettingsPage() {
               </li>
               <li>Gmail の設定 → 「メール転送と POP/IMAP」で IMAP が有効になっていることを確認します。</li>
               <li>右上の「メールアカウントを追加」で「Gmail / Google Workspace」を選び、メールアドレスと発行したアプリパスワードを入力して保存し、「接続テスト」で確認します。パスワードは暗号化して保存されます。</li>
-              <li>「今すぐ同期」を押すと、そのアカウントの直近 30 日分のメールを取り込みます。以後は毎日自動で同期されます。</li>
+              <li>「今すぐ同期」を押すと、そのアカウントの直近 30 日分のメールを取り込みます。以後は 5 分おきに自動で同期されます。</li>
             </ol>
             <p className="text-muted-foreground">
               Google Workspace のアカウントでは、管理者が IMAP とアプリパスワードの利用を許可している必要があります。
@@ -353,7 +353,7 @@ export default async function SettingsPage() {
                 <ol className="list-decimal pl-5 space-y-2">
                   <li>右上の「メールアカウントを追加」で「メール転送で受信 + SMTP で送信」を選び、メールアドレスと、送信に使う SMTP サーバー名・ポート・パスワードを入力して保存します。</li>
                   <li>保存すると、このアカウント専用の「受け口アドレス」が表示されます。ご利用のメールサーバーで、このアドレスへの自動転送を設定します(メールはサーバーに残す設定にしてください)。サービス別の手順は画面に表示されます。</li>
-                  <li>自分宛てにテストメールを送り、「届いたか確認する」を押して取り込まれることを確認します。以後は「今すぐ同期」と毎日の自動同期で取り込まれます。</li>
+                  <li>自分宛てにテストメールを送り、「届いたか確認する」を押して取り込まれることを確認します。以後は「今すぐ同期」と 5 分おきの自動同期で取り込まれます。</li>
                   <li>普段のメールソフトから送るメールも記録したいときは、送信時に受け口アドレスを BCC に入れます。このアプリから送ったメールは自動で記録されます。</li>
                 </ol>
                 <p className="text-muted-foreground">

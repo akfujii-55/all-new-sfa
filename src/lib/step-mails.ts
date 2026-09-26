@@ -132,7 +132,7 @@ export interface StepMailRunResult {
   details: { tenant: string; step: string; status: "sent" | "failed"; to: string | null; error?: string }[];
 }
 
-/** 今日の分を送る(cron から毎朝呼ぶ)。同じ日に何度呼んでも二重には送らない */
+/** 今日の分を送る(毎朝の定期処理 /api/mail/maintenance から呼ぶ)。同じ日に何度呼んでも二重には送らない */
 export async function runStepMails(now = new Date()): Promise<StepMailRunResult> {
   const admin = createAdminClient();
   const result: StepMailRunResult = { sent: 0, failed: 0, skipped: 0, details: [] };

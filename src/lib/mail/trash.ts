@@ -18,7 +18,7 @@ export async function purgeEmails(db: SupabaseClient, ids: string[]): Promise<nu
   return Number(data ?? 0);
 }
 
-/** 保持期間を過ぎたゴミ箱のメールを完全に削除する(cron 用)。消した件数を返す */
+/** 保持期間を過ぎたゴミ箱のメールを完全に削除する(毎朝の定期処理 /api/mail/maintenance 用)。消した件数を返す */
 export async function purgeExpiredEmailTrash(db: SupabaseClient, now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - TRASH_RETENTION_DAYS * 86_400_000).toISOString();
   const { data, error } = await db.from("email_trash").select("id").lt("deleted_at", cutoff);

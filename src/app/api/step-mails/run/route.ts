@@ -7,8 +7,7 @@ export const maxDuration = 300;
 
 /**
  * ステップメールの送信を手動で走らせる(CRON_SECRET の Bearer が必要)。
- * 通常は毎朝の同期 cron(/api/mail/sync)の最後で送るので、Vercel の cron には登録していない。
- * 送信時刻を変えたいときは vercel.json にこのパスを足す(Pro プラン)。
+ * 通常は毎朝の定期処理 cron(/api/mail/maintenance)の中で送るので、Vercel の cron には登録していない。
  */
 export async function GET(request: NextRequest) {
   return handle(request);
