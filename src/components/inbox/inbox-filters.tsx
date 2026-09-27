@@ -7,27 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { MailAccountOption, Tag } from "@/lib/types";
-
-export interface InboxFilterState {
-  filter: string;
-  q: string;
-  target: string;
-  tagId: string | null;
-  accountId: string | null;
-}
-
-/** 絞り込みの状態から一覧の URL を組み立てる(「さらに表示」の n は条件を変えたら最初に戻す) */
-export function inboxHref(s: InboxFilterState) {
-  const p = new URLSearchParams();
-  p.set("filter", s.filter);
-  if (s.q) {
-    p.set("q", s.q);
-    p.set("in", s.target);
-  }
-  if (s.tagId) p.set("tag", s.tagId);
-  if (s.accountId) p.set("account", s.accountId);
-  return `/inbox?${p.toString()}`;
-}
+import { inboxHref, type InboxFilterState } from "@/lib/inbox-filters";
 
 const selectClass =
   "h-8 min-w-0 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";

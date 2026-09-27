@@ -8,7 +8,8 @@ import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { InboxList, type InboxThread } from "@/components/inbox/inbox-list";
 import { getMailAccountOptions } from "@/lib/mail/options";
-import { InboxFilters, inboxHref } from "@/components/inbox/inbox-filters";
+import { InboxFilters } from "@/components/inbox/inbox-filters";
+import { inboxHref } from "@/lib/inbox-filters";
 import { tagsFromRows } from "@/lib/tags";
 import type { Email, Tag } from "@/lib/types";
 
