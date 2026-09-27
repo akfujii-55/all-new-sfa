@@ -154,7 +154,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
             </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">メールを選択して問い合わせに登録、タグ付け、削除ができます</span>
+          <span className="hidden text-sm text-muted-foreground sm:inline">メールを選択して問い合わせに登録、タグ付け、削除ができます</span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
           <span className="mr-1 hidden sm:inline">表示</span>

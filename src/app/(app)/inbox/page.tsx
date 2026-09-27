@@ -1,16 +1,14 @@
 import Link from "next/link";
-import { ChevronDown, Inbox, PenSquare, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, Inbox, PenSquare, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { InboxList, type InboxThread } from "@/components/inbox/inbox-list";
 import { getMailAccountOptions } from "@/lib/mail/options";
-import { TagFilter } from "@/components/tags/tag-filter";
-import { AccountFilter } from "@/components/inbox/account-filter";
+import { InboxFilters, inboxHref } from "@/components/inbox/inbox-filters";
 import { tagsFromRows } from "@/lib/tags";
 import type { Email, Tag } from "@/lib/types";
 
@@ -36,6 +34,7 @@ const SEARCH_TARGETS = [
   { key: "subject", label: "件名", columns: ["subject"] },
   { key: "body", label: "本文", columns: ["text_body"] },
 ] as const;
+const SEARCH_TARGET_OPTIONS = SEARCH_TARGETS.map((t) => ({ key: t.key, label: t.label }));
 type SearchTarget = (typeof SEARCH_TARGETS)[number]["key"];
 
 /**
@@ -144,63 +143,26 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
     });
   }
 
-  const accountQuery = accountId ? `&account=${accountId}` : "";
-  const searchQuery = (q ? `&q=${encodeURIComponent(q)}&in=${target}` : "") + (tagId ? `&tag=${tagId}` : "") + accountQuery;
-  const hrefForTag = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${id ? `&tag=${id}` : ""}${accountQuery}`;
-  const hrefForAccount = (id: string | null) => `/inbox?filter=${filter}${q ? `&q=${encodeURIComponent(q)}&in=${target}` : ""}${tagId ? `&tag=${tagId}` : ""}${id ? `&account=${id}` : ""}`;
-  const moreHref = `/inbox?filter=${filter}${searchQuery}&n=${pages + 1}`;
+  const filterState = { filter, q, target, tagId, accountId };
+  const moreHref = `${inboxHref(filterState)}&n=${pages + 1}`;
 
   return (
     <div>
       <PageHeader
         title="メール"
         description="連携したメールアカウントの受信・送信履歴。対応が必要なメールを選んで問い合わせに登録します。"
+        hideDescriptionOnMobile
         actions={
           <>
-            <MailSyncButton />
+            <Button asChild size="sm" variant="ghost" className="text-muted-foreground" aria-label="ゴミ箱">
+              <Link href="/inbox/trash"><Trash2 className="size-4" /> <span className="hidden sm:inline">ゴミ箱</span>{trashCount > 0 ? `(${trashCount})` : ""}</Link>
+            </Button>
             <ComposeDialog accounts={accounts} trigger={<Button size="sm"><PenSquare className="size-4" /> 新規作成</Button>} />
           </>
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {FILTERS.map((f) => (
-          <Button key={f.key} asChild size="sm" variant={filter === f.key ? "default" : "outline"}>
-            <Link href={`/inbox?filter=${f.key}${searchQuery}`}>{f.label}</Link>
-          </Button>
-        ))}
-        <form className="ml-auto flex items-center gap-2" action="/inbox">
-          <input type="hidden" name="filter" value={filter} />
-          {tagId && <input type="hidden" name="tag" value={tagId} />}
-          {accountId && <input type="hidden" name="account" value={accountId} />}
-          {pages > 1 && <input type="hidden" name="n" value={pages} />}
-          <select
-            name="in"
-            defaultValue={target}
-            aria-label="検索対象"
-            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-          >
-            {SEARCH_TARGETS.map((t) => (
-              <option key={t.key} value={t.key}>{t.label}</option>
-            ))}
-          </select>
-          <Input name="q" defaultValue={q} placeholder="検索する語句" className="w-56" />
-          <Button type="submit" size="sm" variant="outline" aria-label="検索">
-            <Search className="size-4" /> 検索
-          </Button>
-          {q && (
-            <Button asChild size="sm" variant="ghost" aria-label="検索を解除">
-              <Link href={`/inbox?filter=${filter}${tagId ? `&tag=${tagId}` : ""}${accountQuery}`}><X className="size-4" /> 解除</Link>
-            </Button>
-          )}
-        </form>
-        <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
-          <Link href="/inbox/trash"><Trash2 className="size-4" /> ゴミ箱{trashCount > 0 ? `(${trashCount})` : ""}</Link>
-        </Button>
-      </div>
-
-      {showAccounts && <AccountFilter accounts={accounts} active={accountId} hrefFor={hrefForAccount} />}
-      <TagFilter tags={allTags} active={tagId} hrefFor={hrefForTag} />
+      <InboxFilters state={filterState} filters={FILTERS} targets={SEARCH_TARGET_OPTIONS} accounts={accounts} tags={allTags} />
 
       {q && (
         <p className="mb-3 text-sm text-muted-foreground">
