@@ -131,8 +131,8 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
             <Card key={q.id} id={q.id} className={cn("scroll-mt-4", focus === q.id && "ring-2 ring-primary")}>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  {/* 内容欄は最低でも 18rem 確保し、収まらなければ操作列を下に折り返す(案件名のボタンが長いと内容欄が潰れていた) */}
-                  <div className="min-w-0 flex-1 basis-72">
+                  {/* 内容欄にカード幅の 6 割を保証し、操作列は残り 4 割の中で折り返す(操作列が横 1 列ぶんの幅を先に取り、広い画面ほど内容欄が狭くなっていた)。狭い画面では内容欄が全幅になり操作列は下に回る */}
+                  <div className="min-w-0 basis-full sm:basis-[60%]">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-medium">
                         {threadId ? <Link href={`/inbox/${threadId}`} className="hover:underline">{q.subject}</Link> : q.subject}
@@ -148,7 +148,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                     </p>
                     <InquiryMemo id={q.id} memo={q.memo} updatedAt={q.memo_updated_at} updatedBy={q.memo_author?.full_name ?? null} />
                   </div>
-                  <div className="flex max-w-full flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-0">
                     <InquiryOwnerSelect id={q.id} ownerId={q.owner_id} members={memberList} />
                     <InquiryStatusSelect id={q.id} status={q.status} />
                     {threadId && (
