@@ -131,7 +131,8 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
             <Card key={q.id} id={q.id} className={cn("scroll-mt-4", focus === q.id && "ring-2 ring-primary")}>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
+                  {/* 内容欄は最低でも 18rem 確保し、収まらなければ操作列を下に折り返す(案件名のボタンが長いと内容欄が潰れていた) */}
+                  <div className="min-w-0 flex-1 basis-72">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-medium">
                         {threadId ? <Link href={`/inbox/${threadId}`} className="hover:underline">{q.subject}</Link> : q.subject}
@@ -147,14 +148,16 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                     </p>
                     <InquiryMemo id={q.id} memo={q.memo} updatedAt={q.memo_updated_at} updatedBy={q.memo_author?.full_name ?? null} />
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="flex max-w-full flex-wrap items-center gap-2">
                     <InquiryOwnerSelect id={q.id} ownerId={q.owner_id} members={memberList} />
                     <InquiryStatusSelect id={q.id} status={q.status} />
                     {threadId && (
                       <Button asChild size="sm" variant="outline"><Link href={`/inbox/${threadId}`}><Mail className="size-4" /> メールを開く</Link></Button>
                     )}
                     {q.deal ? (
-                      <Button asChild size="sm" variant="secondary"><Link href={`/deals/${q.deal.id}`}><KanbanSquare className="size-4" /> {q.deal.title}</Link></Button>
+                      <Button asChild size="sm" variant="secondary" className="max-w-64" title={q.deal.title}>
+                        <Link href={`/deals/${q.deal.id}`}><KanbanSquare className="size-4" /> <span className="min-w-0 truncate">{q.deal.title}</span></Link>
+                      </Button>
                     ) : (
                       <NewDealDialog
                         companies={companies ?? []}
