@@ -3,12 +3,13 @@ import { Inbox, KanbanSquare, JapaneseYen, TrendingUp, ArrowRight, AlertTriangle
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { NotificationsCard } from "@/components/dashboard/notifications-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { yen, fmtRelative, monthStart } from "@/lib/format";
-import { DEAL_STAGES, type DealActivity, type Email, type Inquiry } from "@/lib/types";
+import { DEAL_STAGES, type DealActivity, type Email, type Inquiry, type Notification } from "@/lib/types";
 import { daysAhead, dueState, sortActivities } from "@/lib/activities";
 import { ActivityRow } from "@/components/deals/activity-row";
 import { monthlyRevenueSeries } from "@/lib/queries/dashboard";
@@ -20,7 +21,7 @@ export default async function DashboardPage() {
   const thisMonth = monthStart();
 
   const weekAhead = daysAhead(7);
-  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage, upcoming, memberRows] = await Promise.all([
+  const [openDeals, monthRev, newInq, unread, series, recentInq, recentMail, byStage, upcoming, memberRows, unreadNotes] = await Promise.all([
     supabase.from("deals").select("amount, probability").not("stage", "in", '("won","lost")'),
     supabase.from("revenues").select("amount").eq("year_month", thisMonth),
     supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
@@ -49,6 +50,8 @@ export default async function DashboardPage() {
       .limit(30),
     // 行動の担当者の付け替え用(在籍中の営業担当者)
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
+    // 自分あての未読のお知らせ(担当者に付けられた)。RLS で本人の分だけ見える
+    supabase.from("notifications").select("*").is("read_at", null).order("created_at", { ascending: false }).limit(20),
   ]);
   const members = memberRows.data ?? [];
   const todos = sortActivities((upcoming.data ?? []) as unknown as DealActivity[]);
@@ -74,6 +77,8 @@ export default async function DashboardPage() {
         <StatCard label="進行中の案件" value={`${openDeals.data?.length ?? 0} 件`} hint={overdueCount > 0 ? `期限超過の行動 ${overdueCount} 件` : "期限超過の行動なし"} icon={KanbanSquare} />
         <StatCard label="新規問い合わせ" value={`${newInq.count ?? 0} 件`} hint={`未読メール ${unread.count ?? 0} 件`} icon={Inbox} />
       </div>
+
+      <NotificationsCard notifications={(unreadNotes.data ?? []) as Notification[]} />
 
       <Card className={`mt-6 ${overdueCount > 0 ? "border-rose-300 dark:border-rose-900" : ""}`}>
         <CardHeader className="flex-row items-center justify-between">

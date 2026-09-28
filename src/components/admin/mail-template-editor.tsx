@@ -22,6 +22,8 @@ const SAMPLE: MailTemplateVars = {
   link: "https://example.com/auth/confirm?token_hash=xxxxxxxx&type=invite&next=%2Fset-password",
   expires: "24 時間",
   app_name: "SFA",
+  title: "問い合わせ「Shopify 移行のお見積り依頼」",
+  detail: "取引先: 株式会社サンプル",
 };
 
 export function MailTemplateEditor({ template }: { template: MailTemplateRow }) {

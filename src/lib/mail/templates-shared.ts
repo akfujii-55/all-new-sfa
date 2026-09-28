@@ -4,9 +4,9 @@
  * 本文・件名には {{name}} などの差し込み項目を書ける。
  */
 
-export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite" | "signup_confirm" | "password_reset";
+export type MailTemplateKey = "tenant_invite" | "operator_invite" | "member_invite" | "signup_confirm" | "password_reset" | "member_assigned";
 
-export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["signup_confirm", "tenant_invite", "operator_invite", "member_invite", "password_reset"];
+export const MAIL_TEMPLATE_KEYS: MailTemplateKey[] = ["signup_confirm", "tenant_invite", "operator_invite", "member_invite", "password_reset", "member_assigned"];
 
 export interface MailTemplate {
   subject: string;
@@ -26,6 +26,10 @@ export interface MailTemplateVars {
   expires: string;
   /** アプリ名 */
   app_name: string;
+  /** お知らせの内容(担当者に付けられた問い合わせ・案件・行動の名前など。member_assigned だけ) */
+  title?: string;
+  /** お知らせの補足(取引先名・期限など。member_assigned だけ) */
+  detail?: string;
 }
 
 export const APP_NAME = "SFA";
@@ -38,6 +42,8 @@ export const PLACEHOLDERS: { key: keyof MailTemplateVars; label: string }[] = [
   { key: "link", label: "招待・再設定リンク(必須)" },
   { key: "expires", label: "リンクの有効期限" },
   { key: "app_name", label: "アプリ名" },
+  { key: "title", label: "お知らせの内容(担当者に付けられたものの名前。担当者へのお知らせだけ)" },
+  { key: "detail", label: "お知らせの補足(取引先・期限など。担当者へのお知らせだけ)" },
 ];
 
 export const MAIL_TEMPLATE_META: Record<MailTemplateKey, { label: string; description: string }> = {
@@ -57,6 +63,10 @@ export const MAIL_TEMPLATE_META: Record<MailTemplateKey, { label: string; descri
     label: "Web 申し込みの確認メール",
     description: "申し込みフォームの送信直後に、入力されたメールアドレス宛に運営側のメールアカウントから送ります。リンクを開くとアカウントが開設されます。",
   },
+  member_assigned: {
+    label: "担当者に付けられたお知らせ(ログイン前の営業担当者)",
+    description: "問い合わせ・案件・行動の担当者に付けられたとき、まだログインしていない営業担当者(招待前)にそのテナントのメールアカウントから送ります。ログインしている人にはアプリ内の通知ベルで知らせるのでメールは送りません。{{inviter}} は担当者を付けた人です。",
+  },
   password_reset: {
     label: "パスワード再設定",
     description: "ログイン画面の「パスワードを忘れた方」から送ります。送信元はその利用者の会社のメールアカウント(無ければ運営側のメールアカウント)です。",
@@ -64,6 +74,20 @@ export const MAIL_TEMPLATE_META: Record<MailTemplateKey, { label: string; descri
 };
 
 export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKey, MailTemplate> = {
+  member_assigned: {
+    subject: "【{{app_name}}】{{inviter}} さんがあなたを担当者にしました: {{title}}",
+    body: [
+      "{{name}} 様",
+      "",
+      "{{inviter}} さんが営業支援ツール「{{app_name}}」({{company}})で、あなたを担当者にしました。",
+      "",
+      "{{title}}",
+      "{{detail}}",
+      "",
+      "内容は以下のリンクから確認できます(ログインには招待が必要です)。",
+      "{{link}}",
+    ].join("\n"),
+  },
   signup_confirm: {
     subject: "【{{app_name}}】お申し込みの確認",
     body: [

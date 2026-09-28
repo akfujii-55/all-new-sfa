@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { STAGE_PROBABILITY, type DealStage } from "@/lib/types";
 import { parseLocalInput } from "@/lib/format";
 import { syncAppointmentTodo } from "@/lib/appointment-todo";
+import { notifyAssigned } from "@/lib/notifications";
 
 import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
@@ -62,6 +63,8 @@ export async function createDeal(formData: FormData) {
 
   // アポイント日時が入っていれば、行動「アポイント」の Todo(期限 = アポの日時)を自動で作る
   await syncAppointmentTodo(supabase, { dealId: data.id, appointmentAt, userId: auth.user?.id ?? null, ownerId });
+  // 自分以外を担当者にしたら、その人に知らせる
+  await notifyAssigned(supabase, { memberId: ownerId, kind: "deal_assigned", title, body: await companyLine(supabase, companyId), href: `/deals/${data.id}`, actorUserId: auth.user?.id });
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "converted", deal_id: data.id }).eq("id", inquiryId);
@@ -91,12 +94,13 @@ export async function createDeal(formData: FormData) {
 export async function updateDeal(id: string, formData: FormData) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const { data: before } = await supabase.from("deals").select("appointment_at").eq("id", id).maybeSingle();
+  const { data: before } = await supabase.from("deals").select("appointment_at, owner_id, company_id").eq("id", id).maybeSingle();
   const appointmentAt = parseLocalInput(s(formData.get("appointment_at")));
+  const title = s(formData.get("title")) ?? "名称未設定";
   const { error } = await supabase
     .from("deals")
     .update({
-      title: s(formData.get("title")) ?? "名称未設定",
+      title,
       contact_id: s(formData.get("contact_id")),
       owner_id: s(formData.get("owner_id")),
       amount: n(formData.get("amount")),
@@ -115,8 +119,25 @@ export async function updateDeal(id: string, formData: FormData) {
     userId: auth.user?.id ?? null,
     ownerId: s(formData.get("owner_id")),
   });
+  // 担当者を変えたら、新しい担当者に知らせる
+  await notifyAssigned(supabase, {
+    memberId: s(formData.get("owner_id")),
+    previousMemberId: (before?.owner_id as string | null) ?? null,
+    kind: "deal_assigned",
+    title,
+    body: await companyLine(supabase, (before?.company_id as string | null) ?? null),
+    href: `/deals/${id}`,
+    actorUserId: auth.user?.id,
+  });
   revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
+}
+
+/** お知らせの補足に出す「取引先: 〜」 */
+async function companyLine(supabase: Awaited<ReturnType<typeof createClient>>, companyId: string | null): Promise<string | null> {
+  if (!companyId) return null;
+  const { data } = await supabase.from("companies").select("name").eq("id", companyId).maybeSingle();
+  return data?.name ? `取引先: ${data.name}` : null;
 }
 
 /** カンバンでのステージ変更。won にする場合は revenues が必須 */

@@ -7,6 +7,7 @@ import { loadFormProfile } from "@/lib/mail/form-profile";
 import type { InquiryStatus } from "@/lib/types";
 
 import { userError } from "@/lib/errors";
+import { notifyAssigned } from "@/lib/notifications";
 import { assertTenantWritable } from "@/lib/tenant-quota";
 import { DELETE_LIST_TAG_NAME } from "@/lib/tag-rules";
 export async function updateInquiryStatus(id: string, status: InquiryStatus) {
@@ -24,12 +25,24 @@ export async function updateInquiryStatus(id: string, status: InquiryStatus) {
 export async function updateInquiryOwner(id: string, ownerId: string | null) {
   const supabase = await createClient();
   await assertTenantWritable(supabase);
-  const { data: inq } = await supabase.from("inquiries").select("id, status").eq("id", id).maybeSingle();
+  const { data: auth } = await supabase.auth.getUser();
+  const { data: inq } = await supabase.from("inquiries").select("id, status, subject, owner_id, company:companies(name)").eq("id", id).maybeSingle();
   if (!inq) throw userError("問い合わせが見つかりません(すでに削除されている可能性があります)");
   const patch: { owner_id: string | null; status?: InquiryStatus } = { owner_id: ownerId };
   if (ownerId && inq.status === "new") patch.status = "in_progress";
   const { error } = await supabase.from("inquiries").update(patch).eq("id", id);
   if (error) throw userError(error.message);
+  // 新しく担当者になった人に知らせる(ベル / ログイン前ならメール)
+  const company = inq.company as unknown as { name: string } | null;
+  await notifyAssigned(supabase, {
+    memberId: ownerId,
+    previousMemberId: inq.owner_id as string | null,
+    kind: "inquiry_assigned",
+    title: (inq.subject as string) || "(件名なし)",
+    body: company?.name ? `取引先: ${company.name}` : null,
+    href: `/inquiries?focus=${id}`,
+    actorUserId: auth.user?.id,
+  });
   revalidatePath("/inquiries");
   revalidatePath("/");
   return { status: patch.status ?? (inq.status as InquiryStatus) };

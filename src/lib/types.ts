@@ -1,3 +1,5 @@
+import type { NotificationKind } from "@/lib/notifications-shared";
+
 export type DealStage = "appointment" | "proposal_draft" | "proposal" | "considering" | "on_hold" | "won" | "lost";
 export type InquiryStatus = "new" | "in_progress" | "converted" | "closed";
 export type EmailDirection = "inbound" | "outbound";
@@ -397,6 +399,20 @@ export interface Revenue {
   created_at: string;
   deal?: Pick<Deal, "id" | "title"> | null;
   company?: Pick<Company, "id" | "name"> | null;
+}
+
+/** 担当者へのお知らせ(0036)。本人だけが読める */
+export interface Notification {
+  id: string;
+  tenant_id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  href: string;
+  read_at: string | null;
+  created_at: string;
 }
 
 export type SystemLogLevel = "info" | "warn" | "error";

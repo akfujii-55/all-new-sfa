@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertTenantWritable } from "@/lib/tenant-quota";
-import { parseLocalInput } from "@/lib/format";
+import { fmtDue, parseLocalInput } from "@/lib/format";
+import { notifyAssigned } from "@/lib/notifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { userError } from "@/lib/errors";
@@ -54,42 +55,74 @@ export async function addActivity(dealId: string, formData: FormData): Promise<v
   const { supabase, userId } = await requireUser();
   const body = s(formData.get("body"));
   if (!body) throw userError("内容を入力してください");
+  const ownerId = await ownerIdOf(supabase, formData.get("owner_id"));
+  const dueAt = parseLocalInput(s(formData.get("due_at")));
+  const done = formData.get("done") === "on";
   const { error } = await supabase.from("deal_activities").insert({
     deal_id: dealId,
     kind_id: await kindIdOf(supabase, formData.get("kind_id")),
     body,
-    due_at: parseLocalInput(s(formData.get("due_at"))),
-    done_at: formData.get("done") === "on" ? new Date().toISOString() : null,
+    due_at: dueAt,
+    done_at: done ? new Date().toISOString() : null,
     author_id: userId,
-    owner_id: await ownerIdOf(supabase, formData.get("owner_id")),
+    owner_id: ownerId,
   });
   if (error) throw userError(error.message);
+  if (!done) await notifyActivityOwner(supabase, { dealId, ownerId, previousOwnerId: null, body, dueAt, userId });
   revalidate(dealId);
 }
 
+/** 行動の担当者に付けられた人に知らせる(完了済みの行動では知らせない) */
+async function notifyActivityOwner(
+  supabase: SupabaseClient,
+  a: { dealId: string; ownerId: string | null; previousOwnerId: string | null; body: string; dueAt: string | null; userId: string },
+): Promise<void> {
+  if (!a.ownerId || a.ownerId === a.previousOwnerId) return;
+  const { data: deal } = await supabase.from("deals").select("title, company:companies(name)").eq("id", a.dealId).maybeSingle();
+  const company = deal?.company as unknown as { name: string } | null;
+  const parts = [deal?.title ? `案件: ${deal.title}` : null, company?.name ?? null, a.dueAt ? `期限: ${fmtDue(a.dueAt)}` : null].filter(Boolean);
+  await notifyAssigned(supabase, {
+    memberId: a.ownerId,
+    previousMemberId: a.previousOwnerId,
+    kind: "activity_assigned",
+    title: a.body.length > 60 ? `${a.body.slice(0, 60)}…` : a.body,
+    body: parts.join(" ・ ") || null,
+    href: `/deals/${a.dealId}`,
+    actorUserId: a.userId,
+  });
+}
+
 export async function updateActivity(id: string, dealId: string, formData: FormData): Promise<void> {
-  const { supabase } = await requireUser();
+  const { supabase, userId } = await requireUser();
   const body = s(formData.get("body"));
   if (!body) throw userError("内容を入力してください");
+  const { data: before } = await supabase.from("deal_activities").select("owner_id, done_at").eq("id", id).maybeSingle();
+  const ownerId = await ownerIdOf(supabase, formData.get("owner_id"));
+  const dueAt = parseLocalInput(s(formData.get("due_at")));
   const { error } = await supabase
     .from("deal_activities")
     .update({
       kind_id: await kindIdOf(supabase, formData.get("kind_id")),
       body,
-      due_at: parseLocalInput(s(formData.get("due_at"))),
-      owner_id: await ownerIdOf(supabase, formData.get("owner_id")),
+      due_at: dueAt,
+      owner_id: ownerId,
     })
     .eq("id", id);
   if (error) throw userError(error.message);
+  if (!before?.done_at) await notifyActivityOwner(supabase, { dealId, ownerId, previousOwnerId: (before?.owner_id as string | null) ?? null, body, dueAt, userId });
   revalidate(dealId);
 }
 
 /** 担当者だけの変更(ダッシュボード・行動一覧の行から) */
 export async function setActivityOwner(id: string, dealId: string, ownerId: string | null): Promise<void> {
-  const { supabase } = await requireUser();
+  const { supabase, userId } = await requireUser();
   const owner = ownerId ? await ownerIdOf(supabase, ownerId) : null;
+  const { data: before } = await supabase.from("deal_activities").select("owner_id, body, due_at, done_at").eq("id", id).maybeSingle();
   const { error } = await supabase.from("deal_activities").update({ owner_id: owner }).eq("id", id);
   if (error) throw userError(error.message);
+  if (before && !before.done_at) {
+    await notifyActivityOwner(supabase, { dealId, ownerId: owner, previousOwnerId: (before.owner_id as string | null) ?? null, body: before.body as string, dueAt: (before.due_at as string | null) ?? null, userId });
+  }
   revalidate(dealId);
 }
 
