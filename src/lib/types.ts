@@ -299,7 +299,14 @@ export interface EmailTrashRow {
   deleted_at: string;
   deleted_by: string | null;
   deleted_by_name: string | null;
+  /** 0035 で追加。ゴミ箱のスレッド画面が読む */
+  cc_addresses: string[];
+  text_body: string | null;
+  contact_id: string | null;
+  account_id: string | null;
   company?: Pick<Company, "id" | "name"> | null;
+  contact?: Pick<Contact, "id" | "name"> | null;
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailAttachment {

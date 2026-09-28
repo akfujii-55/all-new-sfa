@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -116,7 +117,7 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
             </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">{threads.length} スレッド。チェックを付けてまとめて元に戻す・完全に削除ができます</span>
+          <span className="text-sm text-muted-foreground">{threads.length} スレッド。件名をクリックすると内容を確認できます。チェックを付けてまとめて元に戻す・完全に削除ができます</span>
         )}
         <Button size="sm" variant="ghost" disabled={pending} onClick={() => setPurgeTarget({ kind: "all" })} className="ml-auto text-destructive">
           <Trash2 className="size-4" /> ゴミ箱を空にする
@@ -136,7 +137,8 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
               <div className={cn("flex size-5 shrink-0 items-center justify-center rounded-full", t.direction === "inbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")} title={t.direction === "inbound" ? "受信" : "送信"}>
                 {t.direction === "inbound" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
               </div>
-              <div className="min-w-0 flex-1">
+              {/* 件名の部分をクリックすると内容を確認できる(/inbox/trash/[id]) */}
+              <Link href={`/inbox/trash/${t.id}`} className="min-w-0 flex-1 rounded-md hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="flex min-w-0 items-baseline gap-3">
                   <span className="flex w-28 shrink-0 items-baseline gap-1 sm:w-48 lg:w-56">
                     <span className="min-w-0 truncate text-[15px] leading-6 font-medium text-foreground/80" title={whoTitle}>{who}</span>
@@ -155,7 +157,7 @@ export function TrashList({ threads }: { threads: TrashThread[] }) {
                     受信 <span title={fmtDateTime(t.received_at)}>{fmtMailTime(t.received_at)}</span>
                   </span>
                 </div>
-              </div>
+              </Link>
               <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                 <Badge variant={left <= 3 ? "destructive" : "outline"} className="whitespace-nowrap">{left === 0 ? "まもなく完全に削除" : `あと ${left} 日`}</Badge>
                 <div className="flex gap-1">

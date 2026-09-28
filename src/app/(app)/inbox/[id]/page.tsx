@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Building2, User, KanbanSquare, MessageSquareText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { markEmailRead } from "@/actions/emails";
@@ -26,7 +26,12 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
   const { data: root } = await supabase.from("emails").select("thread_key").eq("id", id).maybeSingle();
-  if (!root) notFound();
+  if (!root) {
+    // ゴミ箱に入っているメールへのリンク(チャット通知・ブラウザの履歴など)はゴミ箱のスレッド画面へ
+    const { data: trashed } = await supabase.from("email_trash").select("id").eq("id", id).maybeSingle();
+    if (trashed) redirect(`/inbox/trash/${id}`);
+    notFound();
+  }
 
   const { data } = await supabase
     .from("emails")
