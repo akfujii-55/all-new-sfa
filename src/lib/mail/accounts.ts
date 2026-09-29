@@ -23,6 +23,8 @@ export interface MailAccountConfig {
   /** forward なら IMAP では取り込まず、受け口アドレスへの転送で受信する(src/lib/mail/inbound.ts) */
   receiveMode: "imap" | "forward";
   inboundToken: string | null;
+  /** メール同期に続けて失敗した回数(成功で 0 に戻る) */
+  syncFailures: number;
 }
 
 function toConfig(row: MailAccount): MailAccountConfig {
@@ -41,6 +43,7 @@ function toConfig(row: MailAccount): MailAccountConfig {
     isActive: row.is_active,
     receiveMode: row.receive_mode ?? "imap",
     inboundToken: row.inbound_token ?? null,
+    syncFailures: row.sync_failures ?? 0,
   };
 }
 

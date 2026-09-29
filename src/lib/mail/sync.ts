@@ -15,6 +15,11 @@ import { notifyNewMail, type IngestedMail } from "./notify";
 import { userError } from "@/lib/errors";
 type Db = SupabaseClient;
 
+/** 接続をやり直すまでの待ち時間(この回数だけやり直す) */
+const CONNECT_RETRY_WAITS_MS = [2000, 5000];
+/** 続けてこの回数失敗したらエラーとして通知する(5 分おきの定期同期で約 15 分) */
+const SYNC_FAILURE_NOTIFY_COUNT = 3;
+
 type Mailbox = { key: string; path: string; direction: "inbound" | "outbound" };
 
 /** SPECIAL-USE を返さないサーバー向けの、送信済みフォルダのよくある名前(階層の最後の要素で比較) */
@@ -82,38 +87,36 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   const results: SyncResult[] = [];
   for (const account of accounts.filter((a) => a.receiveMode !== "forward")) {
     try {
-      results.push(...(await syncAccount(db, account, selves, { ...opts, form, rules, collect })));
-      await db.from("mail_accounts").update({ last_error: null }).eq("id", account.id);
+      const synced = await syncAccount(db, account, selves, { ...opts, form, rules, collect });
+      results.push(...synced);
+      // フォルダ単位の失敗(アカウント自体には接続できたもの)
+      const failed = synced.filter((r) => r.error);
+      await recordSyncOutcome(
+        db,
+        account,
+        failed.length > 0 ? { message: failed.map((r) => `${r.mailbox}: ${r.error}`).join(" / "), detail: { results: failed } } : null,
+      );
     } catch (e) {
       const message = (e as Error).message;
       results.push({ account: account.email, mailbox: "-", fetched: 0, inserted: 0, error: message });
-      await db.from("mail_accounts").update({ last_error: message }).eq("id", account.id);
-      await logSystem(
-        { source: "mail.sync", message: `メール同期に失敗(${account.email}): ${message}`, detail: { ...errorDetail(e), account: account.email } },
-        db,
-      );
+      await recordSyncOutcome(db, account, { message, detail: errorDetail(e), auth: isAuthFailure(e) });
     }
   }
   // 転送受信のアカウントは、受け口のメールボックスを 1 回開いてまとめて取り込む
   const forwards = accounts.filter((a) => a.receiveMode === "forward");
   if (forwards.length > 0) {
     let forwarded: SyncResult[];
+    let thrown: unknown = null;
     try {
       forwarded = await syncForwardAccounts(db, forwards, selves, { form, rules, collect });
     } catch (e) {
+      thrown = e;
       forwarded = forwards.map((a) => ({ account: a.email, mailbox: "-", fetched: 0, inserted: 0, error: (e as Error).message }));
-      await logSystem({ source: "mail.sync", message: `転送メールの取り込みに失敗: ${(e as Error).message}`, detail: errorDetail(e) }, db);
     }
     results.push(...forwarded);
     for (const a of forwards) {
       const error = forwarded.find((r) => r.account === a.email && r.error)?.error ?? null;
-      await db.from("mail_accounts").update({ last_error: error }).eq("id", a.id);
-    }
-  }
-  // フォルダ単位の失敗(アカウント自体には接続できたもの)も記録する
-  for (const r of results) {
-    if (r.error && r.mailbox !== "-") {
-      await logSystem({ source: "mail.sync", message: `メール同期でエラー(${r.account} ${r.mailbox}): ${r.error}`, detail: { ...r } }, db);
+      await recordSyncOutcome(db, a, error ? { message: error, detail: thrown ? errorDetail(thrown) : null, auth: isAuthFailure(thrown) } : null);
     }
   }
   // 新着メールのチャット通知(Lark / Slack / Chatwork)。失敗しても同期結果には影響させない
@@ -123,10 +126,37 @@ export async function syncMail(db: Db, opts: { initialDays?: number; accountId?:
   return results;
 }
 
-/** IMAP にログインできるか確認する(設定画面の接続テスト用) */
+/**
+ * アカウントごとの同期結果を記録する。
+ * メールサーバーの一時的な不調(接続直後の切断・応答なし)は次の回で取り込めるので、1 回の失敗は warn で残すだけにして、
+ * SYNC_FAILURE_NOTIFY_COUNT 回続けて失敗したら error として通知する。ログインの失敗は待っても直らないのですぐ通知する。
+ */
+async function recordSyncOutcome(
+  db: Db,
+  account: MailAccountConfig,
+  failure: { message: string; detail?: Record<string, unknown> | null; auth?: boolean } | null,
+) {
+  if (!failure) {
+    await db.from("mail_accounts").update({ last_error: null, sync_failures: 0 }).eq("id", account.id);
+    return;
+  }
+  const failures = account.syncFailures + 1;
+  await db.from("mail_accounts").update({ last_error: failure.message, sync_failures: failures }).eq("id", account.id);
+  const notify = Boolean(failure.auth) || failures >= SYNC_FAILURE_NOTIFY_COUNT;
+  await logSystem(
+    {
+      level: notify ? "error" : "warn",
+      source: "mail.sync",
+      message: `メール同期に失敗(${account.email}${failures > 1 ? `、${failures} 回連続` : ""}): ${failure.message}`,
+      detail: { ...(failure.detail ?? {}), account: account.email, failures },
+    },
+    db,
+  );
+}
+
+/** IMAP にログインできるか確認する(設定画面の接続テスト・ヘルスチェック用) */
 export async function verifyImap(account: MailAccountConfig) {
-  const client = imapClient(account);
-  await connectOrThrow(client);
+  const client = await connectWithRetry(() => imapClient(account));
   await client.logout().catch(() => {});
 }
 
@@ -149,14 +179,45 @@ export async function connectOrThrow(client: ImapFlow, label?: string) {
     await client.connect();
   } catch (e) {
     const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
-    if (label) throw userError(`${label}に接続できません: ${err.responseText ?? err.message}`);
-    if (err.authenticationFailed) {
-      throw userError(
-        `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
-          "ログイン ID とパスワードを確認してください。Gmail はアプリパスワード(2 段階認証が必要)、Google Workspace は管理者が IMAP / アプリパスワードを許可している必要があります。ログイン ID がメールアドレスと違うサーバーでは「ログイン ID」欄に入力してください。",
+    const auth = Boolean(err.authenticationFailed);
+    if (label) throw Object.assign(userError(`${label}に接続できません: ${err.responseText ?? err.message}`), { authenticationFailed: auth });
+    if (auth) {
+      throw Object.assign(
+        userError(
+          `メールサーバーへのログインに失敗しました(${err.responseText ?? err.message})。` +
+            "ログイン ID とパスワードを確認してください。Gmail はアプリパスワード(2 段階認証が必要)、Google Workspace は管理者が IMAP / アプリパスワードを許可している必要があります。ログイン ID がメールアドレスと違うサーバーでは「ログイン ID」欄に入力してください。",
+        ),
+        { authenticationFailed: true },
       );
     }
     throw userError(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
+  }
+}
+
+/** ログインの失敗(ID・パスワードの間違い)か。やり直しても直らないので、再試行せずすぐ通知する */
+function isAuthFailure(e: unknown): boolean {
+  return typeof e === "object" && e !== null && (e as { authenticationFailed?: unknown }).authenticationFailed === true;
+}
+
+/**
+ * 接続し、一時的な失敗(応答が来ない・接続直後に切られる)なら少し待ってやり直す。
+ * ImapFlow は 1 回しか接続できないので、やり直すたびに make で作り直す。
+ */
+export async function connectWithRetry(make: () => ImapFlow, label?: string): Promise<ImapFlow> {
+  for (let attempt = 0; ; attempt++) {
+    const client = make();
+    try {
+      await connectOrThrow(client, label);
+      return client;
+    } catch (e) {
+      try {
+        client.close();
+      } catch {
+        // 接続できていないクライアントの後始末なので失敗は無視する
+      }
+      if (isAuthFailure(e) || attempt >= CONNECT_RETRY_WAITS_MS.length) throw e;
+      await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_WAITS_MS[attempt]));
+    }
   }
 }
 
@@ -166,9 +227,8 @@ async function syncAccount(
   selves: string[],
   opts: { initialDays?: number; form?: FormProfile | null; rules?: TagRule[]; collect?: IngestedMail[] },
 ): Promise<SyncResult[]> {
-  const client = imapClient(account);
   const results: SyncResult[] = [];
-  await connectOrThrow(client);
+  const client = await connectWithRetry(() => imapClient(account));
   try {
     const { mailboxes, sentError } = await resolveMailboxes(client);
     if (sentError) results.push({ account: account.email, mailbox: "SENT", fetched: 0, inserted: 0, error: sentError });
@@ -260,9 +320,9 @@ export async function backfillAttachments(db: Db, opts: { days?: number; account
   since.setDate(since.getDate() - (opts.days ?? 90));
 
   for (const account of accounts) {
-    const client = imapClient(account);
+    let client: ImapFlow;
     try {
-      await connectOrThrow(client);
+      client = await connectWithRetry(() => imapClient(account));
     } catch (e) {
       results.push({ account: account.email, mailbox: "-", checked: 0, saved: 0, error: (e as Error).message });
       continue;

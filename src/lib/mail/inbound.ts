@@ -3,7 +3,7 @@ import { simpleParser } from "mailparser";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MailAccountConfig } from "./accounts";
 import type { FormProfile } from "./extract";
-import { connectOrThrow, htmlToText, imapClient, ingestParsedMail, type SyncResult } from "./sync";
+import { connectWithRetry, htmlToText, imapClient, ingestParsedMail, type SyncResult } from "./sync";
 import { unwrapManualForward } from "./forward-unwrap";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { TagRule } from "@/lib/tag-rules";
@@ -130,8 +130,7 @@ export async function syncForwardAccounts(
   const byToken = new Map(accounts.filter((a) => a.inboundToken).map((a) => [a.inboundToken!, a]));
   const lowerSelves = selves.map((s) => s.toLowerCase());
 
-  const client = mailboxClient(config);
-  await connectOrThrow(client, "転送メールの受信用メールボックス");
+  const client = await connectWithRetry(() => mailboxClient(config), "転送メールの受信用メールボックス");
   try {
     const { scan, trash } = await inboundMailboxes(client);
     for (const path of scan) {
@@ -196,8 +195,7 @@ export async function cleanupInboundMailbox(): Promise<InboundCleanupResult | nu
   const known = new Set((data ?? []).map((r) => r.inbound_token as string));
 
   const result: InboundCleanupResult = { unknown: 0, purged: 0 };
-  const client = mailboxClient(config);
-  await connectOrThrow(client, "転送メールの受信用メールボックス");
+  const client = await connectWithRetry(() => mailboxClient(config), "転送メールの受信用メールボックス");
   try {
     const { scan, trash } = await inboundMailboxes(client);
     for (const path of scan) {
@@ -228,7 +226,6 @@ export async function cleanupInboundMailbox(): Promise<InboundCleanupResult | nu
 export async function verifyInboundMailbox() {
   const config = inboundConfig();
   if (!config) return;
-  const client = mailboxClient(config);
-  await connectOrThrow(client, "転送メールの受信用メールボックス");
+  const client = await connectWithRetry(() => mailboxClient(config), "転送メールの受信用メールボックス");
   await client.logout().catch(() => {});
 }

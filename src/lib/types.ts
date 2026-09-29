@@ -147,6 +147,8 @@ export interface MailAccount {
   is_active: boolean;
   is_default: boolean;
   last_error: string | null;
+  /** メール同期に続けて失敗した回数(0037)。成功で 0 に戻る */
+  sync_failures: number;
   created_at: string;
   updated_at: string;
 }
