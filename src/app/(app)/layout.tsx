@@ -9,6 +9,8 @@ import { buildSignature } from "@/lib/mail/signature";
 import { getMailAccountOptions } from "@/lib/mail/options";
 import { getMailSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
+import { getFeatures } from "@/lib/features-server";
+import { FeaturesProvider } from "@/components/layout/features-provider";
 import { signOut } from "@/actions/auth";
 import { tenantAccess, trialDaysLeft as calcTrialDaysLeft } from "@/lib/tenant-quota";
 import type { EmailTemplate } from "@/lib/types";
@@ -18,6 +20,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
 
+  // 利用タイプ(メール管理のテナントは案件・売上を出さない)
+  const features = await getFeatures();
   const [tenant, { data: isOperator }, { data: profile }, { data: member }, mailSettings, { count: unread }, { count: inquiries }, { count: overdue }, { count: unreadNotifications }] = await Promise.all([
     getCurrentTenant(supabase),
     supabase.rpc("is_operator"),
@@ -71,9 +75,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const trialEndingSoon = access.writable && !tenant.stripe_subscription_id && trialDaysLeft !== null && trialDaysLeft <= 7;
 
   return (
+    <FeaturesProvider features={features}>
     <SignatureProvider signature={signature} signatures={signatures} replySubject={mailSettings.reply_subject} memberName={memberName} companyName={mailSettings.signature_company} templates={templates}>
       <div className="flex min-h-screen">
-        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} tenantName={tenant.name} isOperator={Boolean(isOperator)} />
+        <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} tenantName={tenant.name} isOperator={Boolean(isOperator)} features={features} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header user={{ email: profile?.email ?? auth.user.email ?? null, full_name: profile?.full_name ?? null }} tenantName={tenant.name} unreadNotifications={unreadNotifications ?? 0} />
           {!access.writable && (
@@ -90,8 +95,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           )}
           <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>
         </div>
-        <MobileNav />
+        <MobileNav features={features} />
       </div>
     </SignatureProvider>
+    </FeaturesProvider>
   );
 }

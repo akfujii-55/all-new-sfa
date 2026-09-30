@@ -12,6 +12,8 @@ export function googleCalendarUrl(
   a: Pick<DealActivity, "body" | "due_at" | "kind">,
   deal: { id: string; title: string; company?: { name: string } | null } | null | undefined,
   origin: string,
+  /** 案件に付いていない、問い合わせの行動のときの問い合わせ(件名・取引先・一覧へのリンクを入れる) */
+  inquiry?: { id: string; subject: string; company?: { name: string } | null } | null,
 ): string | null {
   if (!a.due_at) return null;
   const start = new TZDate(new Date(a.due_at).getTime(), APP_TZ);
@@ -21,12 +23,17 @@ export function googleCalendarUrl(
     : `${format(start, "yyyyMMdd'T'HHmmss")}/${format(new TZDate(start.getTime() + 60 * 60 * 1000, APP_TZ), "yyyyMMdd'T'HHmmss")}`;
 
   const kind = a.kind?.name ? `${a.kind.name}: ` : "";
-  const title = deal ? `${kind}${a.body}(${deal.company?.name ? `${deal.company.name} / ` : ""}${deal.title})` : `${kind}${a.body}`;
+  const about = deal ? { name: deal.title, company: deal.company?.name } : inquiry ? { name: inquiry.subject, company: inquiry.company?.name } : null;
+  const title = about ? `${kind}${a.body}(${about.company ? `${about.company} / ` : ""}${about.name})` : `${kind}${a.body}`;
   const lines = [a.body];
   if (deal) {
     lines.push("", `案件: ${deal.title}`);
     if (deal.company?.name) lines.push(`取引先: ${deal.company.name}`);
     lines.push(`${origin}/deals/${deal.id}`);
+  } else if (inquiry) {
+    lines.push("", `問い合わせ: ${inquiry.subject}`);
+    if (inquiry.company?.name) lines.push(`取引先: ${inquiry.company.name}`);
+    lines.push(`${origin}/inquiries?status=all&focus=${inquiry.id}#${inquiry.id}`);
   }
 
   const params = new URLSearchParams({ action: "TEMPLATE", text: title.slice(0, 200), dates, details: lines.join("\n"), ctz: APP_TZ });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Globe, Phone, MapPin, Plus, Pencil, Mail, User, Merge } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,8 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
   ]);
   const c = company as Company;
+  // メール管理の利用タイプでは案件(作成ボタン・集計・タブ・リンク)を出さない
+  const { sales } = await getFeatures();
   const wonTotal = (deals ?? []).filter((d) => d.stage === "won").reduce((a, d) => a + Number(d.amount), 0);
 
   return (
@@ -52,28 +55,37 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
           </div>
         </div>
         <div className="flex gap-2">
-          <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />
+          {sales && <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />}
           <CompanyDialog company={c} redirectOnDelete trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
           <MergeCompanyDialog company={c} companies={companies ?? []} trigger={<Button size="sm" variant="outline"><Merge className="size-4" /> 統合</Button>} />
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
-        <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">進行中案件</p><p className="text-2xl font-semibold tabular-nums">{(deals ?? []).filter((d) => d.stage !== "won" && d.stage !== "lost").length} 件</p></CardContent></Card>
-        <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">成約額累計</p><p className="text-2xl font-semibold tabular-nums">{yen(wonTotal)}</p></CardContent></Card>
+        {sales ? (
+          <>
+            <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">進行中案件</p><p className="text-2xl font-semibold tabular-nums">{(deals ?? []).filter((d) => d.stage !== "won" && d.stage !== "lost").length} 件</p></CardContent></Card>
+            <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">成約額累計</p><p className="text-2xl font-semibold tabular-nums">{yen(wonTotal)}</p></CardContent></Card>
+          </>
+        ) : (
+          <>
+            <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">担当者</p><p className="text-2xl font-semibold tabular-nums">{contacts?.length ?? 0} 名</p></CardContent></Card>
+            <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">問い合わせ</p><p className="text-2xl font-semibold tabular-nums">{inquiries?.length ?? 0} 件</p></CardContent></Card>
+          </>
+        )}
         <Card><CardContent className="pt-0"><p className="text-sm text-muted-foreground">メール</p><p className="text-2xl font-semibold tabular-nums">{emails?.length ?? 0} 件</p></CardContent></Card>
       </div>
       {c.memo && <Card className="mb-6"><CardContent className="pt-0 text-sm whitespace-pre-wrap">{c.memo}</CardContent></Card>}
 
-      <Tabs defaultValue="deals">
+      <Tabs defaultValue={sales ? "deals" : "contacts"}>
         <TabsList>
-          <TabsTrigger value="deals">案件 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{deals?.length ?? 0}</Badge></TabsTrigger>
+          {sales && <TabsTrigger value="deals">案件 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{deals?.length ?? 0}</Badge></TabsTrigger>}
           <TabsTrigger value="contacts">担当者 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{contacts?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="inquiries">問い合わせ <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{inquiries?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="emails">メール <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">{emails?.length ?? 0}</Badge></TabsTrigger>
         </TabsList>
 
-        <TabsContent value="deals" className="mt-4">
+        {sales && <TabsContent value="deals" className="mt-4">
           <Card>
             <CardContent className="pt-0 divide-y">
               {(deals as unknown as Deal[] | null)?.length ? (deals as unknown as Deal[]).map((d) => (
@@ -90,7 +102,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
               )) : <p className="text-sm text-muted-foreground">案件はまだありません</p>}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
         <TabsContent value="contacts" className="mt-4">
           <Card>
@@ -132,7 +144,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
                     </div>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{q.summary}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{fmtDate(q.received_at)} · {q.contact?.name ?? "-"}{q.deal && <> · <Link href={`/deals/${q.deal.id}`} className="hover:underline">案件: {q.deal.title}</Link></>}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{fmtDate(q.received_at)} · {q.contact?.name ?? "-"}{sales && q.deal && <> · <Link href={`/deals/${q.deal.id}`} className="hover:underline">案件: {q.deal.title}</Link></>}</p>
                 </div>
               )) : <p className="text-sm text-muted-foreground">問い合わせはまだありません</p>}
             </CardContent>

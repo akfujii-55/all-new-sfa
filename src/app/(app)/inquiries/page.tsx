@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MessageSquareText, Mail, KanbanSquare, ArrowDownLeft, ArrowUpRight, UserRound, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { InquiryStatusSelect } from "@/components/inquiries/inquiry-status-selec
 import { InquiryOwnerSelect } from "@/components/inquiries/inquiry-owner-select";
 import { InquiryMemo } from "@/components/inquiries/inquiry-memo";
 import { InquiryTags } from "@/components/inquiries/inquiry-tags";
+import { InquiryActivities } from "@/components/inquiries/inquiry-activities";
 import { DeleteInquiryButton } from "@/components/inquiries/delete-inquiry-button";
 import { TagFilter } from "@/components/tags/tag-filter";
 import { tagsFromRows } from "@/lib/tags";
@@ -29,11 +31,14 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
   // 担当者の絞り込み: "none" は未割当、それ以外は members.id
   const owner = typeof sp.owner === "string" && sp.owner ? sp.owner : null;
   const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  // メール管理の利用タイプでは案件化(ボタン・状態・案件へのリンク)を出さない
+  const { sales } = await getFeatures();
 
   let query = supabase
     .from("inquiries")
     .select(
-      "*, company:companies(id,name), contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title), owner:members(id,name), memo_author:profiles(id,full_name), emails:emails!emails_inquiry_fk(id,direction,from_address,from_name,subject,text_body,received_at,tags:email_tags(tag:tags(id,name,color,sort_order,created_at)))",
+      "*, company:companies(id,name), contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title), owner:members(id,name), memo_author:profiles(id,full_name), activities:deal_activities!deal_activities_inquiry_id_fkey(*, author:profiles(id,full_name), owner:members(id,name), kind:activity_kinds(id,name,icon)), emails:emails!emails_inquiry_fk(id,direction,from_address,from_name,subject,text_body,received_at,tags:email_tags(tag:tags(id,name,color,sort_order,created_at)))",
     )
     .order("received_at", { ascending: false })
     .limit(200);
@@ -52,16 +57,20 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
     query = query.in("id", ids.size > 0 ? Array.from(ids) : ["00000000-0000-0000-0000-000000000000"]);
   }
 
-  const [{ data }, { data: companies }, { data: contacts }, { data: members }, { data: tagRows }] = await Promise.all([
+  const [{ data }, { data: companies }, { data: contacts }, { data: members }, { data: tagRows }, { data: kindRows }] = await Promise.all([
     query,
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id").order("name"),
-    supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
+    supabase.from("members").select("id, name, profile_id").eq("is_active", true).order("sort_order").order("created_at"),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
+    // 行動(Todo)の種類。問い合わせのカードから行動を登録するときの選択肢
+    supabase.from("activity_kinds").select("id, name, icon").order("sort_order").order("created_at"),
   ]);
   const rows = (data ?? []) as unknown as Inquiry[];
   const allTags = (tagRows ?? []) as Tag[];
-  const memberList = members ?? [];
+  const memberList = (members ?? []).map((m) => ({ id: m.id as string, name: m.name as string }));
+  // 行動の担当者の初期値に使う、ログイン中の営業担当者
+  const myMemberId = (members ?? []).find((m) => m.profile_id === auth.user?.id)?.id ?? null;
 
   const hrefFor = (o: { status?: string; tag?: string | null; owner?: string | null }) => {
     const p = new URLSearchParams();
@@ -75,7 +84,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
 
   const tabs: { key: string; label: string }[] = [
     { key: "open", label: "未対応・対応中" },
-    ...(Object.keys(INQUIRY_STATUS_LABEL) as InquiryStatus[]).map((k) => ({ key: k, label: INQUIRY_STATUS_LABEL[k] })),
+    ...(Object.keys(INQUIRY_STATUS_LABEL) as InquiryStatus[]).filter((k) => sales || k !== "converted").map((k) => ({ key: k, label: INQUIRY_STATUS_LABEL[k] })),
     { key: "all", label: "すべて" },
   ];
 
@@ -83,7 +92,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
     <div>
       <PageHeader
         title="問い合わせ"
-        description="メール画面で選択して登録した問い合わせ。アポイントが取れたら案件化します。"
+        description={sales ? "メール画面で選択して登録した問い合わせ。アポイントが取れたら案件化します。" : "メール画面で選択して登録した問い合わせ。担当者と状態を付け、行動(Todo)を登録して対応を管理します。"}
         actions={<Button asChild size="sm" variant="outline"><Link href="/inbox?filter=no_inquiry"><Mail className="size-4" /> メールから登録</Link></Button>}
       />
       <div className="mb-4 flex flex-wrap gap-2">
@@ -147,6 +156,13 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                       {q.contact && <> · {q.contact.name}{q.contact.email ? ` <${q.contact.email}>` : ""}</>}
                     </p>
                     <InquiryMemo id={q.id} memo={q.memo} updatedAt={q.memo_updated_at} updatedBy={q.memo_author?.full_name ?? null} />
+                    <InquiryActivities
+                      inquiry={{ id: q.id, subject: q.subject, company: q.company ?? null }}
+                      activities={q.activities ?? []}
+                      kinds={kindRows ?? []}
+                      members={memberList}
+                      defaultOwnerId={q.owner_id ?? myMemberId}
+                    />
                   </div>
                   <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-0">
                     <InquiryOwnerSelect id={q.id} ownerId={q.owner_id} members={memberList} />
@@ -154,7 +170,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                     {threadId && (
                       <Button asChild size="sm" variant="outline"><Link href={`/inbox/${threadId}`}><Mail className="size-4" /> メールを開く</Link></Button>
                     )}
-                    {q.deal ? (
+                    {!sales ? null : q.deal ? (
                       <Button asChild size="sm" variant="secondary" className="max-w-64" title={q.deal.title}>
                         <Link href={`/deals/${q.deal.id}`}><KanbanSquare className="size-4" /> <span className="min-w-0 truncate">{q.deal.title}</span></Link>
                       </Button>
@@ -162,12 +178,12 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                       <NewDealDialog
                         companies={companies ?? []}
                         contacts={contacts ?? []}
-                        members={members ?? []}
+                        members={memberList}
                         defaults={{ company_id: q.company_id ?? undefined, contact_id: q.contact_id ?? undefined, title: q.subject, inquiry_id: q.id, email_id: q.email_id ?? undefined, owner_id: q.owner_id ?? undefined, memo: q.memo ?? undefined }}
                         trigger={<Button size="sm"><KanbanSquare className="size-4" /> 案件化</Button>}
                       />
                     )}
-                    <DeleteInquiryButton id={q.id} subject={q.subject} hasDeal={Boolean(q.deal)} />
+                    <DeleteInquiryButton id={q.id} subject={q.subject} hasDeal={sales && Boolean(q.deal)} />
                   </div>
                 </div>
 

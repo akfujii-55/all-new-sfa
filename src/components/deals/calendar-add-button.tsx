@@ -13,16 +13,19 @@ import { cn } from "@/lib/utils";
 export function CalendarAddButton({
   activity,
   deal,
+  inquiry,
   className,
 }: {
   activity: Pick<DealActivity, "body" | "due_at" | "done_at" | "kind">;
   deal: { id: string; title: string; company?: { name: string } | null } | null | undefined;
+  /** 問い合わせの行動(案件なし)のときの問い合わせ */
+  inquiry?: { id: string; subject: string; company?: { name: string } | null } | null;
   className?: string;
 }) {
   // 案件ページの URL に使うオリジンはマウント後に取る(描画中に window を見るとサーバーの HTML と食い違う)
   const origin = useSyncExternalStore(subscribeNoop, () => window.location.origin, () => "");
   if (!activity.due_at || activity.done_at) return null;
-  const href = googleCalendarUrl(activity, deal, origin);
+  const href = googleCalendarUrl(activity, deal, origin, inquiry);
   if (!href) return null;
   return (
     <a

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CompanyDialog } from "@/components/companies/company-dialog";
 import { MergeSelectedDialog } from "@/components/companies/merge-selected-dialog";
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 import { fmtDate, yen } from "@/lib/format";
 import type { Company } from "@/lib/types";
 
@@ -19,6 +20,8 @@ export type CompanyRow = Company & { contacts: { count: number }[]; deals: { sta
 export function CompaniesTable({ rows }: { rows: CompanyRow[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
+  // メール管理の利用タイプでは案件・成約額の列を出さない
+  const { sales } = useFeatures();
   const ids = rows.map((r) => r.id);
   const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
   const someChecked = ids.some((id) => selected.has(id));
@@ -34,7 +37,7 @@ export function CompaniesTable({ rows }: { rows: CompanyRow[] }) {
   }
 
   function removeSelected() {
-    if (!confirm(`選択した ${selectedIds.length} 社を削除しますか?\n担当者・メール・問い合わせは残り、取引先だけが外れます。案件がある取引先は削除できません。`)) return;
+    if (!confirm(`選択した ${selectedIds.length} 社を削除しますか?\n担当者・メール・問い合わせは残り、取引先だけが外れます。${sales ? "案件がある取引先は削除できません。" : ""}`)) return;
     start(async () => {
       try {
         await deleteCompanies(selectedIds);
@@ -87,8 +90,8 @@ export function CompaniesTable({ rows }: { rows: CompanyRow[] }) {
             <TableHead className="hidden md:table-cell">ドメイン</TableHead>
             <TableHead className="hidden lg:table-cell">業種</TableHead>
             <TableHead className="text-right">担当者</TableHead>
-            <TableHead className="text-right">進行中案件</TableHead>
-            <TableHead className="text-right hidden sm:table-cell">成約額</TableHead>
+            {sales && <TableHead className="text-right">進行中案件</TableHead>}
+            {sales && <TableHead className="text-right hidden sm:table-cell">成約額</TableHead>}
             <TableHead className="hidden lg:table-cell">更新</TableHead>
             <TableHead className="w-12" />
           </TableRow>
@@ -104,8 +107,8 @@ export function CompaniesTable({ rows }: { rows: CompanyRow[] }) {
                 <TableCell className="hidden md:table-cell text-muted-foreground">{c.domain ?? "-"}</TableCell>
                 <TableCell className="hidden lg:table-cell text-muted-foreground">{c.industry ?? "-"}</TableCell>
                 <TableCell className="text-right tabular-nums">{c.contacts[0]?.count ?? 0}</TableCell>
-                <TableCell className="text-right tabular-nums">{open.length} 件{open.length > 0 && <span className="text-muted-foreground"> / {yen(open.reduce((a, d) => a + Number(d.amount), 0))}</span>}</TableCell>
-                <TableCell className="text-right tabular-nums hidden sm:table-cell">{won > 0 ? yen(won) : "-"}</TableCell>
+                {sales && <TableCell className="text-right tabular-nums">{open.length} 件{open.length > 0 && <span className="text-muted-foreground"> / {yen(open.reduce((a, d) => a + Number(d.amount), 0))}</span>}</TableCell>}
+                {sales && <TableCell className="text-right tabular-nums hidden sm:table-cell">{won > 0 ? yen(won) : "-"}</TableCell>}
                 <TableCell className="hidden lg:table-cell text-muted-foreground">{fmtDate(c.updated_at)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end">

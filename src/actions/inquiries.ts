@@ -84,6 +84,7 @@ export async function createInquiry(formData: FormData) {
 /**
  * 問い合わせを削除する。紐付いていたメールと案件は残り、メールは「問い合わせ未登録」に戻る
  * (emails.inquiry_id / deals.inquiry_id は外部キーの on delete set null で外れる)。
+ * 問い合わせだけに付いた行動(Todo)は一緒に消える。案件にも付いている行動は案件に残す。
  */
 export async function deleteInquiry(id: string) {
   const supabase = await createClient();
@@ -93,10 +94,13 @@ export async function deleteInquiry(id: string) {
   const { data: inq } = await supabase.from("inquiries").select("id, company_id, deal_id").eq("id", id).maybeSingle();
   if (!inq) throw userError("問い合わせが見つかりません(すでに削除されている可能性があります)");
 
+  // 案件化で案件にも付いた行動は、外部キーの cascade で消えないよう先に問い合わせから外す
+  await supabase.from("deal_activities").update({ inquiry_id: null }).eq("inquiry_id", id).not("deal_id", "is", null);
   const { error } = await supabase.from("inquiries").delete().eq("id", id);
   if (error) throw userError(error.message);
 
   revalidatePath("/inquiries");
+  revalidatePath("/activities");
   revalidatePath("/inbox");
   revalidatePath("/");
   if (inq.company_id) revalidatePath(`/companies/${inq.company_id}`);

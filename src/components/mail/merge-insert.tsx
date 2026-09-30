@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { MergeKey, MergeVars } from "@/lib/mail/merge";
+import { useFeatures } from "@/components/layout/features-provider";
 
 /**
  * テンプレートを使わないときの差し込み。本文の右上の「差し込む」から項目を選ぶと、
@@ -75,6 +76,8 @@ export function buildSalutation(vars: MergeVars): string | null {
 
 export function MergeInsertMenu({ vars, onInsert, disabled }: { vars: MergeVars; onInsert: (text: string) => void; disabled?: boolean }) {
   const salutation = buildSalutation(vars);
+  // メール管理の利用タイプでは案件が無いので {{案件名}} を出さない
+  const { sales } = useFeatures();
   const item = ({ key, label }: { key: MergeKey; label: string }) => {
     const value = vars[key]?.trim() ?? "";
     return (
@@ -100,7 +103,7 @@ export function MergeInsertMenu({ vars, onInsert, disabled }: { vars: MergeVars;
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">相手</DropdownMenuLabel>
-        {PARTY_ITEMS.map(item)}
+        {PARTY_ITEMS.filter((i) => sales || i.key !== "案件名").map(item)}
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">自社</DropdownMenuLabel>
         {SELF_ITEMS.map(item)}

@@ -7,6 +7,7 @@ import { STAGE_PROBABILITY, type DealStage } from "@/lib/types";
 import { parseLocalInput } from "@/lib/format";
 import { syncAppointmentTodo } from "@/lib/appointment-todo";
 import { notifyAssigned } from "@/lib/notifications";
+import { assertSalesEnabled } from "@/lib/features-server";
 
 import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
@@ -26,6 +27,7 @@ export interface RevenueLine {
 }
 
 export async function createDeal(formData: FormData) {
+  await assertSalesEnabled();
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const companyId = s(formData.get("company_id"));
@@ -68,6 +70,8 @@ export async function createDeal(formData: FormData) {
 
   if (inquiryId) {
     await supabase.from("inquiries").update({ status: "converted", deal_id: data.id }).eq("id", inquiryId);
+    // 問い合わせに付けていた行動(Todo)を案件の「行動」タブに引き継ぐ(0039。問い合わせ側にも残る)
+    await supabase.from("deal_activities").update({ deal_id: data.id }).eq("inquiry_id", inquiryId).is("deal_id", null);
     // 問い合わせ元メールのスレッドを案件に紐付け
     const { data: inq } = await supabase.from("inquiries").select("email_id").eq("id", inquiryId).maybeSingle();
     if (inq?.email_id) {
@@ -198,6 +202,8 @@ export async function reorderDeals(items: { id: string; stage: DealStage; sort_o
 export async function deleteDeal(id: string) {
   const supabase = await createClient();
   const { data: deal } = await supabase.from("deals").select("company_id").eq("id", id).maybeSingle();
+  // 問い合わせから引き継いだ行動(Todo)は、案件と一緒に消さず問い合わせに残す(0039)
+  await supabase.from("deal_activities").update({ deal_id: null }).eq("deal_id", id).not("inquiry_id", "is", null);
   const { error } = await supabase.from("deals").delete().eq("id", id);
   if (error) throw userError(error.message);
   revalidatePath("/deals");
@@ -223,6 +229,7 @@ export async function deleteDealNote(noteId: string, dealId: string) {
 
 /** 成約済み案件の売上明細を編集 */
 export async function saveRevenues(dealId: string, lines: RevenueLine[]) {
+  await assertSalesEnabled();
   const supabase = await createClient();
   const { data: deal } = await supabase.from("deals").select("company_id").eq("id", dealId).single();
   if (!deal) throw userError("案件が見つかりません");

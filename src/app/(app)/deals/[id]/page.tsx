@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, User, UserCog, CalendarClock, Mail, PenSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireSalesPage } from "@/lib/features-server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,8 @@ import type { Deal, DealActivity, DealNote, Email, Revenue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default async function DealDetailPage({ params }: PageProps<"/deals/[id]">) {
+  // メール管理の利用タイプ(案件・売上なし)では開かせない
+  await requireSalesPage();
   const { id } = await params;
   const supabase = await createClient();
   const [{ data }, { data: auth }] = await Promise.all([

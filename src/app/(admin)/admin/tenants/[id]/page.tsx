@@ -14,7 +14,7 @@ import { DeleteTenantButton } from "@/components/admin/delete-tenant-button";
 import { ResendInviteButton } from "@/components/admin/resend-invite-button";
 import { fmtDate, fmtDateTime, yen } from "@/lib/format";
 import { fmtGb, monthlyFee, TAX_PERCENT, withTax } from "@/lib/pricing";
-import { BILLING_STATUS_LABEL, TENANT_STATUS_LABEL } from "@/lib/types";
+import { BILLING_STATUS_LABEL, TENANT_STATUS_LABEL, TENANT_USAGE_LABEL } from "@/lib/types";
 import { stripeConfigured, stripeDashboardUrl } from "@/lib/stripe";
 import { SyncBillingButton } from "@/components/admin/sync-billing-button";
 
@@ -37,6 +37,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         description={`会社 ID: ${tenant.slug} / 作成 ${fmtDate(tenant.created_at)} / 経路: ${tenant.source === "signup" ? "Web 申し込み" : "運営が作成"}`}
         actions={
           <div className="flex items-center gap-2">
+            {tenant.usage_type === "mail" && <Badge variant="secondary">{TENANT_USAGE_LABEL.mail}</Badge>}
             <Badge>{TENANT_STATUS_LABEL[tenant.status]}</Badge>
             <Badge variant="outline">{BILLING_STATUS_LABEL[tenant.billing_status]}</Badge>
           </div>
@@ -100,7 +101,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">契約・上限・課金状態</CardTitle>
+            <CardTitle className="text-base">契約・利用タイプ・上限・課金状態</CardTitle>
             <CardDescription>停止中・解約・お試し期限切れのテナントは閲覧のみになり、登録・送信・同期ができなくなります。</CardDescription>
           </CardHeader>
           <CardContent><TenantPlanForm tenant={tenant} /></CardContent>

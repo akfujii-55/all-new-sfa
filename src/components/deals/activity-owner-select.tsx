@@ -54,13 +54,11 @@ export function ActivityOwnerField({
 /** 一覧の行に置く担当者。押すとその場で付け替えられる(文字のように見える小さなトリガー) */
 export function ActivityOwnerInline({
   activityId,
-  dealId,
   ownerId,
   ownerName,
   members,
 }: {
   activityId: string;
-  dealId: string;
   ownerId: string | null;
   ownerName: string | null;
   members: MemberOption[];
@@ -75,7 +73,7 @@ export function ActivityOwnerInline({
       onValueChange={(v) =>
         start(async () => {
           try {
-            await setActivityOwner(activityId, dealId, v === NO_OWNER ? null : v);
+            await setActivityOwner(activityId, v === NO_OWNER ? null : v);
             toast.success(v === NO_OWNER ? "担当者を外しました" : "担当者を変更しました");
           } catch (e) {
             toast.error(actionErrorMessage(e));

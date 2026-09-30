@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PickerList } from "@/components/links/picker-list";
 
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 type Mode = "contact" | "company" | "new" | "none";
 const MODE_LABEL: Record<Mode, string> = {
   contact: "登録済みの担当者を選ぶ",
@@ -45,6 +46,8 @@ export function RelinkDialog({
   const [newCompanyId, setNewCompanyId] = useState<string>(currentCompanyId ?? "");
   const [newCompanyName, setNewCompanyName] = useState("");
   const [pending, start] = useTransition();
+  // メール管理の利用タイプでは案件が無いので、文言から案件を外す
+  const { sales } = useFeatures();
   const companyName = new Map(companies.map((c) => [c.id, c.name]));
 
   function submit() {
@@ -80,7 +83,7 @@ export function RelinkDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>担当者・取引先を変更</DialogTitle>
-          <DialogDescription>このスレッドのすべてのメールと、このメールから登録した問い合わせに反映します。別の取引先の案件に紐付いていた場合、案件への紐付けは外れます。</DialogDescription>
+          <DialogDescription>このスレッドのすべてのメールと、このメールから登録した問い合わせに反映します。{sales && "別の取引先の案件に紐付いていた場合、案件への紐付けは外れます。"}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="grid gap-1.5">
@@ -134,7 +137,7 @@ export function RelinkDialog({
               )}
             </div>
           )}
-          {mode === "none" && <p className="text-sm text-muted-foreground">このスレッドを取引先・担当者・案件から切り離します。取引先や担当者そのものは削除されません。</p>}
+          {mode === "none" && <p className="text-sm text-muted-foreground">このスレッドを{sales ? "取引先・担当者・案件" : "取引先・担当者"}から切り離します。取引先や担当者そのものは削除されません。</p>}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>

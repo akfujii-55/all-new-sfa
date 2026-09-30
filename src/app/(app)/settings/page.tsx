@@ -22,7 +22,8 @@ import { MailNotificationSettings } from "@/components/settings/mail-notificatio
 import type { MailNotification } from "@/lib/mail-notifications-shared";
 import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
 import { fmtDateTime } from "@/lib/format";
-import { TENANT_STATUS_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
+import { featuresOf } from "@/lib/features";
+import { TENANT_STATUS_LABEL, TENANT_USAGE_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
 import { PROVIDER_LABEL, providerOf } from "@/lib/mail/providers";
 import { inboundAddress, inboundConfig } from "@/lib/mail/inbound";
 import { ForwardSetupPanel } from "@/components/settings/forward-setup";
@@ -67,6 +68,7 @@ export default async function SettingsPage() {
     .select("id, kind, name, url, room_id, mail_account_id, mode, is_active, last_sent_at, last_error, secret_enc, created_at")
     .order("created_at");
   const notifications: MailNotification[] = (notifyRows ?? []).map(({ secret_enc, ...r }) => ({ ...(r as Omit<MailNotification, "has_secret">), has_secret: Boolean(secret_enc) }));
+  const features = featuresOf(tenant);
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
   const accounts = (accountRows ?? []) as AccountRow[];
@@ -107,6 +109,10 @@ export default async function SettingsPage() {
               <p>
                 <span className="text-muted-foreground">契約状態:</span> {TENANT_STATUS_LABEL[tenant.status]}
                 {tenant.status === "trial" && tenant.trial_ends_at && <span className="text-muted-foreground">(お試し期間は {fmtDateTime(tenant.trial_ends_at)} まで)</span>}
+              </p>
+              <p>
+                <span className="text-muted-foreground">利用タイプ:</span> {TENANT_USAGE_LABEL[features.usageType]}
+                {!features.sales && <span className="text-muted-foreground">(メールと問い合わせの管理に絞った構成です。案件・売上は表示されません)</span>}
               </p>
               {usage && (
                 <p className="pt-1 text-xs text-muted-foreground">
@@ -240,7 +246,7 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">行動の種類</CardTitle>
-            <CardDescription>案件の「行動」で選ぶ種類(電話、メール、訪問、見積書作成など)。名前とアイコンを変えたり、追加・削除・並び替えができます。</CardDescription>
+            <CardDescription>{features.sales ? "案件や問い合わせ" : "問い合わせ"}の「行動」で選ぶ種類(電話、メール、訪問、見積書作成など)。名前とアイコンを変えたり、追加・削除・並び替えができます。</CardDescription>
           </CardHeader>
           <CardContent>
             <ActivityKindSettings kinds={(kindRows ?? []) as ActivityKind[]} />
@@ -260,7 +266,7 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">メールテンプレート</CardTitle>
-            <CardDescription>返信や新規作成で選べる文面。{"{{取引先}}"} や {"{{担当者名}}"} などの差し込み項目を書いておくと、相手や案件の情報に置き換わります。会社共通のほか、自分だけのテンプレートも登録できます。</CardDescription>
+            <CardDescription>返信や新規作成で選べる文面。{"{{取引先}}"} や {"{{担当者名}}"} などの差し込み項目を書いておくと、{features.sales ? "相手や案件の情報" : "相手の情報"}に置き換わります。会社共通のほか、自分だけのテンプレートも登録できます。</CardDescription>
           </CardHeader>
           <CardContent>
             <EmailTemplateSettings templates={(templateRows ?? []) as EmailTemplate[]} canPersonal={Boolean(member)} />

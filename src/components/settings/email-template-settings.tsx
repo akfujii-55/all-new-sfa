@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 import { EMAIL_TEMPLATE_LIMITS, MAX_EMAIL_TEMPLATES, MERGE_FIELDS } from "@/lib/mail/merge";
 import type { EmailTemplate } from "@/lib/types";
 
@@ -28,6 +29,8 @@ function TemplateDialog({
   canPersonal: boolean;
 }) {
   const [pending, start] = useTransition();
+  // メール管理の利用タイプでは案件が無いので、文言から案件を外す
+  const { sales } = useFeatures();
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   function insertToken(key: string) {
@@ -66,16 +69,16 @@ function TemplateDialog({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="tpl-subject">件名(空なら元の件名のまま)</Label>
-            <Input id="tpl-subject" name="subject" defaultValue={template?.subject ?? ""} maxLength={EMAIL_TEMPLATE_LIMITS.subject} placeholder="例: {{案件名}}のお打ち合わせについて" />
+            <Input id="tpl-subject" name="subject" defaultValue={template?.subject ?? ""} maxLength={EMAIL_TEMPLATE_LIMITS.subject} placeholder={sales ? "例: {{案件名}}のお打ち合わせについて" : "例: お問い合わせありがとうございます"} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="tpl-body">本文</Label>
             <Textarea id="tpl-body" name="body" ref={bodyRef} defaultValue={template?.body ?? "{{取引先}}\n{{担当者名}} 様\n\n"} rows={10} maxLength={EMAIL_TEMPLATE_LIMITS.body} required />
           </div>
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">差し込み項目(押すと本文のカーソル位置に入ります。送信時に相手や案件の情報に置き換わります)</p>
+            <p className="text-xs text-muted-foreground">差し込み項目(押すと本文のカーソル位置に入ります。送信時に{sales ? "相手や案件" : "相手"}の情報に置き換わります)</p>
             <div className="flex flex-wrap gap-1.5">
-              {MERGE_FIELDS.map((f) => (
+              {MERGE_FIELDS.filter((f) => sales || f.key !== "案件名").map((f) => (
                 <button key={f.key} type="button" title={f.label} onClick={() => insertToken(f.key)} className="rounded-full border bg-muted px-2.5 py-0.5 font-mono text-xs hover:bg-accent">
                   {`{{${f.key}}}`}
                 </button>

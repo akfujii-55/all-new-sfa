@@ -35,7 +35,8 @@ export function DeleteInquiryButton({ id, subject, hasDeal }: { id: string; subj
             <DialogTitle>問い合わせを削除しますか?</DialogTitle>
             <DialogDescription>
               「{subject}」を問い合わせ一覧から削除します。元のメールは残り、メール画面では「問い合わせ未登録」に戻ります。
-              {hasDeal && " 紐付いている案件は削除されず、問い合わせとの紐付けだけが外れます。"}
+              この問い合わせに付けた行動(Todo)も削除されます。
+              {hasDeal && " 紐付いている案件は削除されず、問い合わせとの紐付けだけが外れます(案件に引き継いだ行動は案件に残ります)。"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

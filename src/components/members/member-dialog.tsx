@@ -12,12 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Member } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?: Member }) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
   const [active, setActive] = useState(member?.is_active ?? true);
   const [invite, setInvite] = useState(true);
+  // 営業担当者が受け持つもの。メール管理の利用タイプでは案件が無いので問い合わせ
+  const work = useFeatures().sales ? "案件" : "問い合わせ";
   const [email, setEmail] = useState(member?.email ?? "");
 
   return (
@@ -29,7 +32,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{member ? "営業担当者を編集" : "営業担当者を登録"}</DialogTitle>
-          <DialogDescription>自社の営業担当者です。案件の担当として設定できます。</DialogDescription>
+          <DialogDescription>自社の営業担当者です。{work}の担当として設定できます。</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"
@@ -73,7 +76,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
           {member && (
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
-              有効(案件の担当として選択できる)
+              有効({work}の担当として選択できる)
             </label>
           )}
           <DialogFooter className={member ? "sm:justify-between" : ""}>
@@ -84,7 +87,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
             )}
             {member && confirmDelete && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{member.profile_id ? "ログインできなくなり、担当中の案件は「未設定」になります。" : "担当中の案件は「未設定」になります。"}</span>
+                <span className="text-muted-foreground">{member.profile_id ? `ログインできなくなり、担当中の${work}は「未設定」になります。` : `担当中の${work}は「未設定」になります。`}</span>
                 <Button
                   type="button"
                   variant="destructive"

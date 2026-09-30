@@ -20,6 +20,7 @@ import { useLocalPref } from "@/lib/local-pref";
 import { cn } from "@/lib/utils";
 
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 export interface InboxThread {
   id: string;
   direction: "inbound" | "outbound";
@@ -51,6 +52,8 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
   const compact = density === "compact";
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
+  // メール管理の利用タイプでは案件が無いので、文言から案件を外す
+  const { sales } = useFeatures();
 
   const ids = threads.map((t) => t.id);
   const allChecked = ids.length > 0 && ids.every((id) => selected.has(id));
@@ -234,7 +237,7 @@ export function InboxList({ threads, tags }: { threads: InboxThread[]; tags: Tag
           <DialogHeader>
             <DialogTitle>メールをゴミ箱に移動しますか?</DialogTitle>
             <DialogDescription>
-              選択した {selectedIds.length} 件のスレッド(スレッド内のメールすべて)をゴミ箱に移動します。{TRASH_RETENTION_DAYS} 日間は「ゴミ箱」から元に戻せます。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。
+              選択した {selectedIds.length} 件のスレッド(スレッド内のメールすべて)をゴミ箱に移動します。{TRASH_RETENTION_DAYS} 日間は「ゴミ箱」から元に戻せます。メールサーバー側のメールは削除されません。登録済みの{sales ? "問い合わせ・案件" : "問い合わせ"}は残ります。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Building2, CalendarClock, KanbanSquare, UserRound } from "lucide-react";
+import { Building2, CalendarClock, KanbanSquare, MessageSquareText, UserRound } from "lucide-react";
 import { setActivityDone } from "@/actions/activities";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ const DUE_CHIP: Record<DueState, { text: string; className: string } | null> = {
 };
 
 /**
- * ダッシュボードと行動一覧で使う 1 行。主役は「何をするか」(種類と内容)、副情報が案件と取引先と担当者。
+ * ダッシュボードと行動一覧で使う 1 行。主役は「何をするか」(種類と内容)、副情報が案件(無ければ問い合わせ)と取引先と担当者。
  * 左のチェックでその場で完了にできる。members を渡すと担当者をその場で付け替えられる。
  */
 export function ActivityRow({ activity: a, showDeal = true, members }: { activity: DealActivity; showDeal?: boolean; members?: Pick<Member, "id" | "name">[] }) {
@@ -34,6 +34,9 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
   const state = dueState(a);
   const chip = DUE_CHIP[state];
   const done = Boolean(a.done_at);
+  // 案件の行動は案件へ、問い合わせだけの行動は問い合わせ一覧のその問い合わせへ
+  const inquiry = a.deal ? null : a.inquiry ?? null;
+  const companyName = a.deal?.company?.name ?? inquiry?.company?.name ?? null;
   return (
     <div className={cn("flex items-start gap-3 py-2.5 first:pt-0 last:pb-0", done && "opacity-60")}>
       <Checkbox
@@ -45,7 +48,7 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
         onCheckedChange={(v) =>
           start(async () => {
             try {
-              await setActivityDone(a.id, a.deal_id, v === true);
+              await setActivityDone(a.id, v === true);
               toast.success(v === true ? "完了にしました" : "未完了に戻しました");
             } catch (e) {
               toast.error(actionErrorMessage(e));
@@ -66,8 +69,13 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
               <KanbanSquare className="size-3" /> {a.deal.title}
             </Link>
           )}
-          {showDeal && a.deal?.company?.name && (
-            <span className="inline-flex items-center gap-1"><Building2 className="size-3" /> {a.deal.company.name}</span>
+          {showDeal && inquiry && (
+            <Link href={`/inquiries?status=all&focus=${inquiry.id}#${inquiry.id}`} className="inline-flex items-center gap-1 hover:underline">
+              <MessageSquareText className="size-3" /> {inquiry.subject}
+            </Link>
+          )}
+          {showDeal && companyName && (
+            <span className="inline-flex items-center gap-1"><Building2 className="size-3" /> {companyName}</span>
           )}
           {a.due_at && (
             <span className={cn("inline-flex items-center gap-1", state === "overdue" && "font-medium text-rose-600 dark:text-rose-300", state === "today" && "font-medium text-amber-600 dark:text-amber-300")}>
@@ -75,14 +83,14 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
             </span>
           )}
           {members && !done ? (
-            <ActivityOwnerInline activityId={a.id} dealId={a.deal_id} ownerId={a.owner_id ?? null} ownerName={a.owner?.name ?? null} members={members} />
+            <ActivityOwnerInline activityId={a.id} ownerId={a.owner_id ?? null} ownerName={a.owner?.name ?? null} members={members} />
           ) : a.owner?.name ? (
             <span className="inline-flex items-center gap-1 font-semibold text-foreground"><UserRound className="size-3 text-muted-foreground" /> {a.owner.name}</span>
           ) : null}
         </p>
       </div>
       {chip && <Badge className={cn("shrink-0 h-5 px-1.5 text-[10px]", chip.className)}>{chip.text}</Badge>}
-      <CalendarAddButton activity={a} deal={a.deal} className="-my-1" />
+      <CalendarAddButton activity={a} deal={a.deal} inquiry={inquiry} className="-my-1" />
     </div>
   );
 }

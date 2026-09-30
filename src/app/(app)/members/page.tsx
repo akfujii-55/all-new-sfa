@@ -1,5 +1,6 @@
 import { UserCog, Plus, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ export default async function MembersPage() {
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
   ]);
+  // メール管理の利用タイプでは「進行中の案件」の列を出さない
+  const { sales } = await getFeatures();
   const seatsUsed = usage?.users ?? 0;
   const seatsMax = tenant?.max_users ?? 0;
   const seatsFull = Boolean(tenant) && seatsUsed >= seatsMax;
@@ -60,7 +63,7 @@ export default async function MembersPage() {
               <TableRow>
                 <TableHead>氏名</TableHead>
                 <TableHead className="hidden sm:table-cell">メール</TableHead>
-                <TableHead className="text-right">進行中の案件</TableHead>
+                {sales && <TableHead className="text-right">進行中の案件</TableHead>}
                 <TableHead className="hidden md:table-cell">状態</TableHead>
                 <TableHead className="w-32" />
               </TableRow>
@@ -77,7 +80,7 @@ export default async function MembersPage() {
                     ) : null}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{m.email ?? "-"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{openByOwner.get(m.id) ?? 0}</TableCell>
+                  {sales && <TableCell className="text-right tabular-nums">{openByOwner.get(m.id) ?? 0}</TableCell>}
                   <TableCell className="hidden md:table-cell">
                     {m.is_active ? <Badge variant="secondary">有効</Badge> : <Badge variant="outline">無効</Badge>}
                   </TableCell>

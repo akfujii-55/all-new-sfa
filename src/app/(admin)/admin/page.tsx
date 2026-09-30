@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDate, yen } from "@/lib/format";
 import { fmtGb, monthlyFee } from "@/lib/pricing";
-import { BILLING_STATUS_LABEL, TENANT_STATUS_LABEL, type BillingStatus, type TenantStatus } from "@/lib/types";
+import { BILLING_STATUS_LABEL, TENANT_STATUS_LABEL, TENANT_USAGE_LABEL, type BillingStatus, type TenantStatus } from "@/lib/types";
 
 export const metadata = { title: "テナント一覧 | 運営管理" };
 
@@ -67,6 +67,7 @@ export default async function AdminTenantsPage() {
                     <TableCell>
                       <Link href={`/admin/tenants/${t.id}`} className="font-medium hover:underline">{t.name}</Link>
                       {t.is_self && <Badge variant="outline" className="ml-2">自社</Badge>}
+                      {t.usage_type === "mail" && <Badge variant="secondary" className="ml-2">{TENANT_USAGE_LABEL.mail}</Badge>}
                       <div className="text-xs text-muted-foreground"><code>{t.slug}</code></div>
                     </TableCell>
                     <TableCell className="text-sm">

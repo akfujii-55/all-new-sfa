@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AlertTriangle, CalendarClock, Check, Pencil, Trash2, UserRound } from "lucide-react";
-import { addActivity, deleteActivity, setActivityDone, updateActivity } from "@/actions/activities";
+import { addActivity, addInquiryActivity, deleteActivity, setActivityDone, updateActivity } from "@/actions/activities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,17 +63,26 @@ function KindPicker({ kinds, value, onChange, idPrefix }: { kinds: KindOption[];
   );
 }
 
+/**
+ * 行動の登録フォームと一覧(編集・完了・削除)。案件の「行動」タブと、問い合わせの行動ダイアログで使う。
+ * dealId か inquiryId のどちらかを渡す(問い合わせから登録した行動は inquiryId)。
+ */
 export function DealActivities({
   dealId,
+  inquiryId,
   deal,
+  inquiry,
   activities,
   kinds,
   members = [],
   defaultOwnerId = null,
 }: {
-  dealId: string;
+  dealId?: string;
+  inquiryId?: string;
   /** 「Google カレンダーに追加」の予定名・メモに使う案件名と取引先 */
   deal?: { id: string; title: string; company?: { name: string } | null } | null;
+  /** 問い合わせの行動のときの件名と取引先(カレンダーの予定名・メモ用) */
+  inquiry?: { id: string; subject: string; company?: { name: string } | null } | null;
   activities: DealActivity[];
   kinds: KindOption[];
   /** 担当者の選択肢(自社の営業担当者) */
@@ -122,7 +131,8 @@ export function DealActivities({
           start(async () => {
             try {
               fd.set("kind_id", kind);
-              await addActivity(dealId, fd);
+              if (inquiryId) await addInquiryActivity(inquiryId, fd);
+              else if (dealId) await addActivity(dealId, fd);
               ref.current?.reset();
               setOwner(defaultOwnerId);
               setFormKey((k) => k + 1);
@@ -176,7 +186,7 @@ export function DealActivities({
                 checked={done}
                 disabled={pending}
                 aria-label={done ? "未完了に戻す" : "完了にする"}
-                onCheckedChange={(v) => run(() => setActivityDone(a.id, dealId, v === true), v === true ? "完了にしました" : "未完了に戻しました")}
+                onCheckedChange={(v) => run(() => setActivityDone(a.id, v === true), v === true ? "完了にしました" : "未完了に戻しました")}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -193,10 +203,10 @@ export function DealActivities({
                 </div>
                 <p className={cn("mt-1 whitespace-pre-wrap text-sm", done && "line-through")}>{a.body}</p>
               </div>
-              <CalendarAddButton activity={a} deal={deal} />
+              <CalendarAddButton activity={a} deal={deal} inquiry={inquiry} />
               <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
                 <Button size="sm" variant="ghost" aria-label="編集" disabled={pending} onClick={() => { setEditing(a); setEditKind(a.kind_id); setEditOwner(a.owner_id ?? null); }}><Pencil className="size-3.5" /></Button>
-                <Button size="sm" variant="ghost" className="text-destructive" aria-label="削除" disabled={pending} onClick={() => run(() => deleteActivity(a.id, dealId), "削除しました")}><Trash2 className="size-3.5" /></Button>
+                <Button size="sm" variant="ghost" className="text-destructive" aria-label="削除" disabled={pending} onClick={() => run(() => deleteActivity(a.id), "削除しました")}><Trash2 className="size-3.5" /></Button>
               </div>
             </div>
           );
@@ -213,7 +223,7 @@ export function DealActivities({
                 start(async () => {
                   try {
                     fd.set("kind_id", editKind);
-                    await updateActivity(editing.id, dealId, fd);
+                    await updateActivity(editing.id, fd);
                     setEditing(null);
                     toast.success("保存しました");
                   } catch (e) {

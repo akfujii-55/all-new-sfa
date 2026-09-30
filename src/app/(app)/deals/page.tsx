@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireSalesPage } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/deals/kanban-board";
@@ -11,6 +12,8 @@ import { dueState } from "@/lib/activities";
 export const metadata = { title: "案件" };
 
 export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
+  // メール管理の利用タイプ(案件・売上なし)では開かせない
+  await requireSalesPage();
   const sp = await searchParams;
   const owner = typeof sp.owner === "string" ? sp.owner : "all";
 
@@ -32,7 +35,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
     supabase.from("members").select("*").order("sort_order").order("created_at"),
     supabase.from("deals").select("id").is("owner_id", null).limit(1),
     // 未完了の行動(期限あり)。カードに期限超過・今日の件数を出す
-    supabase.from("deal_activities").select("id, deal_id, body, due_at, done_at, kind:activity_kinds(name)").is("done_at", null).not("due_at", "is", null).order("due_at"),
+    supabase.from("deal_activities").select("id, deal_id, body, due_at, done_at, kind:activity_kinds(name)").is("done_at", null).not("due_at", "is", null).not("deal_id", "is", null).order("due_at"),
   ]);
   const overdueByDeal = new Map<string, number>();
   const todayByDeal = new Map<string, number>();

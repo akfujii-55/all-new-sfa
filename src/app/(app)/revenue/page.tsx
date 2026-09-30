@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { requireSalesPage } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,8 @@ import type { Revenue } from "@/lib/types";
 export const metadata = { title: "売上" };
 
 export default async function RevenuePage({ searchParams }: PageProps<"/revenue">) {
+  // メール管理の利用タイプ(案件・売上なし)では開かせない
+  await requireSalesPage();
   const sp = await searchParams;
   const year = Number(typeof sp.year === "string" ? sp.year : nowInTz().getFullYear());
   const supabase = await createClient();

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, Inbox, PenSquare, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,9 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const limit = PAGE_SIZE * pages;
 
   const supabase = await createClient();
+  // メール管理の利用タイプでは案件の絞り込み・案件名のバッジを出さない
+  const { sales } = await getFeatures();
+  const filters = sales ? FILTERS : FILTERS.filter((f) => f.key !== "unlinked");
   type Row = Email & { tags?: { tag: Tag | Tag[] | null }[] };
   // PostgREST は 1 回の要求で最大 1000 行なので、上限まで 1000 行ずつ読む
   const fetchEmails = async () => {
@@ -138,7 +142,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
       received_at: e.received_at,
       inquiry_id: e.inquiry_id,
       company: e.company ?? null,
-      deal: e.deal ?? null,
+      deal: sales ? (e.deal ?? null) : null,
       account: showAccounts && !accountId && e.account_id ? (accountById.get(e.account_id)?.label ?? accountById.get(e.account_id)?.email ?? null) : null,
       ...summary,
     });
@@ -163,7 +167,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
         }
       />
 
-      <InboxFilters state={filterState} filters={FILTERS} targets={SEARCH_TARGET_OPTIONS} accounts={accounts} tags={allTags} />
+      <InboxFilters state={filterState} filters={filters} targets={SEARCH_TARGET_OPTIONS} accounts={accounts} tags={allTags} />
 
       {q && (
         <p className="mb-3 text-sm text-muted-foreground">

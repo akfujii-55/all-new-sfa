@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Building2, User, KanbanSquare, MessageSquareText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { markEmailRead } from "@/actions/emails";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,10 +50,14 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
 
   await Promise.all(emails.filter((e) => !e.is_read).map((e) => markEmailRead(e.id)));
 
+  // メール管理の利用タイプでは案件への紐付け・案件の作成を出さない
+  const { sales } = await getFeatures();
   const [{ data: deals }, { data: companies }, { data: contacts }, { data: inquiry }, { data: members }, accounts, { data: allTags }] = await Promise.all([
-    linked.company_id
-      ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
-      : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
+    !sales
+      ? Promise.resolve({ data: [] as { id: string; title: string }[] })
+      : linked.company_id
+        ? supabase.from("deals").select("id, title").eq("company_id", linked.company_id).order("updated_at", { ascending: false })
+        : supabase.from("deals").select("id, title").not("stage", "in", '("won","lost")').order("updated_at", { ascending: false }).limit(50),
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id, email").order("name"),
     linked.inquiry_id ? supabase.from("inquiries").select("id, status, category").eq("id", linked.inquiry_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -153,32 +158,36 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
                   </div>
                 </div>
               )}
-              <Separator />
-              <div className="flex items-start gap-2">
-                <KanbanSquare className="size-4 mt-0.5 text-muted-foreground" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-xs text-muted-foreground">案件</p>
-                  {linked.deal && (
-                    <Link href={`/deals/${linked.deal.id}`} className="block font-medium hover:underline">{linked.deal.title}</Link>
-                  )}
-                  <LinkDealSelect emailId={latest.id} dealId={linked.deal_id} deals={deals ?? []} />
-                  {!linked.deal_id && (
-                    <NewDealDialog
-                      companies={companies ?? []}
-                      contacts={contacts ?? []}
-                      members={members ?? []}
-                      defaults={{
-                        company_id: linked.company_id ?? undefined,
-                        contact_id: linked.contact_id ?? undefined,
-                        title: latest.subject ?? "",
-                        inquiry_id: linked.inquiry_id ?? undefined,
-                        email_id: latest.id,
-                      }}
-                      trigger={<Button size="sm" variant="secondary" className="w-full">このスレッドから案件を作成</Button>}
-                    />
-                  )}
-                </div>
-              </div>
+              {sales && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-2">
+                    <KanbanSquare className="size-4 mt-0.5 text-muted-foreground" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <p className="text-xs text-muted-foreground">案件</p>
+                      {linked.deal && (
+                        <Link href={`/deals/${linked.deal.id}`} className="block font-medium hover:underline">{linked.deal.title}</Link>
+                      )}
+                      <LinkDealSelect emailId={latest.id} dealId={linked.deal_id} deals={deals ?? []} />
+                      {!linked.deal_id && (
+                        <NewDealDialog
+                          companies={companies ?? []}
+                          contacts={contacts ?? []}
+                          members={members ?? []}
+                          defaults={{
+                            company_id: linked.company_id ?? undefined,
+                            contact_id: linked.contact_id ?? undefined,
+                            title: latest.subject ?? "",
+                            inquiry_id: linked.inquiry_id ?? undefined,
+                            email_id: latest.id,
+                          }}
+                          trigger={<Button size="sm" variant="secondary" className="w-full">このスレッドから案件を作成</Button>}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </aside>

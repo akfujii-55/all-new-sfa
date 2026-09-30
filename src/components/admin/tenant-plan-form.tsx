@@ -6,7 +6,7 @@ import { updateTenantPlan } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BILLING_STATUS_LABEL, GIB, TENANT_STATUS_LABEL, type BillingStatus, type Tenant, type TenantStatus } from "@/lib/types";
+import { BILLING_STATUS_LABEL, GIB, TENANT_STATUS_LABEL, TENANT_USAGE_LABEL, type BillingStatus, type Tenant, type TenantStatus, type TenantUsageType } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
 /** `<input type="date">` 用に日本時間の yyyy-MM-dd にする */
@@ -43,6 +43,15 @@ export function TenantPlanForm({ tenant }: { tenant: Tenant }) {
           <select id="billing_status" name="billing_status" defaultValue={tenant.billing_status} className="h-9 rounded-md border bg-background px-2 text-sm">
             {(Object.keys(BILLING_STATUS_LABEL) as BillingStatus[]).map((k) => <option key={k} value={k}>{BILLING_STATUS_LABEL[k]}</option>)}
           </select>
+        </div>
+        <div className="grid gap-1.5 sm:col-span-2">
+          <Label htmlFor="usage_type">利用タイプ</Label>
+          <select id="usage_type" name="usage_type" defaultValue={tenant.usage_type ?? "sfa"} className="h-9 rounded-md border bg-background px-2 text-sm">
+            {(Object.keys(TENANT_USAGE_LABEL) as TenantUsageType[]).map((k) => <option key={k} value={k}>{TENANT_USAGE_LABEL[k]}</option>)}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            「メール管理」は複数のメールアカウントと問い合わせの管理に使う構成です。案件・売上のメニューと、ダッシュボードの売上・パイプラインを出しません(データは消えず、「営業支援」に戻せば元のまま表示されます)。行動(Todo)は問い合わせから登録でき、どちらの利用タイプでも使えます。
+          </p>
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="max_users">ユーザー数の上限</Label>

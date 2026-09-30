@@ -1,20 +1,24 @@
 import Link from "next/link";
-import { CalendarCheck, KanbanSquare, UserRound, X } from "lucide-react";
+import { CalendarCheck, KanbanSquare, MessageSquareText, UserRound, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getFeatures } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityRow } from "@/components/deals/activity-row";
+import { TODO_SELECT } from "@/components/dashboard/todo-card";
 import { groupByDue } from "@/lib/activities";
 import type { DealActivity } from "@/lib/types";
 
 export const metadata = { title: "行動" };
 
-const SELECT = "*, kind:activity_kinds(id,name,icon), owner:members(id,name), deal:deals(id,title,stage,company:companies(id,name))";
+const SELECT = TODO_SELECT;
 
-/** 全案件の行動(Todo)を期限の状態ごとに一覧する。完了はここからも付けられる。担当者で絞り込める */
+/** 案件と問い合わせの行動(Todo)を期限の状態ごとに一覧する。完了はここからも付けられる。担当者で絞り込める */
 export default async function ActivitiesPage({ searchParams }: PageProps<"/activities">) {
+  // メール管理の利用タイプでは案件が無いので、案件への案内を出さない(行動そのものは問い合わせの Todo として使う)
+  const { sales } = await getFeatures();
   const sp = await searchParams;
   const showDone = sp.done === "1";
   // 担当者の絞り込み: "none" は担当者なし、それ以外は members.id(問い合わせ一覧と同じ形)
@@ -60,14 +64,14 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
     <div className="max-w-4xl">
       <PageHeader
         title="行動"
-        description="全案件の未完了の行動(電話・メール・訪問・見積書作成・折り返し依頼などの Todo)。期限の近い順に並びます。完了したらチェックを付けてください。"
+        description={`${sales ? "案件と問い合わせ" : "問い合わせ"}の未完了の行動(電話・メール・訪問・折り返し依頼などの Todo)。期限の近い順に並びます。完了したらチェックを付けてください。`}
         actions={
           <div className="flex items-center gap-2">
             <Button asChild size="sm" variant={showDone ? "default" : "outline"}>
               <Link href={hrefFor({ done: !showDone })}>{showDone ? "完了済みを隠す" : "完了済みも表示"}</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link href="/deals"><KanbanSquare className="size-4" /> 案件カンバン</Link>
+              {sales ? <Link href="/deals"><KanbanSquare className="size-4" /> 案件カンバン</Link> : <Link href="/inquiries"><MessageSquareText className="size-4" /> 問い合わせ</Link>}
             </Button>
           </div>
         }
@@ -97,7 +101,7 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
           {ownerLabel ? (
             <>「{ownerLabel}」の未完了の行動はありません。<Link href={hrefFor({ owner: null })} className="underline">絞り込みを解除</Link>すると全員分が表示されます。</>
           ) : (
-            <>未完了の行動はありません。案件の詳細画面の「行動」タブから、期限付きの Todo を登録できます。</>
+            <>未完了の行動はありません。{sales ? "案件の詳細画面の「行動」タブや、問い合わせのカードの「行動(Todo)を追加」" : "問い合わせのカードの「行動(Todo)を追加」"}から、期限付きの Todo を登録できます。</>
           )}
         </div>
       ) : (
@@ -117,7 +121,7 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
           ))}
         </div>
       )}
-      {overdue > 0 && <p className="mt-3 text-xs text-muted-foreground">期限超過が {overdue} 件あります。対応済みならチェックを付けるか、案件の「行動」タブで期限を変更してください。</p>}
+      {overdue > 0 && <p className="mt-3 text-xs text-muted-foreground">期限超過が {overdue} 件あります。対応済みならチェックを付けるか、{sales ? "案件の「行動」タブや問い合わせのカード" : "問い合わせのカード"}で期限を変更してください。</p>}
 
       {showDone && (
         <Card className="mt-6">

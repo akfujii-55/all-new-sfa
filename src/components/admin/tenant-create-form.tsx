@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { PricingSettings } from "@/lib/pricing";
+import { TENANT_USAGE_LABEL, type TenantUsageType } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
 export function TenantCreateForm({ pricing }: { pricing: PricingSettings }) {
@@ -106,6 +107,13 @@ export function TenantCreateForm({ pricing }: { pricing: PricingSettings }) {
           <div className="grid gap-1.5">
             <Label htmlFor="trial_days">お試し期間(日)</Label>
             <Input id="trial_days" name="trial_days" type="number" min={0} defaultValue={pricing.trial_days} required />
+          </div>
+          <div className="grid gap-1.5 sm:col-span-4">
+            <Label htmlFor="usage_type">利用タイプ</Label>
+            <select id="usage_type" name="usage_type" defaultValue="sfa" className="h-9 rounded-md border bg-background px-2 text-sm sm:max-w-xs">
+              {(Object.keys(TENANT_USAGE_LABEL) as TenantUsageType[]).map((k) => <option key={k} value={k}>{TENANT_USAGE_LABEL[k]}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">「メール管理」は案件・売上を出さず、メールアカウントと問い合わせ(と問い合わせの行動・Todo)の管理に使う構成です。後からテナントの詳細で変更できます。</p>
           </div>
           <div className="grid gap-1.5 sm:col-span-4">
             <Label htmlFor="note">運営メモ</Label>

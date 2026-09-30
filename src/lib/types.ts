@@ -62,6 +62,8 @@ export interface Tenant {
   cancel_at_period_end: boolean;
   /** 運営からのステップメールを送る(0030。運営管理のテナント詳細で切り替え) */
   step_mails_enabled: boolean;
+  /** 利用タイプ(0038。運営管理のテナント詳細で切り替え)。mail は案件・売上を出さない(行動は問い合わせの Todo として使う) */
+  usage_type: TenantUsageType;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +80,17 @@ export const TENANT_STATUS_LABEL: Record<TenantStatus, string> = {
   suspended: "停止中",
   cancelled: "解約",
   complimentary: "無償利用",
+};
+
+/**
+ * 利用タイプ。sfa = 営業支援(案件・売上まで使う)、mail = メール管理(メールと問い合わせ、問い合わせの行動の管理)。
+ * 何が出る・出ないかは src/lib/features.ts の featuresOf で決める
+ */
+export type TenantUsageType = "sfa" | "mail";
+
+export const TENANT_USAGE_LABEL: Record<TenantUsageType, string> = {
+  sfa: "営業支援(SFA)",
+  mail: "メール管理",
 };
 
 export type BillingStatus = "none" | "trialing" | "active" | "past_due" | "cancelled";
@@ -349,6 +362,8 @@ export interface Inquiry {
   deal?: Pick<Deal, "id" | "title"> | null;
   owner?: Pick<Member, "id" | "name"> | null;
   memo_author?: Pick<Profile, "id" | "full_name"> | null;
+  /** この問い合わせの行動(deal_activities.inquiry_id で紐付け、0039) */
+  activities?: DealActivity[];
   /** このスレッドのメール(emails.inquiry_id で紐付け)。tags は email_tags の埋め込み */
   emails?: (Pick<Email, "id" | "direction" | "from_address" | "from_name" | "subject" | "text_body" | "received_at"> & { tags?: { tag: Tag | Tag[] | null }[] })[];
 }
@@ -366,7 +381,10 @@ export interface ActivityKind {
 /** 案件の行動。due_at が過去で done_at が null なら期限超過 */
 export interface DealActivity {
   id: string;
-  deal_id: string;
+  /** 案件の行動なら案件 ID。問い合わせだけに付いた行動は null(0039。deal_id と inquiry_id のどちらかは必ず入る) */
+  deal_id: string | null;
+  /** 問い合わせから作った行動なら問い合わせ ID。案件化すると deal_id も入り、案件の「行動」タブにも出る */
+  inquiry_id: string | null;
   kind_id: string;
   body: string;
   due_at: string | null;
@@ -380,6 +398,7 @@ export interface DealActivity {
   owner?: Pick<Member, "id" | "name"> | null;
   kind?: Pick<ActivityKind, "id" | "name" | "icon"> | null;
   deal?: (Pick<Deal, "id" | "title" | "stage"> & { company?: Pick<Company, "id" | "name"> | null }) | null;
+  inquiry?: (Pick<Inquiry, "id" | "subject"> & { company?: Pick<Company, "id" | "name"> | null }) | null;
 }
 
 export interface DealNote {

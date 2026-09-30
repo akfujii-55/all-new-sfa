@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { SALES_PATHS, type Features } from "@/lib/features";
 
 const NAV = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
@@ -24,6 +25,13 @@ const NAV = [
 
 /** スマホの下部バーに出す 6 個(PC のサイドバーの並びとは別に固定) */
 const MOBILE_NAV = ["/", "/inbox", "/inquiries", "/deals", "/activities", "/companies"].map((href) => NAV.find((n) => n.href === href)!);
+/** メール管理のテナント(案件・売上なし)のスマホの下部バー */
+const MOBILE_NAV_MAIL = ["/", "/inbox", "/inquiries", "/activities", "/companies", "/contacts"].map((href) => NAV.find((n) => n.href === href)!);
+
+/** 利用タイプで出すメニュー。メール管理は案件・売上を外す(行動は問い合わせの Todo に使うので残す) */
+function navFor(features?: Features) {
+  return features && !features.sales ? NAV.filter((n) => !SALES_PATHS.includes(n.href)) : NAV;
+}
 
 export type NavCounts = { unread: number; inquiries: number; overdue: number };
 
@@ -38,8 +46,9 @@ function BrandMark() {
   );
 }
 
-export function Sidebar({ counts, tenantName, isOperator = false }: { counts: NavCounts; tenantName: string; isOperator?: boolean }) {
+export function Sidebar({ counts, tenantName, isOperator = false, features }: { counts: NavCounts; tenantName: string; isOperator?: boolean; features?: Features }) {
   const pathname = usePathname();
+  const mailOnly = Boolean(features && !features.sales);
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* 左上はアプリのマーク + ログイン中の会社名(tenants.name)+ サービス名 */}
@@ -47,11 +56,11 @@ export function Sidebar({ counts, tenantName, isOperator = false }: { counts: Na
         <BrandMark />
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-[13px] font-bold leading-tight" title={tenantName}>{tenantName}</span>
-          <span className="text-[10px] font-semibold leading-none tracking-[0.3em] text-muted-foreground">SFA</span>
+          <span className="text-[10px] font-semibold leading-none tracking-[0.3em] text-muted-foreground">{mailOnly ? "MAIL" : "SFA"}</span>
         </span>
       </Link>
       <nav className="flex-1 p-3 space-y-1">
-        {NAV.map((item) => {
+        {navFor(features).map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const badge = item.badgeKey ? counts[item.badgeKey] : 0;
           return (
@@ -89,11 +98,12 @@ export function Sidebar({ counts, tenantName, isOperator = false }: { counts: Na
   );
 }
 
-export function MobileNav() {
+export function MobileNav({ features }: { features?: Features }) {
   const pathname = usePathname();
+  const items = features && !features.sales ? MOBILE_NAV_MAIL : MOBILE_NAV;
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-background grid grid-cols-6">
-      {MOBILE_NAV.map((item) => {
+      {items.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (
           <Link

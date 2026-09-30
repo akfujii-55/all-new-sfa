@@ -402,6 +402,8 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
   }
   const note = s(formData.get("note"));
   if (note) await admin.from("tenants").update({ note }).eq("id", tenantId);
+  // 利用タイプ(0038)。既定は営業支援なので、メール管理を選んだときだけ書く
+  if (formData.get("usage_type") === "mail") await admin.from("tenants").update({ usage_type: "mail" }).eq("id", tenantId);
 
   const { data: member } = await admin.from("members").select("id").eq("tenant_id", tenantId).order("created_at").limit(1).single();
   const invite = await issueInvite(tenantId as string, member!.id as string);
@@ -504,12 +506,15 @@ export async function updateTenantPlan(id: string, formData: FormData) {
   const billing = String(formData.get("billing_status") ?? "") as BillingStatus;
   if (!TENANT_STATUSES.includes(status)) throw userError("契約状態が不正です");
   if (!BILLING_STATUSES.includes(billing)) throw userError("課金状態が不正です");
+  const usageType = String(formData.get("usage_type") ?? "sfa");
+  if (usageType !== "sfa" && usageType !== "mail") throw userError("利用タイプが不正です");
   const trialEnds = s(formData.get("trial_ends_at"));
   const { error } = await admin
     .from("tenants")
     .update({
       status,
       billing_status: billing,
+      usage_type: usageType,
       max_users: int(formData.get("max_users"), 1, "ユーザー数の上限"),
       max_mail_accounts: int(formData.get("max_mail_accounts"), 1, "メールアカウント数の上限"),
       max_storage_bytes: gbToBytes(formData.get("max_storage_gb")),

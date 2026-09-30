@@ -11,10 +11,13 @@ import { deleteEmailThreads, restoreEmailThreads } from "@/actions/emails";
 import { TRASH_RETENTION_DAYS } from "@/lib/trash";
 
 import { actionErrorMessage } from "@/lib/errors";
+import { useFeatures } from "@/components/layout/features-provider";
 export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInquiry: boolean }) {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
+  // メール管理の利用タイプでは案件が無いので、文言から案件を外す
+  const { sales } = useFeatures();
 
   function register() {
     start(async () => {
@@ -70,7 +73,7 @@ export function ThreadActions({ emailId, hasInquiry }: { emailId: string; hasInq
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>このスレッドをゴミ箱に移動しますか?</DialogTitle>
-            <DialogDescription>スレッド内のメールをすべてゴミ箱に移動します。{TRASH_RETENTION_DAYS} 日間は「ゴミ箱」から元に戻せます。メールサーバー側のメールは削除されません。登録済みの問い合わせ・案件は残ります。</DialogDescription>
+            <DialogDescription>スレッド内のメールをすべてゴミ箱に移動します。{TRASH_RETENTION_DAYS} 日間は「ゴミ箱」から元に戻せます。メールサーバー側のメールは削除されません。登録済みの{sales ? "問い合わせ・案件" : "問い合わせ"}は残ります。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={pending}>キャンセル</Button>
