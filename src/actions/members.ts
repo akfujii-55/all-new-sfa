@@ -69,6 +69,7 @@ export async function updateMember(id: string, formData: FormData) {
 /**
  * 営業担当者を削除する。ログインできる利用者なら auth ユーザーごと削除してログインを無効化する
  * (利用ユーザー数は課金対象なので、削除した分の枠を空ける)。担当していた案件の担当は「未設定」になる。
+ * 運営サポート(運営管理から入れた運営者)はこの会社に入れなくなるだけで、ログインは残る。
  */
 export async function deleteMember(id: string) {
   const supabase = await createClient();
@@ -83,8 +84,13 @@ export async function deleteMember(id: string) {
 
   if (member.profile_id) {
     // auth ユーザーの削除だけは service role が必要。profiles は cascade で消え、セッションも無効になる
-    const { error: delErr } = await createAdminClient().auth.admin.deleteUser(member.profile_id);
-    if (delErr && !/not found/i.test(delErr.message)) throw userError(`ログインの無効化に失敗しました: ${delErr.message}`);
+    const admin = createAdminClient();
+    // 運営サポート(所属が別のテナント、または所属なしの運営者)のログインは消さない。この会社から外すだけ
+    const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", member.profile_id).maybeSingle();
+    if (profile?.tenant_id === tenantId) {
+      const { error: delErr } = await admin.auth.admin.deleteUser(member.profile_id);
+      if (delErr && !/not found/i.test(delErr.message)) throw userError(`ログインの無効化に失敗しました: ${delErr.message}`);
+    }
   }
   const { error } = await supabase.from("members").delete().eq("id", id);
   if (error) throw userError(error.message);
@@ -123,6 +129,9 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   // 招待中もユーザー数に数えるので、招待後に Stripe の数量を合わせる(応答後に実行)
   if (!member.invited_at) after(() => syncTenantBilling(tenantId));
 
+  // 送信用のメールアカウントが無いなら、ログインだけ作られてメールが届かない状態にしないよう、リンクを作る前に止める
+  const account = await resolveSendAccount(supabase, {});
+
   // auth ユーザーの作成だけは service role が必要。テーブルの読み書きはログインユーザーのクライアントで行う
   const admin = createAdminClient();
   // 招待リンク。既に auth ユーザーがいる(招待済みで未設定)場合はマジックリンクで再送する
@@ -136,6 +145,12 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   });
   if (first.error) {
     if (!/already|exists|registered/i.test(first.error.message)) throw userError(first.error.message);
+    // ログイン用のリンクで再送してよいのは、この会社の利用者だけ。別の会社の利用者・運営者のアドレスだと、
+    // リンクを開いた人が自分の元の会社(または運営管理)に入ってしまう
+    const { data: existing } = await admin.from("profiles").select("tenant_id").eq("email", email).maybeSingle();
+    if (existing?.tenant_id !== tenantId) {
+      throw userError("このメールアドレスは、既に別の会社の利用者または運営者として登録されているため招待できません。別のメールアドレスで招待するか、運営にお問い合わせください");
+    }
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (again.error) throw userError(again.error.message);
     tokenHash = again.data.properties.hashed_token;
@@ -148,7 +163,6 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
   const origin = await siteOrigin();
   const link = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent("/set-password")}`;
 
-  const account = await resolveSendAccount(supabase, {});
   const tenant = await getCurrentTenant(supabase);
   const mail = await buildMail("member_invite", { name: member.name, company: tenant?.name ?? "", inviter: inviterName, link });
   await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });

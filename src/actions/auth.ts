@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -9,6 +9,7 @@ import { resolveSendAccount } from "@/lib/mail/accounts";
 import { sendMail } from "@/lib/mail/smtp";
 import { buildMail } from "@/lib/mail/templates";
 import { errorMessage, logSystem } from "@/lib/log";
+import { TENANT_COOKIE } from "@/lib/tenant-select";
 
 import { userError } from "@/lib/errors";
 export type AuthState = { error?: string; message?: string } | undefined;
@@ -110,5 +111,7 @@ export async function setPassword(_: AuthState, formData: FormData): Promise<Aut
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  // 選択中のテナントは次にログインする人へ持ち越さない
+  (await cookies()).delete(TENANT_COOKIE);
   redirect("/login");
 }

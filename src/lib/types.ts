@@ -134,6 +134,8 @@ export interface Member {
   memo: string | null;
   /** 招待メールを送った日時(ログイン登録が済むと profile_id が入る) */
   invited_at: string | null;
+  /** 運営サポート(運営管理から入れた運営者。自分のログインでこのテナントに入る。ユーザー数に数えない) */
+  is_support: boolean;
   created_at: string;
   updated_at: string;
 }

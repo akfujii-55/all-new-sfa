@@ -87,7 +87,7 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
             )}
             {member && confirmDelete && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{member.profile_id ? `ログインできなくなり、担当中の${work}は「未設定」になります。` : `担当中の${work}は「未設定」になります。`}</span>
+                <span className="text-muted-foreground">{member.is_support ? `運営サポートがこの会社の画面に入れなくなり、担当中の${work}は「未設定」になります。` : member.profile_id ? `ログインできなくなり、担当中の${work}は「未設定」になります。` : `担当中の${work}は「未設定」になります。`}</span>
                 <Button
                   type="button"
                   variant="destructive"

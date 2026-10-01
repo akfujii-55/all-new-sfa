@@ -73,7 +73,9 @@ export default async function MembersPage() {
                 <TableRow key={m.id} className={m.is_active ? "" : "text-muted-foreground"}>
                   <TableCell className="font-medium">
                     {m.name}
-                    {m.profile_id ? (
+                    {m.is_support ? (
+                      <Badge variant="outline" className="ml-2 hidden sm:inline-flex" title="運営の担当者です。ユーザー数には数えません。無効にするとこの会社の画面に入れなくなります">運営サポート</Badge>
+                    ) : m.profile_id ? (
                       <Badge variant="outline" className="ml-2 hidden sm:inline-flex">ログイン可</Badge>
                     ) : m.invited_at ? (
                       <Badge variant="secondary" className="ml-2 hidden sm:inline-flex">招待済み {fmtDate(m.invited_at)}</Badge>

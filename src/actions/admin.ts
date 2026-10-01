@@ -27,8 +27,9 @@ export async function requireOperator() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw userError("ログインが必要です");
   const admin = createAdminClient();
-  const { data: op } = await admin.from("operators").select("user_id, is_super").eq("user_id", auth.user.id).maybeSingle();
-  if (!op) throw userError("運営者のみ操作できます");
+  const { data: op } = await admin.from("operators").select("user_id, is_super, support_only").eq("user_id", auth.user.id).maybeSingle();
+  // 運営サポート専用の人は運営管理の操作ができない
+  if (!op || op.support_only) throw userError("運営者のみ操作できます");
   return { admin, user: auth.user, isSuper: Boolean(op.is_super) };
 }
 
@@ -67,14 +68,27 @@ export interface OperatorRow {
   pending: boolean;
   note: string | null;
   created_at: string;
+  /** 運営サポート専用(入れるテナントの画面だけ。運営管理には入れない) */
+  support_only: boolean;
+  /** 所属テナント。運営専用アカウントは null */
+  home_tenant_id: string | null;
+  /** 運営サポートとして入れるテナント(所属テナントは含まない) */
+  support_tenant_ids: string[];
 }
 
 export async function listOperators(): Promise<OperatorRow[]> {
   const { admin } = await requireOperator();
-  const { data } = await admin.from("operators").select("user_id, name, note, is_super, created_at").order("is_super", { ascending: false }).order("created_at");
+  const { data } = await admin.from("operators").select("user_id, name, note, is_super, support_only, created_at").order("is_super", { ascending: false }).order("created_at");
   const ids = (data ?? []).map((o) => o.user_id as string);
-  const { data: profiles } = ids.length ? await admin.from("profiles").select("id, email, full_name").in("id", ids) : { data: [] };
+  const [{ data: profiles }, { data: support }] = ids.length
+    ? await Promise.all([
+        admin.from("profiles").select("id, email, full_name, tenant_id").in("id", ids),
+        admin.from("members").select("profile_id, tenant_id").in("profile_id", ids).eq("is_support", true),
+      ])
+    : [{ data: [] }, { data: [] }];
   const byId = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+  const supportBy = new Map<string, string[]>();
+  for (const m of support ?? []) supportBy.set(m.profile_id as string, [...(supportBy.get(m.profile_id as string) ?? []), m.tenant_id as string]);
   const rows: OperatorRow[] = [];
   for (const o of data ?? []) {
     const uid = o.user_id as string;
@@ -87,6 +101,9 @@ export async function listOperators(): Promise<OperatorRow[]> {
       pending: !u.user?.last_sign_in_at,
       note: (o.note as string | null) ?? null,
       created_at: o.created_at as string,
+      support_only: Boolean(o.support_only),
+      home_tenant_id: (byId.get(uid)?.tenant_id as string | null) ?? null,
+      support_tenant_ids: supportBy.get(uid) ?? [],
     });
   }
   return rows;
@@ -104,6 +121,8 @@ export interface InviteOperatorResult {
  * - 運営側テナント(最初に作られた自社)の利用者: そのままログインを使って運営者にもなれる(テナント側と /admin の両方に入れる)。
  *   ログイン用のリンク(magiclink)を送る。
  * - 他社テナントの利用者: 運営者にできない(他社の人に /admin を開かせないため)。
+ * kind=support は運営サポート専用(運営管理には入れず、「入れるテナント」の画面だけを使う)。/admin を開けないので、
+ * どのテナントの利用者でも追加できる。
  */
 export async function inviteOperator(formData: FormData): Promise<InviteOperatorResult> {
   const { admin, user } = await requireSuperOperator();
@@ -112,6 +131,7 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   if (!email || !email.includes("@")) throw userError("メールアドレスを入力してください");
   if (!name) throw userError("氏名を入力してください");
   const note = s(formData.get("note"));
+  const supportOnly = formData.get("kind") === "support";
 
   const [{ data: existing }, { data: opTenant }] = await Promise.all([
     admin.from("profiles").select("id, tenant_id").ilike("email", email).maybeSingle(),
@@ -121,8 +141,14 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   let tokenHash: string;
   let type: "invite" | "magiclink";
 
-  if (existing?.tenant_id && existing.tenant_id !== opTenant?.id) {
-    throw userError("このメールアドレスは他社(テナント)の利用者として登録されています。運営者にできるのは運営側の会社の利用者か、まだ登録のないメールアドレスです");
+  if (!supportOnly && existing?.tenant_id && existing.tenant_id !== opTenant?.id) {
+    throw userError("このメールアドレスは他社(テナント)の利用者として登録されています。運営者にできるのは運営側の会社の利用者か、まだ登録のないメールアドレスです。テナントの画面に入るだけなら「運営サポート専用」で追加してください");
+  }
+  // まだ一度もログインしていない人(パスワード未設定)は、リンクからパスワードの設定へ進める
+  let neverSignedIn = true;
+  if (userId) {
+    const { data: u } = await admin.auth.admin.getUserById(userId);
+    neverSignedIn = !u.user?.last_sign_in_at;
   }
   if (userId) {
     // 既にログインできる利用者(運営側テナントの利用者)、または招待済みで未ログインの運営者への再送。ログイン用のリンクを送る
@@ -143,11 +169,15 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
     userId = first.data.user.id;
   }
 
-  const { error } = await admin.from("operators").upsert({ user_id: userId, name, note, is_super: false }, { onConflict: "user_id" });
+  // 既にスーパーユーザーの人を招待し直しても、区分は変えない
+  const { data: current } = await admin.from("operators").select("is_super").eq("user_id", userId).maybeSingle();
+  if (current?.is_super) throw userError("スーパーユーザーは招待し直せません");
+  const { error } = await admin.from("operators").upsert({ user_id: userId, name, note, is_super: false, support_only: supportOnly }, { onConflict: "user_id" });
   if (error) throw userError(error.message);
 
   const origin = await siteOrigin();
-  const inviteLink = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent(type === "invite" ? "/set-password" : "/admin")}`;
+  const next = neverSignedIn ? "/set-password" : supportOnly ? "/" : "/admin";
+  const inviteLink = `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent(next)}`;
 
   let mailSent = false;
   let mailError: string | null = null;
@@ -155,7 +185,8 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
     const operator = await operatorTenantClient();
     if (!operator) throw userError("SUPABASE_JWT_SECRET が未設定のため運営側のメールアカウントを使えません");
     const account = await resolveSendAccount(operator, {});
-    const mail = await buildMail("operator_invite", { name, company: opTenant?.name ?? "", inviter: user.email ?? "", link: inviteLink });
+    // 運営サポート専用の人には運営管理の案内ではなく、利用者向けの招待の文面を使う
+    const mail = await buildMail(supportOnly ? "member_invite" : "operator_invite", { name, company: opTenant?.name ?? "", inviter: user.email ?? "", link: inviteLink });
     await sendMail(account, { to: [email], subject: mail.subject, text: mail.text });
     mailSent = true;
   } catch (e) {
@@ -165,7 +196,10 @@ export async function inviteOperator(formData: FormData): Promise<InviteOperator
   return { inviteLink, mailSent, mailError };
 }
 
-/** 運営者の氏名・メモを変更する。自分自身は誰でも、他の運営者はスーパーユーザーのみ変更できる */
+/**
+ * 運営者の氏名・メモを変更する。自分自身は誰でも、他の運営者はスーパーユーザーのみ変更できる。
+ * スーパーユーザーは他の運営者の区分(運営管理も使う / 運営サポート専用)も変えられる
+ */
 export async function updateOperator(userId: string, formData: FormData): Promise<void> {
   const { admin, user, isSuper } = await requireOperator();
   if (userId !== user.id && !isSuper) throw userError("他の運営者の変更はスーパーユーザーのみ行えます");
@@ -173,9 +207,24 @@ export async function updateOperator(userId: string, formData: FormData): Promis
   const note = String(formData.get("note") ?? "").trim() || null;
   if (!name) throw userError("氏名を入力してください");
   if (name.length > 50) throw userError("氏名は 50 文字以内にしてください");
-  const { data: target } = await admin.from("operators").select("user_id").eq("user_id", userId).maybeSingle();
+  const { data: target } = await admin.from("operators").select("user_id, is_super, support_only").eq("user_id", userId).maybeSingle();
   if (!target) throw userError("運営者が見つかりません");
-  const { error } = await admin.from("operators").update({ name, note }).eq("user_id", userId);
+  let supportOnly = Boolean(target.support_only);
+  const kind = formData.get("kind");
+  if (isSuper && !target.is_super && userId !== user.id && (kind === "support" || kind === "operator")) {
+    supportOnly = kind === "support";
+    if (!supportOnly && target.support_only) {
+      // 運営管理に入れるのは、運営側の会社の利用者か、どの会社にも所属しない人だけ
+      const [{ data: profile }, { data: opTenant }] = await Promise.all([
+        admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle(),
+        admin.from("tenants").select("id").order("created_at").limit(1).maybeSingle(),
+      ]);
+      if (profile?.tenant_id && profile.tenant_id !== opTenant?.id) {
+        throw userError("他社(テナント)の利用者は運営管理に入れる運営者にできません");
+      }
+    }
+  }
+  const { error } = await admin.from("operators").update({ name, note, support_only: supportOnly }).eq("user_id", userId);
   if (error) throw userError(error.message);
   // 一覧の表示名の元になる profiles.full_name も合わせる(profiles は運営者本人の行なので service role で更新してよい)
   await admin.from("profiles").update({ full_name: name }).eq("id", userId);
@@ -192,6 +241,8 @@ export async function removeOperator(userId: string): Promise<void> {
   if (target.is_super) throw userError("スーパーユーザーは削除できません");
   const { error } = await admin.from("operators").delete().eq("user_id", userId);
   if (error) throw userError(error.message);
+  // 運営サポートとして入れていたテナントからも外す(営業担当者の行は担当の履歴として無効で残す)
+  await admin.from("members").update({ profile_id: null, is_support: false, is_active: false }).eq("profile_id", userId).eq("is_support", true);
   // どのテナントにも所属しない運営専用アカウントなら、auth ユーザーも消してログインできなくする
   const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
   if (!profile?.tenant_id) {
@@ -199,6 +250,54 @@ export async function removeOperator(userId: string): Promise<void> {
     if (delErr && !/not found/i.test(delErr.message)) throw userError(`ログインの削除に失敗しました: ${delErr.message}`);
   }
   revalidatePath("/admin/users");
+}
+
+/**
+ * 運営者が運営サポートとして入れるテナントを決める(スーパーユーザーのみ)。
+ * 入れるテナントには、その運営者の営業担当者の行(is_support、profile_id = 運営者)を作る。同じメールアドレスの
+ * ログインしていない営業担当者(招待中など)が既にあれば、その行を使う。運営サポートはユーザー数の上限・課金に数えない。
+ * 外したテナントでは、営業担当者の行を担当の履歴として無効で残し、ログインとの結び付きだけを切る。
+ */
+export async function setOperatorTenants(userId: string, tenantIds: string[]): Promise<void> {
+  const { admin } = await requireSuperOperator();
+  const [{ data: op }, { data: profile }, { data: tenants }, { data: linked }] = await Promise.all([
+    admin.from("operators").select("user_id, name").eq("user_id", userId).maybeSingle(),
+    admin.from("profiles").select("email, full_name, tenant_id").eq("id", userId).maybeSingle(),
+    admin.from("tenants").select("id"),
+    admin.from("members").select("id, tenant_id, is_support").eq("profile_id", userId),
+  ]);
+  if (!op) throw userError("運営者が見つかりません");
+  if (!profile?.email) throw userError("この運営者のメールアドレスを確認できません");
+  const email = (profile.email as string).toLowerCase();
+  const name = (op.name as string | null) ?? (profile.full_name as string | null) ?? email.split("@")[0];
+  const valid = new Set((tenants ?? []).map((t) => t.id as string));
+  // 所属テナントは元から入れるので対象外
+  const wanted = new Set(tenantIds.filter((id) => valid.has(id) && id !== profile.tenant_id));
+  const rows = (linked ?? []) as { id: string; tenant_id: string; is_support: boolean }[];
+
+  for (const tenantId of wanted) {
+    if (rows.some((r) => r.tenant_id === tenantId)) continue;
+    const { data: same } = await admin
+      .from("members")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .is("profile_id", null)
+      .eq("email", email)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    const { error } = same
+      ? await admin.from("members").update({ profile_id: userId, is_support: true, is_active: true, invited_at: null }).eq("id", same.id)
+      : await admin.from("members").insert({ tenant_id: tenantId, name, email, profile_id: userId, is_support: true, sort_order: 99 });
+    if (error) throw userError(error.message);
+  }
+  const removed = rows.filter((r) => r.is_support && !wanted.has(r.tenant_id)).map((r) => r.id);
+  if (removed.length > 0) {
+    const { error } = await admin.from("members").update({ profile_id: null, is_support: false, is_active: false }).in("id", removed);
+    if (error) throw userError(error.message);
+  }
+  revalidatePath("/admin/users");
+  revalidatePath("/members");
 }
 
 // ---------- メールテンプレート ----------

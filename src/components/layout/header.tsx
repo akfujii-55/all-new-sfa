@@ -8,13 +8,20 @@ import { initials } from "@/lib/format";
 import { LogOut } from "lucide-react";
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
+import type { TenantOption } from "@/lib/tenant-select";
 
-export function Header({ user, tenantName, unreadNotifications = 0 }: { user: { email: string | null; full_name: string | null }; tenantName?: string; unreadNotifications?: number }) {
+export function Header({ user, tenantName, unreadNotifications = 0, tenants = [] }: { user: { email: string | null; full_name: string | null }; tenantName?: string; unreadNotifications?: number; tenants?: TenantOption[] }) {
   const name = user.full_name || user.email || "";
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-end gap-3 border-b bg-background/80 backdrop-blur px-4 md:px-6">
       {/* 会社名は PC ではサイドバーの左上に出るので、ヘッダーではサイドバーが隠れるスマホだけに出す */}
-      {tenantName && <span className="mr-auto truncate text-sm font-medium text-muted-foreground md:hidden">{tenantName}</span>}
+      {/* 入れるテナントが 2 つ以上ある利用者(運営サポート)には切り替えを出す */}
+      {tenants.length > 1 ? (
+        <div className="mr-auto min-w-0"><TenantSwitcher options={tenants} /></div>
+      ) : (
+        tenantName && <span className="mr-auto truncate text-sm font-medium text-muted-foreground md:hidden">{tenantName}</span>
+      )}
       <MailSyncButton />
       <NotificationBell unread={unreadNotifications} />
       <DropdownMenu>

@@ -5,13 +5,15 @@ import { ArrowLeft, BookOpen, Building2, LogOut, Mail, MailPlus, Settings, Users
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { signOut } from "@/actions/auth";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
+import type { TenantOption } from "@/lib/tenant-select";
 
 export const metadata = { title: "運営管理" };
 
 /**
  * 運営者(operators)だけが入れる管理画面。
  * 運営者はスーパーユーザーが「ユーザー管理」からメールで招待し、パスワードを設定した通常ログインで入る。
- * 運営専用アカウントはテナントに所属しないため、アプリ側の画面には戻れない(ログアウトのみ)。
+ * 運営専用アカウントはテナントに所属しないため、「入れるテナント」(ユーザー管理で設定)が無ければアプリ側の画面には戻れない(ログアウトのみ)。
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
@@ -19,7 +21,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   if (!auth.user) redirect("/login?next=/admin");
   const { data: isOperator } = await supabase.rpc("is_operator");
   if (!isOperator) redirect("/");
-  const tenant = await getCurrentTenant(supabase);
+  const [tenant, { data: myTenants }] = await Promise.all([getCurrentTenant(supabase), supabase.rpc("my_tenants")]);
+  const tenants = (myTenants ?? []) as TenantOption[];
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -37,7 +40,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-muted-foreground sm:inline">{auth.user.email}</span>
-            {tenant && <Link href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> アプリへ戻る</Link>}
+            {tenants.length > 1 ? (
+              <TenantSwitcher options={tenants} label="テナントの画面へ" />
+            ) : (
+              tenant && <Link href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> アプリへ戻る</Link>
+            )}
             <form action={signOut}>
               <button type="submit" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><LogOut className="size-4" /> ログアウト</button>
             </form>

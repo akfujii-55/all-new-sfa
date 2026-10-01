@@ -14,6 +14,7 @@ import { FeaturesProvider } from "@/components/layout/features-provider";
 import { signOut } from "@/actions/auth";
 import { tenantAccess, trialDaysLeft as calcTrialDaysLeft } from "@/lib/tenant-quota";
 import type { EmailTemplate } from "@/lib/types";
+import type { TenantOption } from "@/lib/tenant-select";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   // 利用タイプ(メール管理のテナントは案件・売上を出さない)
   const features = await getFeatures();
-  const [tenant, { data: isOperator }, { data: profile }, { data: member }, mailSettings, { count: unread }, { count: inquiries }, { count: overdue }, { count: unreadNotifications }] = await Promise.all([
+  const [tenant, { data: isOperator }, { data: profile }, { data: member }, mailSettings, { count: unread }, { count: inquiries }, { count: overdue }, { count: unreadNotifications }, { data: myTenants }] = await Promise.all([
     getCurrentTenant(supabase),
     supabase.rpc("is_operator"),
     supabase.from("profiles").select("email, full_name").eq("id", auth.user.id).maybeSingle(),
@@ -33,6 +34,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     supabase.from("deal_activities").select("id", { count: "exact", head: true }).is("done_at", null).lt("due_at", nowIso()),
     // 担当者へのお知らせ(自分あての未読。RLS で本人の分だけ見える)
     supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    // 入れるテナント(運営サポートは複数。2 つ以上あるときだけヘッダーに切り替えを出す)
+    supabase.rpc("my_tenants"),
   ]);
 
   // メールテンプレート: 会社共通 + ログイン中の営業担当者の自分専用
@@ -80,7 +83,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <div className="flex min-h-screen">
         <Sidebar counts={{ unread: unread ?? 0, inquiries: inquiries ?? 0, overdue: overdue ?? 0 }} tenantName={tenant.name} isOperator={Boolean(isOperator)} features={features} />
         <div className="flex-1 flex flex-col min-w-0">
-          <Header user={{ email: profile?.email ?? auth.user.email ?? null, full_name: profile?.full_name ?? null }} tenantName={tenant.name} unreadNotifications={unreadNotifications ?? 0} />
+          <Header user={{ email: profile?.email ?? auth.user.email ?? null, full_name: profile?.full_name ?? null }} tenantName={tenant.name} unreadNotifications={unreadNotifications ?? 0} tenants={(myTenants ?? []) as TenantOption[]} />
           {!access.writable && (
             <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100 md:px-6">
               {access.reason} 現在は閲覧のみ可能です。

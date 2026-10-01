@@ -1,5 +1,6 @@
 import { combineChunks, parseCookieHeader, stringFromBase64URL } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { TENANT_COOKIE, tenantHeaders } from "@/lib/tenant-select";
 
 /** エラー記録に添える「誰が・どのテナントで」の情報 */
 export interface RequestContext {
@@ -31,12 +32,13 @@ export async function requestContextFromCookies(cookieHeader: string | string[] 
     if (typeof token !== "string" || !token) return EMPTY;
 
     const db = createSupabaseClient(url, anon, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+      // 選択中のテナント(運営サポートが別のテナントに入っているとき)も伝え、エラーをそのテナントのものとして記録する
+      global: { headers: { Authorization: `Bearer ${token}`, ...tenantHeaders(cookies.get(TENANT_COOKIE)) } },
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const { data: auth } = await db.auth.getUser(token);
     if (!auth.user) return EMPTY;
-    // RLS で自分のテナントしか見えないので、条件なしで 1 件取れば所属テナント
+    // RLS で選択中のテナントしか見えないので、条件なしで 1 件取ればそのテナント
     const { data: tenant } = await db.from("tenants").select("id, name, slug").maybeSingle();
     return {
       userEmail: auth.user.email ?? null,
