@@ -31,6 +31,17 @@ export function renderMerge(text: string, vars: MergeVars): string {
   });
 }
 
+/**
+ * 項目を選んで本文に入れるときの形(返信・新規作成の「差し込む」、テンプレート編集の項目ボタン)。
+ * 取引先は宛名の 1 行目になるので改行まで、担当者名は「様」まで一緒に入れる。値が無ければ {{項目名}} のまま同じ形で入れる。
+ */
+export function mergeInsertText(key: MergeKey, value?: string | null): string {
+  const v = value?.trim() || `{{${key}}}`;
+  if (key === "取引先") return `${v}\n`;
+  if (key === "担当者名") return /様$/.test(v) ? v : `${v} 様`;
+  return v;
+}
+
 /** 残っている(置き換えられなかった)差し込み項目。重複を除いて出現順に返す */
 export function unresolvedMerges(text: string): string[] {
   const found: string[] = [];

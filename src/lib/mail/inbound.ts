@@ -60,6 +60,19 @@ export function inboundAddress(token: string | null | undefined): string | null 
   return config && token ? config.addressFormat.replace("{token}", token) : null;
 }
 
+/**
+ * 転送の受け口のアドレスか(どのテナントのものでも。受信用メールボックス自体のアドレスも含む)。
+ * 手動転送で届いたメールは宛先が受け口アドレスになるので、返信の CC やアドレスの候補に混ぜないために使う。
+ */
+export function isInboundAddress(address: string): boolean {
+  const config = inboundConfig();
+  if (!config) return false;
+  const a = address.trim().toLowerCase();
+  if (a === config.user.toLowerCase()) return true;
+  const escaped = config.addressFormat.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace("{token}", TOKEN_RE);
+  return new RegExp(`^${escaped}$`).test(a);
+}
+
 /** ヘッダー全体から受け口アドレスのトークンを拾う(Delivered-To / X-Original-To / Received の for / To など、サーバーごとに入る場所が違うため) */
 function tokensIn(headers: string, config: InboundConfig): string[] {
   const escaped = config.addressFormat.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace("{token}", `(${TOKEN_RE})`);

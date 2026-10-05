@@ -5,6 +5,7 @@ import { getFeatures } from "@/lib/features-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { ilikePattern } from "@/lib/search-filter";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { MailSyncButton } from "@/components/inbox/mail-sync-button";
 import { InboxList, type InboxThread } from "@/components/inbox/inbox-list";
@@ -39,17 +40,9 @@ const SEARCH_TARGETS = [
 const SEARCH_TARGET_OPTIONS = SEARCH_TARGETS.map((t) => ({ key: t.key, label: t.label }));
 type SearchTarget = (typeof SEARCH_TARGETS)[number]["key"];
 
-/**
- * PostgREST の or フィルタ用に ilike のパターンを組み立てる。
- * カンマ・括弧・ダブルクォートを含む語でも壊れないよう値全体を引用符で囲み、
- * LIKE のワイルドカード(% _ \)は文字どおりに検索する。
- * 引用符内では PostgREST がバックスラッシュをエスケープ文字として扱うため、
- * LIKE 用のエスケープを施したあとにバックスラッシュ自体を二重にする。
- */
+/** PostgREST の or フィルタ用に、検索対象の列ごとの ilike を組み立てる */
 function buildSearchFilter(q: string, target: SearchTarget) {
-  const likeEscaped = q.replace(/[\\%_]/g, (c) => `\\${c}`);
-  const quoted = likeEscaped.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  const pattern = `"%${quoted}%"`;
+  const pattern = ilikePattern(q);
   const columns = SEARCH_TARGETS.find((t) => t.key === target)?.columns ?? SEARCH_TARGETS[0].columns;
   return columns.map((c) => `${c}.ilike.${pattern}`).join(",");
 }

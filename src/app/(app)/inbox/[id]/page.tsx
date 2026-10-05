@@ -18,6 +18,8 @@ import { ThreadMessage } from "@/components/inbox/thread-message";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { getMailAccountOptions } from "@/lib/mail/options";
 import { resolveCounterpart } from "@/lib/mail/link";
+import { isInboundAddress } from "@/lib/mail/inbound";
+import { extractAddresses, splitAddresses, uniqueAddresses, type AddressOption } from "@/lib/mail/addresses";
 import { fmtDateTime } from "@/lib/format";
 import { ThreadTags } from "@/components/inbox/thread-tags";
 import { tagsFromRows } from "@/lib/tags";
@@ -85,7 +87,39 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       : latestInbound.direction === "inbound"
         ? latestInbound.from_address
         : latestInbound.to_addresses.join(", ");
-  const replyCc = isForm ? "" : latestInbound.cc_addresses.filter((a) => !selves.has(a.toLowerCase())).join(", ");
+  // CC は「全員に返信」と同じ: 相手のメールの宛先(自社のアカウント以外)と CC、その後こちらから送ったメールで足した CC を引き継ぐ。
+  // 手動転送で届いたメールは宛先が転送の受け口アドレスなので外す
+  const notOurs = (a: string) => !isInboundAddress(a);
+  const since = emails.slice(emails.indexOf(latestInbound));
+  const replyCc = isForm
+    ? ""
+    : uniqueAddresses(
+        since.flatMap((m) => (m === latestInbound && m.direction === "inbound" ? [...m.to_addresses, ...m.cc_addresses] : m.cc_addresses)).filter(notOurs),
+        [...selves, ...splitAddresses(replyTo)],
+      ).join(", ");
+  // CC に足せる候補: このスレッドのこれまでの差出人・宛先・CC と、相手のメールの本文に書かれたアドレス(「CC に入れてください」への対応)。
+  // フォーム通知はヘッダーが通知システムと社内の転送先なので、本文のアドレスだけにする
+  const contactNames = new Map((contacts ?? []).filter((c) => c.email).map((c) => [c.email!.toLowerCase(), c.name]));
+  const addressOptions: AddressOption[] = [];
+  const addOption = (email: string, name: string | null | undefined, hint: string) => {
+    const key = email.trim().toLowerCase();
+    if (!key.includes("@") || selves.has(key) || isInboundAddress(key) || addressOptions.some((o) => o.email.toLowerCase() === key)) return;
+    addressOptions.push({ email: email.trim(), name: name?.trim() || contactNames.get(key) || null, hint });
+  };
+  const newestFirst = [...emails].reverse();
+  // いちばん新しい相手のメールの本文に書かれたアドレスを先頭に出す
+  if (latestInbound.direction === "inbound") for (const a of extractAddresses(latestInbound.text_body)) addOption(a, null, "本文に記載");
+  if (!isForm) {
+    for (const m of newestFirst) {
+      addOption(m.from_address, m.from_name, "これまでの差出人");
+      for (const a of m.to_addresses) addOption(a, null, "これまでの宛先");
+      for (const a of m.cc_addresses) addOption(a, null, "これまでの CC");
+    }
+  }
+  for (const m of newestFirst) {
+    if (m.direction !== "inbound") continue;
+    for (const a of extractAddresses(m.text_body)) addOption(a, null, "本文に記載");
+  }
   const quote = buildQuote(fmtDateTime(latestInbound.received_at), latestInbound.from_name || latestInbound.from_address, latestInbound.text_body);
   // テンプレートの差し込み項目。相手の会社名・氏名はスレッドに紐付く取引先・担当者(フォーム通知なら本文の問い合わせ者)
   const merge: MergeVars = {
@@ -109,7 +143,7 @@ export default async function ThreadPage({ params }: PageProps<"/inbox/[id]">) {
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-4 min-w-0">
           <h1 className="text-xl font-semibold">{latest.subject || "(件名なし)"}</h1>
-          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} merge={merge} />
+          <ReplyForm replyToEmailId={latest.id} to={replyTo} cc={replyCc} quote={quote} accounts={accounts} defaultAccountId={threadAccountId} merge={merge} addressOptions={addressOptions} />
           {/* 履歴は新しいものが上。各メールはヘッダーをクリックして開閉できる */}
           {[...emails].reverse().map((e) => (
             <ThreadMessage

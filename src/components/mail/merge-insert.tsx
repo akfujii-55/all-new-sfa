@@ -4,12 +4,12 @@ import { useEffect, useRef, type RefObject } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { MergeKey, MergeVars } from "@/lib/mail/merge";
+import { mergeInsertText, type MergeKey, type MergeVars } from "@/lib/mail/merge";
 import { useFeatures } from "@/components/layout/features-provider";
 
 /**
  * テンプレートを使わないときの差し込み。本文の右上の「差し込む」から項目を選ぶと、
- * カーソルの位置に値そのものが入る。値が分からない項目は {{項目名}} のまま入り、送信前の確認で赤く止まる。
+ * カーソルの位置に値そのものが入る(取引先は後ろで改行、担当者名は「様」付き)。値が分からない項目は {{項目名}} のまま入り、送信前の確認で赤く止まる。
  */
 
 /** 本文 Textarea のカーソル位置を覚えておき、メニューから選んだ値をそこに入れる */
@@ -81,9 +81,10 @@ export function MergeInsertMenu({ vars, onInsert, disabled }: { vars: MergeVars;
   const item = ({ key, label }: { key: MergeKey; label: string }) => {
     const value = vars[key]?.trim() ?? "";
     return (
-      <DropdownMenuItem key={key} onSelect={() => onInsert(value || `{{${key}}}`)} className="grid grid-cols-[6.5rem_1fr] gap-2">
+      <DropdownMenuItem key={key} onSelect={() => onInsert(mergeInsertText(key, value))} className="grid grid-cols-[6.5rem_1fr] gap-2">
         <span>{label}</span>
-        <ValueCell value={value} />
+        {/* 入る形をそのまま見せる(取引先は後ろで改行、担当者名は「様」付き) */}
+        <ValueCell value={value && key === "取引先" ? `${value} ⏎` : value && key === "担当者名" ? mergeInsertText(key, value) : value} />
       </DropdownMenuItem>
     );
   };

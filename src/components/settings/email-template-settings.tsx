@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { actionErrorMessage } from "@/lib/errors";
 import { useFeatures } from "@/components/layout/features-provider";
-import { EMAIL_TEMPLATE_LIMITS, MAX_EMAIL_TEMPLATES, MERGE_FIELDS } from "@/lib/mail/merge";
+import { EMAIL_TEMPLATE_LIMITS, MAX_EMAIL_TEMPLATES, MERGE_FIELDS, mergeInsertText, type MergeKey } from "@/lib/mail/merge";
 import type { EmailTemplate } from "@/lib/types";
 
 /** テンプレートの追加・編集ダイアログ。差し込み項目のボタンを押すと本文のカーソル位置に入る */
@@ -33,10 +33,11 @@ function TemplateDialog({
   const { sales } = useFeatures();
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
-  function insertToken(key: string) {
+  function insertToken(key: MergeKey) {
     const ta = bodyRef.current;
     if (!ta) return;
-    const token = `{{${key}}}`;
+    // 取引先は後ろで改行、担当者名は「様」付きで入れる(返信・新規作成の「差し込む」と同じ形)
+    const token = mergeInsertText(key);
     ta.setRangeText(token, ta.selectionStart, ta.selectionEnd, "end");
     ta.focus();
   }

@@ -19,6 +19,8 @@ import { SendPreviewDialog } from "@/components/mail/send-preview-dialog";
 import { MergeInsertMenu, RecipientLine, useCaretInsert } from "@/components/mail/merge-insert";
 import { initialBodyWithSignature, isBodyEmpty, swapSignature } from "@/lib/mail/signature";
 import { selfMergeVars, type MergeVars } from "@/lib/mail/merge";
+import { AddressInput } from "@/components/mail/address-input";
+import type { AddressOption } from "@/lib/mail/addresses";
 import type { MailAccountOption } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -66,6 +68,11 @@ export function ComposeDialog({
   const caret = useCaretInsert(bodyRef, (update) => setForm((f) => ({ ...f, body: update(f.body) })));
 
   const fromAccount = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  // 入力中の候補に自社のメールアカウントも出す(社内・取引先の担当者は入力に合わせて探す)
+  const inputOptions = useMemo<AddressOption[]>(
+    () => accounts.map((a) => ({ email: a.email, name: a.label !== a.email ? a.label : null, hint: "自社のアカウント" })),
+    [accounts],
+  );
   const firstTo = form.to.split(/[,;\s]+/)[0] ?? "";
   const mergeVars = useMemo<MergeVars>(
     () => ({
@@ -148,12 +155,12 @@ export function ComposeDialog({
           <TemplateSelect templates={templates} value={templateId} onChange={selectTemplate} disabled={pending} />
           <div className="grid gap-1.5">
             <Label>宛先</Label>
-            <Input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} onBlur={lookupTo} placeholder="taro@example.co.jp, hanako@example.co.jp" />
+            <AddressInput value={form.to} onChange={(to) => setForm((f) => ({ ...f, to }))} onBlur={lookupTo} options={inputOptions} placeholder="名前かアドレスを数文字入れると候補が出ます" />
             <RecipientLine vars={mergeVars} to={form.to} />
           </div>
           <div className="grid gap-1.5">
             <Label>CC</Label>
-            <Input value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} />
+            <AddressInput value={form.cc} onChange={(cc) => setForm((f) => ({ ...f, cc }))} options={inputOptions} />
           </div>
           <div className="grid gap-1.5">
             <Label>件名</Label>

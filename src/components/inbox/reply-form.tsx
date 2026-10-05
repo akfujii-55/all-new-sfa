@@ -18,6 +18,8 @@ import { SendPreviewDialog } from "@/components/mail/send-preview-dialog";
 import { MergeInsertMenu, RecipientLine, useCaretInsert } from "@/components/mail/merge-insert";
 import { initialBodyWithSignature, isBodyEmpty, swapSignature } from "@/lib/mail/signature";
 import { selfMergeVars, type MergeVars } from "@/lib/mail/merge";
+import { AddressChips, AddressInput } from "@/components/mail/address-input";
+import { appendAddress, splitAddresses, type AddressOption } from "@/lib/mail/addresses";
 import type { MailAccountOption } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
@@ -29,6 +31,7 @@ export function ReplyForm({
   accounts = [],
   defaultAccountId,
   merge,
+  addressOptions = [],
 }: {
   replyToEmailId: string;
   to: string;
@@ -39,6 +42,8 @@ export function ReplyForm({
   defaultAccountId?: string | null;
   /** テンプレートの差し込み項目に入れる、このスレッドの取引先・担当者・元メールの情報 */
   merge?: MergeVars;
+  /** このスレッドに出てくるアドレス(これまでの差出人・宛先・CC、本文に書かれたアドレス)。CC の候補に出す */
+  addressOptions?: AddressOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -67,6 +72,11 @@ export function ReplyForm({
   const caret = useCaretInsert(bodyRef, (update) => setForm((f) => ({ ...f, body: update(f.body) })));
 
   const fromAccount = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  // 入力中の候補: このスレッドのアドレス + 自社のメールアカウント(社内・取引先の担当者は入力に合わせて探す)
+  const inputOptions = useMemo<AddressOption[]>(
+    () => [...addressOptions, ...accounts.map((a) => ({ email: a.email, name: a.label !== a.email ? a.label : null, hint: "自社のアカウント" }))],
+    [addressOptions, accounts],
+  );
   const mergeVars = useMemo<MergeVars>(
     () => ({ ...selfMergeVars({ memberName, companyName, fromEmail: fromAccount?.email ?? "" }), 担当者メール: form.to.split(/[,;\s]+/)[0] ?? "", 問い合わせ本文: quote, ...merge }),
     [memberName, companyName, fromAccount?.email, form.to, quote, merge],
@@ -134,14 +144,19 @@ export function ReplyForm({
         <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-3">
           <div className="grid gap-1.5">
             <Label>宛先</Label>
-            <Input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} />
+            <AddressInput value={form.to} onChange={(to) => setForm((f) => ({ ...f, to }))} options={inputOptions} />
             <RecipientLine vars={mergeVars} to={form.to} />
           </div>
           <div className="grid gap-1.5">
             <Label>CC</Label>
-            <Input value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} />
+            <AddressInput value={form.cc} onChange={(cc) => setForm((f) => ({ ...f, cc }))} options={inputOptions} placeholder="名前かアドレスを数文字入れると候補が出ます" />
           </div>
         </div>
+        <AddressChips
+          options={addressOptions}
+          taken={[...splitAddresses(form.to), ...splitAddresses(form.cc)]}
+          onAdd={(email) => setForm((f) => ({ ...f, cc: appendAddress(f.cc, email) }))}
+        />
         <div className="grid gap-1.5">
           <Label>件名</Label>
           <Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
