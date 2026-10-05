@@ -48,8 +48,8 @@ export function InquiryMemo({ id, memo, updatedAt, updatedBy }: { id: string; me
 
   if (!memo) {
     return (
-      <Button size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs text-muted-foreground" onClick={() => setEditing(true)}>
-        <NotebookPen className="size-3.5" /> メモを追加
+      <Button size="sm" variant="ghost" className="mt-2 h-9 w-full justify-start gap-2 border border-dashed border-brand-line bg-brand-soft/45 px-3 text-sm font-medium text-brand-ink hover:bg-brand-soft hover:text-brand-ink" onClick={() => setEditing(true)}>
+        <NotebookPen className="size-4" /> メモを追加
       </Button>
     );
   }

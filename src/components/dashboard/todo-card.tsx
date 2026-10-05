@@ -18,7 +18,7 @@ export function TodoCard({ todos, members, emptyText }: { todos: DealActivity[];
     <Card className={`mt-6 ${overdueCount > 0 ? "border-rose-300 dark:border-rose-900" : ""}`}>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarClock className="size-4" /> 今日やること
+          <CalendarClock className="size-4 text-brand-ink" /> 今日やること
           {overdueCount > 0 && <Badge variant="destructive" className="h-5 px-1.5"><AlertTriangle className="mr-1 size-3" /> 期限超過 {overdueCount}</Badge>}
         </CardTitle>
         <Button asChild variant="ghost" size="sm">

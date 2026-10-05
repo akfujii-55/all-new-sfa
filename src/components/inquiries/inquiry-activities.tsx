@@ -50,10 +50,10 @@ export function InquiryActivities({
           )}
         </div>
       )}
-      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => setOpen(true)}>
-        <CalendarCheck className="size-3.5" /> {activities.length > 0 ? "行動を追加・編集" : "行動(Todo)を追加"}
-        {overdue > 0 && <Badge variant="destructive" className="ml-1 h-4 px-1 text-[10px]">期限超過 {overdue}</Badge>}
-        {doneCount > 0 && <span className="ml-1 text-[11px]">完了 {doneCount} 件</span>}
+      <Button size="sm" variant="ghost" className="h-9 w-full justify-start gap-2 border border-dashed border-brand-line bg-brand-soft/45 px-3 text-sm font-medium text-brand-ink hover:bg-brand-soft hover:text-brand-ink" onClick={() => setOpen(true)}>
+        <CalendarCheck className="size-4" /> {activities.length > 0 ? "行動を追加・編集" : "行動(Todo)を追加"}
+        {overdue > 0 && <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">期限超過 {overdue}</Badge>}
+        {doneCount > 0 && <span className="ml-1 text-xs font-normal text-muted-foreground">完了 {doneCount} 件</span>}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

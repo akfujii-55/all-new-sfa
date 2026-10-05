@@ -38,7 +38,7 @@ export type NavCounts = { unread: number; inquiries: number; overdue: number };
 /** アプリのマーク(漏斗 = 問い合わせを案件に絞る)。テナントごとのロゴは持たず、どの契約企業でも同じ */
 function BrandMark() {
   return (
-    <span aria-hidden className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+    <span aria-hidden className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
       <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 6h18l-7 8v5l-4 2v-7L3 6z" />
       </svg>
@@ -70,7 +70,7 @@ export function Sidebar({ counts, tenantName, isOperator = false, features }: { 
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  ? "bg-brand-soft font-semibold text-brand-ink"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
               )}
             >
@@ -109,9 +109,11 @@ export function MobileNav({ features }: { features?: Features }) {
           <Link
             key={item.href}
             href={item.href}
-            className={cn("flex flex-col items-center gap-0.5 py-2 text-[10px]", active ? "text-foreground" : "text-muted-foreground")}
+            className={cn("flex flex-col items-center gap-0.5 py-1.5 text-[10px]", active ? "font-bold text-brand-ink" : "text-muted-foreground")}
           >
-            <item.icon className="size-5" />
+            <span className={cn("flex h-6 w-10 items-center justify-center rounded-full", active && "bg-brand-soft")}>
+              <item.icon className="size-5" />
+            </span>
             {item.label}
           </Link>
         );

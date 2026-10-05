@@ -28,7 +28,7 @@ export function Header({ user, tenantName, unreadNotifications = 0, tenants = []
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="gap-2 px-2">
             <Avatar className="size-7">
-              <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
+              <AvatarFallback className="bg-brand-soft text-xs font-semibold text-brand-ink">{initials(name)}</AvatarFallback>
             </Avatar>
             <span className="hidden sm:inline text-sm">{name}</span>
           </Button>

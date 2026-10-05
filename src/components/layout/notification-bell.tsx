@@ -71,7 +71,7 @@ export function NotificationBell({ unread: initialUnread }: { unread: number }) 
         <Button variant="ghost" size="icon" className="relative" aria-label={unread > 0 ? `お知らせ(未読 ${unread} 件)` : "お知らせ"}>
           <Bell className="size-4" />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-white">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-notice px-1 text-[10px] font-semibold leading-none text-notice-foreground">
               {unread > 99 ? "99+" : unread}
             </span>
           )}
@@ -98,7 +98,7 @@ export function NotificationBell({ unread: initialUnread }: { unread: number }) 
                     onClick={() => openItem(n)}
                     className={cn("grid w-full grid-cols-[10px_1fr] gap-2 px-3 py-2.5 text-left hover:bg-accent", n.read_at && "text-muted-foreground")}
                   >
-                    <span className={cn("mt-1.5 size-2 rounded-full", n.read_at ? "bg-transparent" : "bg-primary")} aria-hidden />
+                    <span className={cn("mt-1.5 size-2 rounded-full", n.read_at ? "bg-transparent" : "bg-notice")} aria-hidden />
                     <span className="min-w-0">
                       <span className={cn("block text-sm leading-snug", !n.read_at && "font-medium")}>
                         <span className="mr-1.5 rounded bg-secondary px-1 py-0.5 text-[10px] font-normal text-secondary-foreground">{NOTIFICATION_KIND_LABEL[n.kind]}</span>

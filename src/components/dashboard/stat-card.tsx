@@ -10,8 +10,8 @@ export function StatCard({ label, value, hint, icon: Icon }: { label: string; va
           <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight truncate">{value}</p>
           {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
         </div>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Icon className="size-4 text-muted-foreground" />
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-brand-soft">
+          <Icon className="size-4 text-brand-ink" />
         </div>
       </CardContent>
     </Card>
