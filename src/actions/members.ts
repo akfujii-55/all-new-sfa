@@ -147,8 +147,18 @@ export async function inviteMember(memberId: string): Promise<{ message: string 
     if (!/already|exists|registered/i.test(first.error.message)) throw userError(first.error.message);
     // ログイン用のリンクで再送してよいのは、この会社の利用者だけ。別の会社の利用者・運営者のアドレスだと、
     // リンクを開いた人が自分の元の会社(または運営管理)に入ってしまう
-    const { data: existing } = await admin.from("profiles").select("tenant_id").eq("email", email).maybeSingle();
-    if (existing?.tenant_id !== tenantId) {
+    const { data: existing } = await admin.from("profiles").select("id, tenant_id").eq("email", email).maybeSingle();
+    if (existing && existing.tenant_id === null) {
+      // 所属のないログイン(以前いたテナントが削除された、など)。運営者でなければこの会社の利用者として引き取る
+      const { data: op } = await admin.from("operators").select("user_id").eq("user_id", existing.id).maybeSingle();
+      if (op) {
+        throw userError("このメールアドレスは運営者として登録されているため招待できません。運営にお問い合わせください");
+      }
+      const { error: adoptErr } = await admin.from("profiles").update({ tenant_id: tenantId }).eq("id", existing.id);
+      if (adoptErr) throw userError(`利用者の所属を設定できませんでした: ${adoptErr.message}`);
+      const { error: linkErr } = await supabase.from("members").update({ profile_id: existing.id, email }).eq("id", member.id);
+      if (linkErr) throw userError(linkErr.message);
+    } else if (existing?.tenant_id !== tenantId) {
       throw userError("このメールアドレスは、既に別の会社の利用者または運営者として登録されているため招待できません。別のメールアドレスで招待するか、運営にお問い合わせください");
     }
     const again = await admin.auth.admin.generateLink({ type: "magiclink", email });
