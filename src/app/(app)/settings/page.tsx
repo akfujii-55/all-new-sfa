@@ -65,7 +65,7 @@ export default async function SettingsPage() {
   // 新着メールのチャット通知先(0033)。secret_enc はクライアントに渡さず、有無だけにする
   const { data: notifyRows } = await supabase
     .from("mail_notifications")
-    .select("id, kind, name, url, room_id, mail_account_id, mode, is_active, last_sent_at, last_error, secret_enc, created_at")
+    .select("id, kind, name, url, room_id, mail_account_id, mode, notify_todo, is_active, last_sent_at, last_error, secret_enc, created_at")
     .order("created_at");
   const notifications: MailNotification[] = (notifyRows ?? []).map(({ secret_enc, ...r }) => ({ ...(r as Omit<MailNotification, "has_secret">), has_secret: Boolean(secret_enc) }));
   const features = featuresOf(tenant);

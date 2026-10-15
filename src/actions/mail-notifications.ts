@@ -10,13 +10,18 @@ import {
   MAIL_NOTIFICATION_MODES,
   MAX_MAIL_NOTIFICATIONS,
   buildNewMailText,
+  buildTodoText,
   kindDef,
   sampleNotices,
+  sampleTodoNotice,
   type MailNotificationKind,
   type MailNotificationMode,
 } from "@/lib/mail-notifications-shared";
 
-/** 新着メールのチャット通知先(設定画面「新着メールの通知」、0033)。ログインユーザーのクライアントで動き、RLS で自テナントに絞られる */
+/**
+ * 新着メールのチャット通知先(設定画面「新着メールの通知」、0033)。ログインユーザーのクライアントで動き、RLS で自テナントに絞られる。
+ * 通知先ごとの「行動(Todo)の登録も通知する」(notify_todo、0042)もここで保存する。
+ */
 
 async function requireUser() {
   const supabase = await createClient();
@@ -35,6 +40,7 @@ interface Parsed {
   room_id: string | null;
   mail_account_id: string | null;
   mode: MailNotificationMode;
+  notify_todo: boolean;
 }
 
 function parseForm(fd: FormData): Parsed {
@@ -67,7 +73,8 @@ function parseForm(fd: FormData): Parsed {
   const mail_account_id = String(fd.get("mail_account_id") ?? "").trim() || null;
   const mode = String(fd.get("mode") ?? "digest").trim() as MailNotificationMode;
   if (!MAIL_NOTIFICATION_MODES.some((m) => m.key === mode)) throw userError("送り方を選んでください");
-  return { kind, name, url: usesUrl ? url : "", secret, room_id: kind === "chatwork" ? room_id : null, mail_account_id, mode };
+  const notify_todo = fd.get("notify_todo") === "on";
+  return { kind, name, url: usesUrl ? url : "", secret, room_id: kind === "chatwork" ? room_id : null, mail_account_id, mode, notify_todo };
 }
 
 /** 保存済みの通知先から、テストや更新のときに引き継ぐ値を読む */
@@ -93,6 +100,7 @@ export async function createMailNotification(fd: FormData) {
     room_id: p.room_id,
     mail_account_id: p.mail_account_id,
     mode: p.mode,
+    notify_todo: p.notify_todo,
   });
   if (error) throw userError(error.message);
   revalidatePath("/settings");
@@ -114,6 +122,7 @@ export async function updateMailNotification(id: string, fd: FormData) {
     room_id: p.room_id,
     mail_account_id: p.mail_account_id,
     mode: p.mode,
+    notify_todo: p.notify_todo,
     last_error: null,
   };
   if (p.secret) patch.secret_enc = encryptSecret(p.secret);
@@ -147,16 +156,19 @@ export async function testMailNotification(fd: FormData): Promise<{ ok: boolean;
   let target: NotificationTarget;
   let kind: MailNotificationKind;
   let accountId: string | null;
+  let withTodo: boolean;
   if (id && !fd.has("kind")) {
     const stored = await loadStored(db, id);
-    const { data: row } = await db.from("mail_notifications").select("mail_account_id").eq("id", id).maybeSingle();
+    const { data: row } = await db.from("mail_notifications").select("mail_account_id, notify_todo").eq("id", id).maybeSingle();
     target = toTarget(stored);
     kind = stored.kind;
     accountId = (row?.mail_account_id as string | null) ?? null;
+    withTodo = Boolean(row?.notify_todo);
   } else {
     const p = parseForm(fd);
     kind = p.kind;
     accountId = p.mail_account_id;
+    withTodo = p.notify_todo;
     let secret = p.secret;
     if (!secret && id) {
       const stored = await loadStored(db, id);
@@ -172,7 +184,9 @@ export async function testMailNotification(fd: FormData): Promise<{ ok: boolean;
     accountEmail = (data?.email as string | undefined) ?? null;
   }
   const text = `【テスト送信】この通知先に新着メールの通知が届くことを確認しています。\n\n${buildNewMailText(kind, sampleNotices(siteOriginForPreview(), accountEmail))}`;
-  const err = await sendChatMessage(target, text);
+  let err = await sendChatMessage(target, text);
+  // 「行動(Todo)の登録も通知する」がオンなら、その文面のサンプルも続けて送る
+  if (!err && withTodo) err = await sendChatMessage(target, `【テスト送信】行動(Todo)を登録したときの通知のサンプルです。\n\n${buildTodoText(kind, sampleTodoNotice(siteOriginForPreview()))}`);
   if (id) await db.from("mail_notifications").update(err ? { last_error: err } : { last_error: null, last_sent_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/settings");
   return err ? { ok: false, message: err } : { ok: true, message: `${kindDef(kind)?.label ?? kind} に送りました` };

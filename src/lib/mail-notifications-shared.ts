@@ -1,6 +1,6 @@
 /**
  * 新着メールのチャット通知(0033)の型・定数・文面。クライアント(設定画面)からも読むので、サーバー専用のものを import しない。
- * 送信そのものは src/lib/mail/notify.ts。
+ * 同じ通知先に行動(Todo)の登録も知らせる(0042、`notify_todo`)。送信そのものは src/lib/mail/notify.ts。
  */
 export const MAX_MAIL_NOTIFICATIONS = 5;
 
@@ -93,6 +93,8 @@ export interface MailNotification {
   room_id: string | null;
   mail_account_id: string | null;
   mode: MailNotificationMode;
+  /** 行動(Todo)を新しく登録したときも通知する(0042) */
+  notify_todo: boolean;
   is_active: boolean;
   last_sent_at: string | null;
   last_error: string | null;
@@ -172,4 +174,61 @@ export function sampleNotices(siteUrl: string, accountEmail: string | null): New
     { id: "sample-1", fromName: "山田 太郎", fromAddress: "taro@example.co.jp", subject: "在庫管理システムのお見積り依頼", companyName: "株式会社サンプル", accountEmail, url: `${base}/inbox` },
     { id: "sample-2", fromName: "田中 花子", fromAddress: "hanako@example.com", subject: "Re: デモのご相談", companyName: null, accountEmail, url: `${base}/inbox` },
   ];
+}
+
+/** 行動(Todo)の登録通知(0042)に載せる情報 */
+export interface TodoNotice {
+  /** 行動の種類の名前(電話・訪問など) */
+  kindName: string | null;
+  body: string;
+  /** 期限の表示(fmtDue 済み)。期限なしなら null */
+  due: string | null;
+  /** 行動の担当者の名前 */
+  ownerName: string | null;
+  /** 登録した人の名前 */
+  actorName: string | null;
+  /** 付け先の表示(「案件: ○○」「問い合わせ: ○○」) */
+  target: string | null;
+  companyName: string | null;
+  /** 開く URL(案件の詳細、または問い合わせ一覧のその問い合わせ) */
+  url: string;
+}
+
+/**
+ * 行動(Todo)の登録通知の文面。新着メールと同じく、Slack は mrkdwn のリンク、Chatwork は [info] 記法、それ以外はプレーンテキスト。
+ * Lark のカスタム Bot はテキストのみなので、担当者へのメンションは付けられない(名前を本文に書く)。
+ */
+export function buildTodoText(kind: MailNotificationKind, t: TodoNotice): string {
+  const title = `✅ 行動(Todo)が登録されました`;
+  const body = t.body.length > 120 ? `${t.body.slice(0, 120)}…` : t.body;
+  const head = `${t.kindName ? `[${t.kindName}] ` : ""}${body}`;
+  const lines = [
+    t.target ? `${t.target}${t.companyName && !t.target.includes(t.companyName) ? `(${t.companyName})` : ""}` : t.companyName,
+    `期限: ${t.due ?? "なし"}`,
+    `担当者: ${t.ownerName ?? "未設定"}`,
+    t.actorName ? `登録: ${t.actorName}` : null,
+  ].filter(Boolean) as string[];
+
+  if (kind === "chatwork") {
+    return `[info][title]${title}[/title]${head}\n${lines.join("\n")}\n${t.url}[/info]`;
+  }
+  if (kind === "slack") {
+    return `${title}\n• ${head}\n  ${lines.join(" ・ ")}  <${t.url}|開く>`;
+  }
+  return `${title}\n\n${head}\n${lines.join("\n")}\n${t.url}`;
+}
+
+/** テスト送信用のサンプル */
+export function sampleTodoNotice(siteUrl: string): TodoNotice {
+  const base = siteUrl.replace(/\/$/, "") || "https://example.com";
+  return {
+    kindName: "電話",
+    body: "見積の内容について折り返し連絡する",
+    due: "2026/10/16 14:00",
+    ownerName: "山田 太郎",
+    actorName: "佐藤 花子",
+    target: "案件: 在庫管理システム導入",
+    companyName: "株式会社サンプル",
+    url: `${base}/activities`,
+  };
 }

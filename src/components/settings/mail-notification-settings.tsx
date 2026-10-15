@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BellRing, CheckCircle2, Pencil, Plus, Trash2, XCircle } from "lucide-react";
+import { BellRing, CheckCircle2, ListChecks, Pencil, Plus, Trash2, XCircle } from "lucide-react";
 import {
   createMailNotification,
   deleteMailNotification,
@@ -145,6 +145,14 @@ function NotificationForm({
         </div>
       </div>
 
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="notify_todo" defaultChecked={initial?.notify_todo ?? false} className="mt-0.5 size-4 accent-primary" />
+        <span>
+          行動(Todo)の登録も通知する
+          <span className="block text-xs text-muted-foreground">案件・問い合わせで行動(Todo)を新しく登録したとき、種類・内容・期限・担当者と開くリンクをこの通知先にすぐ送ります(「済んだ行動として記録する」は送りません)。</span>
+        </span>
+      </label>
+
       <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
         {def.help.map((h, i) => <li key={i}>{h}</li>)}
       </ol>
@@ -202,6 +210,9 @@ function NotificationRow({ item, accounts }: { item: MailNotification; accounts:
       <span className="max-w-64 truncate font-mono text-xs text-muted-foreground" title={item.kind === "chatwork" ? undefined : item.url}>{describeDestination(item)}</span>
       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{account ? `${account.email} のみ` : item.mail_account_id ? "(削除されたアカウント)" : "すべてのアカウント"}</span>
       <span className="text-xs text-muted-foreground">{MAIL_NOTIFICATION_MODES.find((m) => m.key === item.mode)?.label.split("(")[0]}</span>
+      {item.notify_todo && (
+        <span className="inline-flex items-center gap-1 rounded bg-brand-soft px-1.5 py-0.5 text-xs text-brand-ink" title="行動(Todo)を登録したときも通知します"><ListChecks className="size-3.5" /> Todo も通知</span>
+      )}
       {item.last_error ? (
         <span className="inline-flex items-center gap-1 text-xs text-destructive" title={item.last_error}><XCircle className="size-3.5" /> 前回失敗</span>
       ) : item.last_sent_at ? (
@@ -254,7 +265,10 @@ function NotificationRow({ item, accounts }: { item: MailNotification; accounts:
   );
 }
 
-/** 設定画面「新着メールの通知」: 同期で新しい受信メールを取り込んだら Lark / Slack / Chatwork / Webhook に知らせる通知先の一覧 */
+/**
+ * 設定画面「新着メールの通知」: 同期で新しい受信メールを取り込んだら Lark / Slack / Chatwork / Webhook に知らせる通知先の一覧。
+ * 通知先ごとに「行動(Todo)の登録も通知する」(0042)を選べる。
+ */
 export function MailNotificationSettings({ items, accounts }: { items: MailNotification[]; accounts: NotifyAccountOption[] }) {
   const [adding, setAdding] = useState(false);
   const full = items.length >= MAX_MAIL_NOTIFICATIONS;
@@ -272,6 +286,7 @@ export function MailNotificationSettings({ items, accounts }: { items: MailNotif
       <p className="text-xs text-muted-foreground">
         通知するのは同期で新しく取り込んだ受信メールだけです。自分が送ったメールの控えと、自動タグで「削除リスト」が付いたメール、3 日より前に届いたメール(初回同期の過去分など)は通知しません。
         通知には差出人・件名・取引先名と、そのスレッドを開くリンクが入ります。通知先は {MAX_MAIL_NOTIFICATIONS} 件まで(現在 {items.length} 件)。
+        「行動(Todo)の登録も通知する」をオンにした通知先には、行動(Todo)を新しく登録したときにも同じチャットへ知らせます(登録した直後に 1 件ずつ。編集・完了・担当者の変更は送りません)。
       </p>
     </div>
   );

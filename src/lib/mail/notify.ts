@@ -4,15 +4,18 @@ import { errorMessage, logSystem, postWebhook } from "@/lib/log";
 import { DELETE_LIST_TAG_NAME } from "@/lib/tag-rules";
 import {
   buildNewMailText,
+  buildTodoText,
   type MailNotificationKind,
   type MailNotificationMode,
   type NewMailNotice,
+  type TodoNotice,
 } from "@/lib/mail-notifications-shared";
 
 type Db = SupabaseClient;
 
 /**
  * 新着メールのチャット通知(0033)。同期(syncMail)が取り込んだ受信メールを、設定画面「新着メールの通知」の通知先へ送る。
+ * 同じ通知先へ行動(Todo)の登録も知らせる(0042、notifyNewTodo。通知先の notify_todo がオンのものだけ)。
  * 通知先の種類ごとの送り方はここに集約する(Lark / Slack / 汎用 Webhook は log.ts の postWebhook、Chatwork は REST API)。
  */
 
@@ -191,4 +194,38 @@ async function recordResult(db: Db, id: string, error: string | null) {
     .from("mail_notifications")
     .update(error ? { last_error: error } : { last_error: null, last_sent_at: new Date().toISOString() })
     .eq("id", id);
+}
+
+/**
+ * 行動(Todo)を新しく登録したことを、「行動(Todo)の登録も通知する」がオンの有効な通知先へ送る(0042)。
+ * Server Action の after() から呼ぶ想定。失敗は warn として記録し、例外は投げない。
+ */
+export async function notifyNewTodo(db: Db, notice: TodoNotice): Promise<{ sent: number; failed: number }> {
+  const out = { sent: 0, failed: 0 };
+  const { data: targetRows, error } = await db
+    .from("mail_notifications")
+    .select("id, kind, name, url, secret_enc, room_id, mail_account_id, mode")
+    .eq("is_active", true)
+    .eq("notify_todo", true)
+    .order("created_at");
+  if (error) {
+    await logSystem({ level: "warn", source: "todo.notify", message: `行動(Todo)の通知の設定を読めませんでした: ${error.message}`, notify: false }, db);
+    return out;
+  }
+  for (const t of (targetRows ?? []) as TargetRow[]) {
+    let err: string | null;
+    try {
+      err = await sendChatMessage(toTarget(t), buildTodoText(t.kind, notice));
+    } catch (e) {
+      err = errorMessage(e);
+    }
+    await recordResult(db, t.id, err);
+    if (err) {
+      out.failed++;
+      await logSystem({ level: "warn", source: "todo.notify", message: `行動(Todo)の通知に失敗しました(${t.name}): ${err}`, detail: { notificationId: t.id, kind: t.kind }, notify: false }, db);
+    } else {
+      out.sent++;
+    }
+  }
+  return out;
 }

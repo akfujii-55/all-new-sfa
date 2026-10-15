@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertTenantWritable } from "@/lib/tenant-quota";
 import { fmtDue, parseLocalInput } from "@/lib/format";
 import { notifyAssigned } from "@/lib/notifications";
+import { notifyTodoCreated } from "@/lib/todo-notify";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { userError } from "@/lib/errors";
@@ -72,10 +73,11 @@ async function insertActivity(target: Target, formData: FormData): Promise<void>
   const ownerId = await ownerIdOf(supabase, formData.get("owner_id"));
   const dueAt = parseLocalInput(s(formData.get("due_at")));
   const done = formData.get("done") === "on";
+  const kindId = await kindIdOf(supabase, formData.get("kind_id"));
   const { error } = await supabase.from("deal_activities").insert({
     deal_id: target.dealId,
     inquiry_id: target.inquiryId,
-    kind_id: await kindIdOf(supabase, formData.get("kind_id")),
+    kind_id: kindId,
     body,
     due_at: dueAt,
     done_at: done ? new Date().toISOString() : null,
@@ -83,7 +85,11 @@ async function insertActivity(target: Target, formData: FormData): Promise<void>
     owner_id: ownerId,
   });
   if (error) throw userError(error.message);
-  if (!done) await notifyActivityOwner(supabase, { ...target, ownerId, previousOwnerId: null, body, dueAt, userId });
+  if (!done) {
+    await notifyActivityOwner(supabase, { ...target, ownerId, previousOwnerId: null, body, dueAt, userId });
+    // チャット(Lark など)への「行動(Todo)が登録されました」(0042)。応答を待たせないよう後で送る
+    notifyTodoCreated(supabase, { ...target, kindId, body, dueAt, ownerId, actorUserId: userId });
+  }
   revalidate(target);
 }
 

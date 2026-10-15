@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MAX_ACTIVITY_KINDS } from "@/lib/activity-kinds";
+import { notifyTodoCreated } from "@/lib/todo-notify";
 
 /**
  * 案件のアポイント日時から、行動(Todo)「アポイント」を自動で作る・期限を合わせる。
@@ -69,15 +70,18 @@ export async function syncAppointmentTodo(
       .limit(1)
       .maybeSingle();
     if (dup) return;
-    await db.from("deal_activities").insert({
+    const body = "アポイント(案件作成時のアポイント日時から自動登録)";
+    const { error } = await db.from("deal_activities").insert({
       deal_id: dealId,
       kind_id: kindId,
-      body: "アポイント(案件作成時のアポイント日時から自動登録)",
+      body,
       due_at: appointmentAt,
       done_at: null,
       author_id: userId ?? null,
       owner_id: ownerId ?? null,
     });
+    // 自動登録も行動(Todo)の登録なので、チャットへの通知(0042)の対象にする
+    if (!error) notifyTodoCreated(db, { dealId, inquiryId: null, kindId, body, dueAt: appointmentAt, ownerId: ownerId ?? null, actorUserId: userId });
   } catch (e) {
     console.warn("[appointment-todo] 自動登録に失敗:", (e as Error).message);
   }
