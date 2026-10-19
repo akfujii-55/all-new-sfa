@@ -330,7 +330,7 @@
             <tr><td><code>INBOUND_IMAP_*</code> / <code>INBOUND_ADDRESS_FORMAT</code></td><td>メール転送の受け口(<a href="#s7">7 章</a>)。</td></tr>
             <tr><td><code>ALERT_WEBHOOK_URL</code></td><td>任意。エラー通知を追加で送る Webhook。</td></tr>
             <tr><td><code>ANTHROPIC_API_KEY</code></td><td>任意。メール本文からの会社名・氏名の抽出に AI を使います。</td></tr>
-            <tr><td><code>MAIL_CREDENTIALS_KEY</code></td><td>任意。メールアカウントのパスワードを暗号化する鍵(未設定なら service role のキーから導出)。途中で変えると保存済みのパスワードが読めなくなります。</td></tr>
+            <tr><td><code>MAIL_CREDENTIALS_KEY</code></td><td>メールアカウントのパスワードと通知先のシークレットを暗号化する専用の鍵(本番では必須扱い。<code>openssl rand -base64 32</code> で作る)。未設定だとサービスロールキーから導出した鍵(旧形式 v1)になり、サービスロールキーの漏洩だけで全テナントのメールパスワードが復号できてしまう。設定して再デプロイすると、以後の保存は専用鍵(v2)になり、既存の v1 の行は毎朝の定期処理が v2 に書き換える(すぐ揃えたいときは <code>/api/mail/maintenance?task=rotate</code> を CRON_SECRET 付きで呼ぶ)。<strong>この鍵を失うとメールアカウントのパスワードを全テナントで再入力してもらうことになる</strong>ので、Vercel 以外(パスワード管理ツール)にも控える。</td></tr>
           </tbody>
         </table>
         </div>
@@ -346,7 +346,7 @@
         <ul>
           <li><strong>Supabase の認証設定</strong>は <code>node scripts/configure-supabase-auth.mjs</code>(SITE_URL を環境変数で渡す)で揃えます。自己登録を無効、サイト URL、招待リンクの有効期限 24 時間、リダイレクト許可リスト(<code>/auth/confirm</code>)、パスワードの最低 8 文字と漏洩パスワードの拒否(HaveIBeenPwned 照合)を設定します。Supabase のプロジェクトを作り直したときや、ダッシュボードで誰かが変えてしまったときに再実行してください。</li>
           <li><strong>セキュリティヘッダー</strong>は <code>next.config.ts</code> で全ページに付けています(Content-Security-Policy、X-Frame-Options、nosniff、Referrer-Policy、Permissions-Policy、HSTS)。外部のスクリプトや接続先(新しい SaaS との連携、埋め込みウィジェットなど)を足すときは CSP の <code>connect-src</code> / <code>script-src</code> にそのホストを足さないとブラウザが止めます。症状はブラウザの開発者ツールのコンソールに「Content Security Policy」の警告として出ます。</li>
-          <li><strong>メールアカウントのパスワードの暗号鍵</strong>は環境変数 <code>MAIL_CREDENTIALS_KEY</code>。未設定だとサービスロールキーから導出するため、鍵を分けて運用するのが望ましい(切り替えには既存の暗号文の再暗号化が必要。手順は追って用意)。</li>
+          <li><strong>メールアカウントのパスワードの暗号鍵</strong>は環境変数 <code>MAIL_CREDENTIALS_KEY</code>(上の表)。サービスロールキーとは別に持ち、2026-10-19 に本番を専用鍵(v2)へ切り替えた。鍵を変える(ローテーション)ときは、新しい鍵を設定しただけでは既存の暗号文が読めなくなるので、先に運営へ相談のうえ再暗号化の手順を組むこと。</li>
         </ul>
       </section>
 

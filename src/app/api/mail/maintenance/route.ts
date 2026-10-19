@@ -3,6 +3,7 @@ import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
 import { cleanupInboundMailbox } from "@/lib/mail/inbound";
 import { purgeExpiredEmailTrash } from "@/lib/mail/trash";
 import { runStepMails } from "@/lib/step-mails";
+import { rotateLegacySecrets } from "@/lib/mail/rotate-secrets";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -14,6 +15,7 @@ export const maxDuration = 300;
  * - 全テナントのゴミ箱の期限切れ(TRASH_RETENTION_DAYS 日超)を完全に削除
  * - ステップメール(お試し中の顧客への案内)の送信
  * - 転送メールの受信用メールボックスの掃除(宛先不明のメールを走査から外し、古いものを消す)
+ * - 旧形式(v1)の暗号文を専用鍵(MAIL_CREDENTIALS_KEY)の v2 に書き換える(鍵の分離。?task=rotate でこれだけを手動実行できる)
  * それぞれ失敗しても他の処理は続ける。
  */
 export async function GET(request: NextRequest) {
@@ -30,10 +32,23 @@ async function handle(request: NextRequest) {
   }
   const out: Record<string, unknown>[] = [];
   let failed = 0;
+  const onlyRotate = request.nextUrl.searchParams.get("task") === "rotate";
 
   try {
     for (const t of await listActiveTenants()) {
       const db = createTenantClient(t.id);
+      // 鍵の分離: 旧形式の認証情報を専用鍵で作り直す(専用鍵が無ければ何もしない)
+      try {
+        const r = await rotateLegacySecrets(db);
+        if (r.rotated > 0 || r.failed > 0) {
+          out.push({ tenant: t.slug, secrets: r });
+          await logSystem({ level: r.failed ? "warn" : "info", source: "crypto.rotate", message: `認証情報の暗号鍵を専用鍵に更新: ${r.rotated} 件${r.failed ? `、失敗 ${r.failed} 件` : ""}${r.remaining ? `、残り ${r.remaining} 件` : ""}`, notify: false }, db);
+        }
+      } catch (e) {
+        failed++;
+        await logSystem({ source: "cron.maintenance", message: `認証情報の鍵の更新に失敗: ${errorMessage(e)}`, detail: errorDetail(e) }, db);
+      }
+      if (onlyRotate) continue;
       try {
         const purged = await purgeExpiredEmailTrash(db);
         if (purged > 0) out.push({ tenant: t.slug, trash_purged: purged });
@@ -46,6 +61,8 @@ async function handle(request: NextRequest) {
     failed++;
     await logSystem({ source: "cron.maintenance", message: `定期処理を開始できません: ${errorMessage(e)}`, detail: errorDetail(e) });
   }
+
+  if (onlyRotate) return NextResponse.json({ ok: failed === 0, task: "rotate", results: out });
 
   try {
     const r = await runStepMails();
