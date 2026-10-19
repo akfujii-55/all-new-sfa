@@ -226,10 +226,66 @@ export interface Contact {
   phone: string | null;
   title: string | null;
   memo: string | null;
+  /** 一斉配信の配信停止(0043)。入っていれば配信リストからの送信対象にしない(個別の返信は止めない) */
+  unsubscribed_at?: string | null;
   created_at: string;
   updated_at: string;
   company?: Pick<Company, "id" | "name"> | null;
   tags?: Tag[];
+}
+
+/** 配信リスト(0043)。担当者を出し入れし、一斉配信の宛先にする */
+export interface MailingList {
+  id: string;
+  tenant_id?: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  /** 一覧で使う人数(埋め込みの count) */
+  contact_count?: number;
+}
+
+export type MailCampaignStatus = "draft" | "scheduled" | "sending" | "paused" | "done" | "cancelled";
+
+/** 一斉配信(0043)。配信リストの担当者に自社の SMTP アカウントから 1 通ずつ送る */
+export interface MailCampaign {
+  id: string;
+  list_id: string | null;
+  list_name: string;
+  account_id: string | null;
+  subject: string;
+  body: string;
+  status: MailCampaignStatus;
+  scheduled_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  total_count: number;
+  sent_count: number;
+  failed_count: number;
+  skipped_count: number;
+  last_error: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  account?: Pick<MailAccount, "id" | "email" | "label"> | null;
+  list?: Pick<MailingList, "id" | "name"> | null;
+}
+
+export type MailCampaignRecipientStatus = "pending" | "sent" | "failed" | "skipped";
+
+export interface MailCampaignRecipient {
+  id: string;
+  campaign_id: string;
+  contact_id: string | null;
+  email: string;
+  name: string;
+  company_name: string;
+  status: MailCampaignRecipientStatus;
+  reason: string | null;
+  message_id: string | null;
+  sent_at: string | null;
+  created_at: string;
 }
 
 export interface Deal {

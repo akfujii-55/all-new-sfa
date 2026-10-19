@@ -93,3 +93,32 @@ export async function getFormSettings(db: SupabaseClient): Promise<FormSettings>
 export function splitList(v: string): string[] {
   return Array.from(new Set(v.split(/[,\n]/).map((x) => x.trim()).filter(Boolean)));
 }
+
+/**
+ * 一斉配信の設定(app_settings テーブル、0043)。
+ * campaign_footer は特定電子メール法で必要な送信者の名称・住所・連絡先。配信の本文末尾に配信停止リンクと一緒に自動で付く(空なら送れない)。
+ * campaign_daily_limit は送信元アカウント 1 つあたり 1 日に送る上限(Gmail は 500 通/日、Google Workspace は 2,000 通/日が目安)。
+ */
+export interface CampaignSettings {
+  campaign_footer: string;
+  campaign_daily_limit: string;
+}
+
+export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { campaign_footer: "", campaign_daily_limit: "300" };
+export const CAMPAIGN_SETTING_KEYS = Object.keys(DEFAULT_CAMPAIGN_SETTINGS) as (keyof CampaignSettings)[];
+
+export async function getCampaignSettings(db: SupabaseClient): Promise<CampaignSettings> {
+  const { data } = await db.from("app_settings").select("key, value").in("key", CAMPAIGN_SETTING_KEYS);
+  const settings = { ...DEFAULT_CAMPAIGN_SETTINGS };
+  for (const row of data ?? []) {
+    if ((CAMPAIGN_SETTING_KEYS as string[]).includes(row.key)) settings[row.key as keyof CampaignSettings] = String(row.value ?? "");
+  }
+  return settings;
+}
+
+/** 1 日の送信上限を数値に(1〜5000。不正な値は既定の 300) */
+export function campaignDailyLimitOf(settings: Pick<CampaignSettings, "campaign_daily_limit">): number {
+  const n = Math.floor(Number(settings.campaign_daily_limit));
+  if (!Number.isFinite(n) || n < 1) return 300;
+  return Math.min(n, 5000);
+}

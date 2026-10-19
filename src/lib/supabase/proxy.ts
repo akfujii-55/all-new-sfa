@@ -65,6 +65,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/lp") ||
     path.startsWith("/docs") ||
     path.startsWith("/auth") ||
+    // 一斉配信の配信停止ページ(メールのリンクから開く。ログイン不要)
+    path.startsWith("/u/") ||
     path.startsWith("/api/mail") ||
     path.startsWith("/api/step-mails") ||
     path.startsWith("/api/stripe") ||

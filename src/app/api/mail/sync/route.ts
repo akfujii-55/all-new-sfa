@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createTenantClient, listActiveTenants } from "@/lib/supabase/tenant";
 import { listMailAccounts } from "@/lib/mail/accounts";
 import { backfillAttachments, syncMail } from "@/lib/mail/sync";
+import { runDueCampaigns } from "@/lib/mail/campaigns";
 import { errorDetail, errorMessage, logSystem } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -61,7 +62,9 @@ async function handle(request: NextRequest) {
         continue;
       }
       const results = await syncMail(db, { initialDays: days });
-      out.push({ tenant: label, results });
+      // 一斉配信(0043): 予約時刻の来た配信を始め、送信中の配信を 1 回分進める
+      const campaigns = await runDueCampaigns(db).catch((e) => ({ error: errorMessage(e) }));
+      out.push({ tenant: label, results, campaigns });
       // 5 分おきに動くので、取り込みもエラーも無かった回はログに残さない(アカウントごとの最終同期は mail_sync_state に残る)
       const inserted = results.reduce((a, r) => a + r.inserted, 0);
       const errors = results.filter((r) => r.error).length;

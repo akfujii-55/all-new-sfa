@@ -11,13 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ContactDialog } from "@/components/companies/contact-dialog";
 import { MergeContactDialog, type MergeContactCandidate } from "@/components/contacts/merge-contact-dialog";
+import { AddToListDialog } from "@/components/contacts/add-to-list-dialog";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { TagBadges } from "@/components/tags/tag-badge";
-import type { Contact, Tag } from "@/lib/types";
+import type { Contact, Tag, MailingList } from "@/lib/types";
 
 import { actionErrorMessage } from "@/lib/errors";
-export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows: Contact[]; companies: { id: string; name: string }[]; tags: Tag[]; mergeCandidates: MergeContactCandidate[] }) {
+export function ContactsTable({ rows, companies, tags, mergeCandidates, lists = [] }: { rows: Contact[]; companies: { id: string; name: string }[]; tags: Tag[]; mergeCandidates: MergeContactCandidate[]; /** 配信リスト(選択から追加する先、0043) */ lists?: Pick<MailingList, "id" | "name">[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   const ids = rows.map((r) => r.id);
@@ -72,12 +73,13 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
           <>
             <span className="text-sm text-muted-foreground">{selectedIds.length}名選択</span>
             <TagPicker tags={tags} current={current} onApply={applyTags} pending={pending} description="選択した担当者にタグを付けます" />
+            <AddToListDialog contactIds={selectedIds} lists={lists} onDone={() => setSelected(new Set())} />
             <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={removeSelected}>
               <Trash2 className="size-4" /> {pending ? "削除中..." : "削除"}
             </Button>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">担当者を選択してタグの付け外しや削除をまとめてできます</span>
+          <span className="text-sm text-muted-foreground">担当者を選択してタグの付け外し・配信リストへの追加・削除をまとめてできます</span>
         )}
       </div>
       <Table className="min-w-[1080px]">
@@ -101,7 +103,7 @@ export function ContactsTable({ rows, companies, tags, mergeCandidates }: { rows
               <TableCell>{p.company ? <Link href={`/companies/${p.company.id}`} className="hover:underline">{p.company.name}</Link> : <span className="text-muted-foreground">-</span>}</TableCell>
               <TableCell><TagBadges tags={p.tags ?? []} max={3} /></TableCell>
               <TableCell className="text-muted-foreground">{p.title ?? "-"}</TableCell>
-              <TableCell className="text-muted-foreground">{p.email ?? "-"}</TableCell>
+              <TableCell className="text-muted-foreground">{p.email ?? "-"}{p.unsubscribed_at && <span className="ml-1 rounded bg-muted px-1 text-[10px]" title="一斉配信を停止しています(個別の返信は送れます)">配信停止</span>}</TableCell>
               <TableCell className="text-muted-foreground">{p.phone ?? "-"}</TableCell>
               <TableCell>
                 <div className="flex justify-end gap-1">

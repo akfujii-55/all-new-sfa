@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Inbox, MessageSquareText, Building2, Users, UserCog, KanbanSquare, JapaneseYen, Settings, ShieldCheck, CalendarCheck, BookOpen,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ const NAV = [
   // ここから下はマスタ系。設定は一番最後
   { href: "/companies", label: "取引先", icon: Building2 },
   { href: "/contacts", label: "担当者", icon: Users },
+  { href: "/campaigns", label: "配信", icon: Send },
   { href: "/members", label: "営業担当者", icon: UserCog },
   { href: "/settings", label: "設定", icon: Settings },
 ];

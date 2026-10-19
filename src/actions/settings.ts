@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { ALERT_SETTING_KEYS, FORM_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEmails, splitList } from "@/lib/settings";
+import { assertTenantWritable } from "@/lib/tenant-quota";
+import { CAMPAIGN_SETTING_KEYS, type CampaignSettings, ALERT_SETTING_KEYS, FORM_SETTING_KEYS, MAIL_SETTING_KEYS, splitAlertEmails, splitList } from "@/lib/settings";
 import { getAlertTargets, sendAlert } from "@/lib/log";
 import { fmtDateTime } from "@/lib/format";
 
@@ -112,4 +113,22 @@ export async function reportClientError(input: { message: string; digest?: strin
     },
     supabase,
   );
+}
+
+/** 一斉配信の設定(0043): 送信者情報(本文末尾に自動で付く)と、送信元アカウント 1 つあたりの 1 日の送信上限 */
+export async function saveCampaignSettings(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw userError("ログインが必要です");
+  await assertTenantWritable(supabase);
+  const footer = String(formData.get("campaign_footer") ?? "").replace(/\r\n/g, "\n").trim();
+  if (footer.length > 1000) throw userError("送信者情報は 1000 文字以内にしてください");
+  const limit = Math.floor(Number(String(formData.get("campaign_daily_limit") ?? "")));
+  if (!Number.isFinite(limit) || limit < 1 || limit > 5000) throw userError("1 日の送信上限は 1〜5000 の数字で入力してください");
+  const values: CampaignSettings = { campaign_footer: footer, campaign_daily_limit: String(limit) };
+  const rows = CAMPAIGN_SETTING_KEYS.map((key) => ({ key, value: values[key] }));
+  const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "tenant_id,key" });
+  if (error) throw userError("設定を保存できませんでした");
+  revalidatePath("/settings");
+  revalidatePath("/campaigns", "layout");
 }

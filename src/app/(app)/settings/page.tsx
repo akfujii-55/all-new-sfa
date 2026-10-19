@@ -20,7 +20,8 @@ import { ActivityKindSettings } from "@/components/settings/activity-kind-settin
 import { EmailTemplateSettings } from "@/components/settings/email-template-settings";
 import { MailNotificationSettings } from "@/components/settings/mail-notification-settings";
 import type { MailNotification } from "@/lib/mail-notifications-shared";
-import { getAlertSettings, getFormSettings, getMailSettings } from "@/lib/settings";
+import { getAlertSettings, getCampaignSettings, getFormSettings, getMailSettings } from "@/lib/settings";
+import { CampaignSettingsForm } from "@/components/settings/campaign-settings-form";
 import { fmtDateTime } from "@/lib/format";
 import { featuresOf } from "@/lib/features";
 import { TENANT_STATUS_LABEL, TENANT_USAGE_LABEL, type ActivityKind, type EmailTagRule, type EmailTemplate, type MailAccount, type Tag } from "@/lib/types";
@@ -35,7 +36,7 @@ type AccountRow = Omit<MailAccount, "password_enc">;
 export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings, { data: kindRows }, { data: ruleRows }] = await Promise.all([
+  const [tenant, usage, { data: tagRows }, { data: accountRows }, { data: states }, mailSettings, { data: member }, alertSettings, { count: errorCount, error: logsError }, { data: lastCron }, formSettings, campaignSettings, { data: kindRows }, { data: ruleRows }] = await Promise.all([
     getCurrentTenant(supabase),
     getMyUsage(supabase).catch(() => null),
     supabase.from("tags").select("*").order("sort_order").order("created_at"),
@@ -51,6 +52,7 @@ export default async function SettingsPage() {
     supabase.from("system_logs").select("id", { count: "exact", head: true }).eq("level", "error").gte("created_at", hoursAgo(24)),
     supabase.from("system_logs").select("message, created_at, level").like("source", "cron.%").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     getFormSettings(supabase),
+    getCampaignSettings(supabase),
     supabase.from("activity_kinds").select("*").order("sort_order").order("created_at"),
     supabase.from("email_tag_rules").select("*, tag:tags(*)").order("sort_order").order("created_at"),
   ]);
@@ -274,6 +276,15 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
+          <Card id="campaigns">
+            <CardHeader>
+              <CardTitle className="text-base">一斉配信</CardTitle>
+              <CardDescription>配信リストへの一斉配信(メニュー「配信」)で、本文の末尾に自動で付く送信者情報と、送信元アカウント 1 つあたりの 1 日の送信上限です。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CampaignSettingsForm settings={campaignSettings} siteUrl={process.env.NEXT_PUBLIC_SITE_URL ?? ""} />
+            </CardContent>
+          </Card>
           <CardHeader>
             <CardTitle className="text-base">新着メールの通知</CardTitle>
             <CardDescription>同期で新しい受信メールを取り込んだとき、Lark、Slack、Chatwork などのチャットに知らせます。通知先ごとに対象のメールアカウントと送り方を選べます。</CardDescription>
