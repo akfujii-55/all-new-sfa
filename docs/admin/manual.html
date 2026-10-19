@@ -342,6 +342,12 @@
         </dl>
         <h3>データベースの変更</h3>
         <p>スキーマの変更は <code>supabase/migrations/</code> の SQL を 1 ファイルずつ適用します。<strong>先に適用してから</strong>アプリを公開します(逆にすると、新しい列を読む画面が空になります)。適用に使う Supabase のアクセストークンは失効することがあり、その場合は再発行します。</p>
+        <h3>認証とセキュリティの設定</h3>
+        <ul>
+          <li><strong>Supabase の認証設定</strong>は <code>node scripts/configure-supabase-auth.mjs</code>(SITE_URL を環境変数で渡す)で揃えます。自己登録を無効、サイト URL、招待リンクの有効期限 24 時間、リダイレクト許可リスト(<code>/auth/confirm</code>)、パスワードの最低 8 文字と漏洩パスワードの拒否(HaveIBeenPwned 照合)を設定します。Supabase のプロジェクトを作り直したときや、ダッシュボードで誰かが変えてしまったときに再実行してください。</li>
+          <li><strong>セキュリティヘッダー</strong>は <code>next.config.ts</code> で全ページに付けています(Content-Security-Policy、X-Frame-Options、nosniff、Referrer-Policy、Permissions-Policy、HSTS)。外部のスクリプトや接続先(新しい SaaS との連携、埋め込みウィジェットなど)を足すときは CSP の <code>connect-src</code> / <code>script-src</code> にそのホストを足さないとブラウザが止めます。症状はブラウザの開発者ツールのコンソールに「Content Security Policy」の警告として出ます。</li>
+          <li><strong>メールアカウントのパスワードの暗号鍵</strong>は環境変数 <code>MAIL_CREDENTIALS_KEY</code>。未設定だとサービスロールキーから導出するため、鍵を分けて運用するのが望ましい(切り替えには既存の暗号文の再暗号化が必要。手順は追って用意)。</li>
+        </ul>
       </section>
 
       <section id="s9">
