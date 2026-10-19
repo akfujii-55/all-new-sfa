@@ -199,8 +199,10 @@ async function recordResult(db: Db, id: string, error: string | null) {
 /**
  * 行動(Todo)を新しく登録したことを、「行動(Todo)の登録も通知する」がオンの有効な通知先へ送る(0042)。
  * Server Action の after() から呼ぶ想定。失敗は warn として記録し、例外は投げない。
+ * 通知先のアカウント指定(mail_account_id)は新着メールと同じように見る: accountIds に Todo の付け先(問い合わせ・案件)に紐付くメールのアカウントを渡すと、
+ * 「すべてのアカウント」の通知先と、そのアカウント指定の通知先にだけ送る。空(メールの無い案件など、アカウントが決まらない)なら全部に送る。
  */
-export async function notifyNewTodo(db: Db, notice: TodoNotice): Promise<{ sent: number; failed: number }> {
+export async function notifyNewTodo(db: Db, notice: TodoNotice, accountIds: readonly string[] = []): Promise<{ sent: number; failed: number }> {
   const out = { sent: 0, failed: 0 };
   const { data: targetRows, error } = await db
     .from("mail_notifications")
@@ -213,6 +215,7 @@ export async function notifyNewTodo(db: Db, notice: TodoNotice): Promise<{ sent:
     return out;
   }
   for (const t of (targetRows ?? []) as TargetRow[]) {
+    if (t.mail_account_id && accountIds.length > 0 && !accountIds.includes(t.mail_account_id)) continue;
     let err: string | null;
     try {
       err = await sendChatMessage(toTarget(t), buildTodoText(t.kind, notice));
