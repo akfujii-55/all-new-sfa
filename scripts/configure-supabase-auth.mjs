@@ -18,9 +18,7 @@ const before = await (await fetch(url, { headers })).json();
 console.log("現在:", { site_url: before.site_url, disable_signup: before.disable_signup, mailer_otp_exp: before.mailer_otp_exp, uri_allow_list: before.uri_allow_list });
 const allow = new Set((before.uri_allow_list ?? "").split(",").filter(Boolean));
 allow.add(`${siteUrl}/auth/confirm`);
-allow.add(`${siteUrl}/auth/callback`);
 allow.add("http://localhost:3000/auth/confirm");
-allow.add("http://localhost:3000/auth/callback");
 const res = await fetch(url, {
   method: "PATCH",
   headers,

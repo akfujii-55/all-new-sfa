@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safe-path";
 
 /**
  * 招待メール・パスワード再設定メールのリンク先。
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (tokenHash && type) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : "/"}`);
+    if (!error) return NextResponse.redirect(`${origin}${safeNextPath(next)}`);
   }
   return NextResponse.redirect(`${origin}/login?error=${type === "recovery" ? "recovery" : "invite"}`);
 }

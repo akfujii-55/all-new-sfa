@@ -10,6 +10,7 @@ import { sendMail } from "@/lib/mail/smtp";
 import { buildMail } from "@/lib/mail/templates";
 import { errorMessage, logSystem } from "@/lib/log";
 import { TENANT_COOKIE } from "@/lib/tenant-select";
+import { safeNextPath } from "@/lib/safe-path";
 
 import { userError } from "@/lib/errors";
 export type AuthState = { error?: string; message?: string } | undefined;
@@ -25,7 +26,8 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: "メールアドレスまたはパスワードが正しくありません" };
-  redirect(next.startsWith("/") ? next : "/");
+  // `//evil.example` のような外部 URL へ飛ばされないよう、同一サイト内のパスだけを通す
+  redirect(safeNextPath(next));
 }
 
 /**

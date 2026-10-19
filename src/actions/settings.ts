@@ -97,16 +97,19 @@ export async function reportClientError(input: { message: string; digest?: strin
   if (input.digest) return;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
+  // 文面はブラウザが決める値なので、未ログインの報告は受け付けず、ログイン中でも warn(通知しない)として自テナントに残すだけにする。
+  // error にすると運営の通知先(メール・Lark)へ任意の文面を送れてしまう
+  if (!auth.user) return;
   const { logSystem } = await import("@/lib/log");
   await logSystem(
     {
+      level: "warn",
       source: "client",
-      message: input.message.slice(0, 1000),
+      message: `[ブラウザ側の報告] ${String(input.message ?? "").slice(0, 1000)}`,
       detail: { stack: input.stack?.slice(0, 2000) ?? null },
-      path: input.path ?? null,
-      userEmail: auth.user?.email ?? null,
+      path: input.path?.slice(0, 500) ?? null,
+      userEmail: auth.user.email ?? null,
     },
-    // ログイン中ならそのテナントのログとして残す
-    auth.user ? supabase : undefined,
+    supabase,
   );
 }
