@@ -70,7 +70,7 @@ export function ActivityRow({ activity: a, showDeal = true, members }: { activit
             </Link>
           )}
           {showDeal && inquiry && (
-            <Link href={`/inquiries?status=all&focus=${inquiry.id}#${inquiry.id}`} className="inline-flex items-center gap-1 hover:underline">
+            <Link href={`/inquiries/${inquiry.id}`} className="inline-flex items-center gap-1 hover:underline">
               <MessageSquareText className="size-3" /> {inquiry.subject}
             </Link>
           )}

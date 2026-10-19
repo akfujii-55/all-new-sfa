@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteInquiry } from "@/actions/inquiries";
@@ -8,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { actionErrorMessage } from "@/lib/errors";
-export function DeleteInquiryButton({ id, subject, hasDeal }: { id: string; subject: string; hasDeal: boolean }) {
+export function DeleteInquiryButton({ id, subject, hasDeal, redirectTo }: { id: string; subject: string; hasDeal: boolean; /** 削除後に移る先(詳細ページから消したとき) */ redirectTo?: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
@@ -18,6 +20,7 @@ export function DeleteInquiryButton({ id, subject, hasDeal }: { id: string; subj
         await deleteInquiry(id);
         toast.success("問い合わせを削除しました");
         setOpen(false);
+        if (redirectTo) router.push(redirectTo);
       } catch (e) {
         toast.error(actionErrorMessage(e));
       }

@@ -130,7 +130,6 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
           {rows.map((q) => {
             // 新しいものが上
             const thread = [...(q.emails ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at));
-            const threadId = q.email_id ?? thread[0]?.id ?? null;
             const latestInbound = thread.find((e) => e.direction === "inbound") ?? thread[0] ?? null;
             // タグはスレッド内のメールに付いているものをまとめて出す(重複は除く)
             const threadTags: Tag[] = [];
@@ -144,7 +143,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                   <div className="min-w-0 basis-full sm:basis-[60%]">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-medium">
-                        {threadId ? <Link href={`/inbox/${threadId}`} className="hover:underline">{q.subject}</Link> : q.subject}
+                        <Link href={`/inquiries/${q.id}`} className="hover:underline">{q.subject}</Link>
                       </h3>
                       {q.category && <Badge variant="secondary">{q.category}</Badge>}
                       <InquiryTags emailIds={thread.map((e) => e.id)} tags={allTags} current={threadTags} />
@@ -167,9 +166,7 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                   <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-0">
                     <InquiryOwnerSelect id={q.id} ownerId={q.owner_id} members={memberList} />
                     <InquiryStatusSelect id={q.id} status={q.status} />
-                    {threadId && (
-                      <Button asChild size="sm" variant="outline"><Link href={`/inbox/${threadId}`}><Mail className="size-4" /> メールを開く</Link></Button>
-                    )}
+                    <Button asChild size="sm" variant="outline"><Link href={`/inquiries/${q.id}`}><MessageSquareText className="size-4" /> 開く</Link></Button>
                     {!sales ? null : q.deal ? (
                       <Button asChild size="sm" variant="secondary" className="max-w-64" title={q.deal.title}>
                         <Link href={`/deals/${q.deal.id}`}><KanbanSquare className="size-4" /> <span className="min-w-0 truncate">{q.deal.title}</span></Link>
@@ -209,13 +206,11 @@ export default async function InquiriesPage({ searchParams }: PageProps<"/inquir
                         </div>
                       ))}
                     </div>
-                    {threadId && (
-                      <div className="border-t px-3 py-2 text-xs">
-                        <Link href={`/inbox/${threadId}`} className="text-muted-foreground hover:text-foreground hover:underline">
-                          この問い合わせのメールをメール画面で開く →
-                        </Link>
-                      </div>
-                    )}
+                    <div className="border-t px-3 py-2 text-xs">
+                      <Link href={`/inquiries/${q.id}`} className="text-muted-foreground hover:text-foreground hover:underline">
+                        この問い合わせを開いて返信する →
+                      </Link>
+                    </div>
                   </details>
                 )}
               </CardContent>

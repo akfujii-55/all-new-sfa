@@ -14,7 +14,7 @@ export async function updateInquiryStatus(id: string, status: InquiryStatus) {
   const supabase = await createClient();
   const { error } = await supabase.from("inquiries").update({ status }).eq("id", id);
   if (error) throw userError(error.message);
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/");
 }
 
@@ -40,10 +40,10 @@ export async function updateInquiryOwner(id: string, ownerId: string | null) {
     kind: "inquiry_assigned",
     title: (inq.subject as string) || "(件名なし)",
     body: company?.name ? `取引先: ${company.name}` : null,
-    href: `/inquiries?focus=${id}`,
+    href: `/inquiries/${id}`,
     actorUserId: auth.user?.id,
   });
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/");
   return { status: patch.status ?? (inq.status as InquiryStatus) };
 }
@@ -60,7 +60,7 @@ export async function updateInquiryMemo(id: string, memo: string) {
     .update({ memo: body || null, memo_updated_at: body ? new Date().toISOString() : null, memo_updated_by: body ? auth.user.id : null })
     .eq("id", id);
   if (error) throw userError(error.message);
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
 }
 
 export async function createInquiry(formData: FormData) {
@@ -77,7 +77,7 @@ export async function createInquiry(formData: FormData) {
     status: "new",
   });
   if (error) throw userError(error.message);
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   if (companyId) revalidatePath(`/companies/${companyId}`);
 }
 
@@ -99,7 +99,7 @@ export async function deleteInquiry(id: string) {
   const { error } = await supabase.from("inquiries").delete().eq("id", id);
   if (error) throw userError(error.message);
 
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/activities");
   revalidatePath("/inbox");
   revalidatePath("/");
@@ -191,7 +191,7 @@ export async function createInquiriesFromEmails(emailIds: string[]): Promise<Cre
   }
 
   revalidatePath("/inbox");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/");
   for (const id of companyIds) revalidatePath(`/companies/${id}`);
   return { created, skipped, deleteList };

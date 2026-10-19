@@ -93,7 +93,7 @@ export async function relinkThread(emailId: string, target: RelinkTarget): Promi
     fail(error);
   }
   revalidatePath("/inbox");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/contacts");
   revalidatePath("/companies");
   return { contactId, companyId };
@@ -141,7 +141,7 @@ export async function mergeContacts(sourceId: string, targetId: string): Promise
   revalidatePath("/contacts");
   revalidatePath("/companies");
   revalidatePath("/inbox");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
 }
 
 /** 取引先を統合する。担当者・メール・問い合わせ・案件・売上を target に移し、target の空欄を source で埋めて source を削除する */
@@ -167,7 +167,7 @@ function revalidateCompanyPaths(targetId: string) {
   revalidatePath(`/companies/${targetId}`);
   revalidatePath("/contacts");
   revalidatePath("/inbox");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/deals");
 }
 

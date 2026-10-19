@@ -33,7 +33,7 @@ export function googleCalendarUrl(
   } else if (inquiry) {
     lines.push("", `問い合わせ: ${inquiry.subject}`);
     if (inquiry.company?.name) lines.push(`取引先: ${inquiry.company.name}`);
-    lines.push(`${origin}/inquiries?status=all&focus=${inquiry.id}#${inquiry.id}`);
+    lines.push(`${origin}/inquiries/${inquiry.id}`);
   }
 
   const params = new URLSearchParams({ action: "TEMPLATE", text: title.slice(0, 200), dates, details: lines.join("\n"), ctz: APP_TZ });

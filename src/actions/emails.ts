@@ -217,7 +217,7 @@ export async function runMailSync() {
   // ログインユーザーのセッションで実行する(RLS で自テナントに絞られる)
   const results = await syncMail(supabase);
   revalidatePath("/inbox");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/companies");
   revalidatePath("/");
   return results;
@@ -225,7 +225,7 @@ export async function runMailSync() {
 
 function revalidateAfterTrashChange() {
   revalidatePath("/inbox", "layout");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath("/");
 }
 

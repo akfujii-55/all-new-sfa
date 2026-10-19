@@ -55,7 +55,7 @@ function revalidate(t: Target) {
     revalidatePath(`/deals/${t.dealId}`);
     revalidatePath("/deals");
   }
-  if (t.inquiryId) revalidatePath("/inquiries");
+  if (t.inquiryId) revalidatePath("/inquiries", "layout");
   revalidatePath("/activities");
   revalidatePath("/");
 }
@@ -126,7 +126,7 @@ async function notifyActivityOwner(
     const { data: inq } = await supabase.from("inquiries").select("subject, company:companies(name)").eq("id", a.inquiryId).maybeSingle();
     label = inq?.subject ? `問い合わせ: ${inq.subject}` : null;
     companyName = (inq?.company as unknown as { name: string } | null)?.name ?? null;
-    href = `/inquiries?status=all&focus=${a.inquiryId}#${a.inquiryId}`;
+    href = `/inquiries/${a.inquiryId}`;
   }
   const parts = [label, companyName, a.dueAt ? `期限: ${fmtDue(a.dueAt)}` : null].filter(Boolean);
   await notifyAssigned(supabase, {

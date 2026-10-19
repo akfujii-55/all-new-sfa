@@ -98,7 +98,7 @@ async function targetOf(db: SupabaseClient, a: { dealId: string | null; inquiryI
     return {
       label: inq?.subject ? `問い合わせ: ${inq.subject}` : null,
       companyName: (inq?.company as unknown as { name: string } | null)?.name ?? null,
-      path: `/inquiries?status=all&focus=${a.inquiryId}#${a.inquiryId}`,
+      path: `/inquiries/${a.inquiryId}`,
     };
   }
   return { label: null, companyName: null, path: "/activities" };

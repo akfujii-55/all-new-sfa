@@ -130,7 +130,7 @@ export async function updateContact(id: string, formData: FormData) {
     await propagateContactCompany(supabase, id, before.company_id, companyId);
     if (before.company_id) revalidatePath(`/companies/${before.company_id}`);
     revalidatePath("/inbox");
-    revalidatePath("/inquiries");
+    revalidatePath("/inquiries", "layout");
   }
   revalidatePath("/contacts");
   if (companyId) revalidatePath(`/companies/${companyId}`);

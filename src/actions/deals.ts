@@ -90,7 +90,7 @@ export async function createDeal(formData: FormData) {
   }
 
   revalidatePath("/deals");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   revalidatePath(`/companies/${companyId}`);
   redirect(`/deals/${data.id}`);
 }

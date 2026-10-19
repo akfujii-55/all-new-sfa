@@ -124,7 +124,7 @@ export async function setEmailTags(emailIds: string[], change: TagChange): Promi
   }
   revalidatePath("/inbox", "layout");
   revalidatePath("/contacts");
-  revalidatePath("/inquiries");
+  revalidatePath("/inquiries", "layout");
   return { emails: emailAll.length, contacts: change.add.length > 0 ? contactAll.length : 0 };
 }
 
