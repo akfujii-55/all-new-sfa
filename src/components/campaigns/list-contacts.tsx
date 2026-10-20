@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileUp, Trash2, UserPlus, Search, BellOff } from "lucide-react";
+import { Download, FileUp, Trash2, UserPlus, Search, BellOff } from "lucide-react";
 import { addContactsToMailingList, importCsvToMailingList, removeContactsFromMailingList, deleteMailingList, type CsvImportResult } from "@/actions/mailing-lists";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { actionErrorMessage } from "@/lib/errors";
 import { fmtDate } from "@/lib/format";
+import { MAILING_LIST_TEMPLATE_PATH } from "@/lib/campaigns-shared";
 
 export interface ListContactRow {
   id: string;
@@ -76,7 +77,7 @@ export function ListContacts({ listId, listName, rows, candidates }: { listId: s
           )}
         </div>
         {rows.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">まだ担当者が入っていません。「担当者から追加」か「CSV を読み込む」で追加してください。担当者一覧で選択して「配信リストに追加」もできます。</p>
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">まだ担当者が入っていません。「担当者から追加」か「Excel / CSV を読み込む」で追加してください。担当者一覧で選択して「配信リストに追加」もできます。</p>
         ) : (
           <Table className="min-w-[760px]">
             <TableHeader>
@@ -167,6 +168,12 @@ function AddContactsDialog({ listId, candidates }: { listId: string; candidates:
   );
 }
 
+/** Excel のセルを CSV の 1 列にする(カンマ・改行・引用符を含むなら引用) */
+function cellToCsv(v: unknown): string {
+  const t = v == null ? "" : v instanceof Date ? v.toISOString().slice(0, 10) : String(v).trim();
+  return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
 function CsvImportDialog({ listId }: { listId: string }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -174,11 +181,22 @@ function CsvImportDialog({ listId }: { listId: string }) {
   const [pending, start] = useTransition();
   async function onFile(file: File | undefined) {
     if (!file) return;
-    const buf = await file.arrayBuffer();
-    // Excel の CSV は Shift_JIS が多いので、UTF-8 で読めなければ Shift_JIS として読み直す
-    const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(buf);
-    const sjis = /�/.test(utf8) ? new TextDecoder("shift_jis").decode(buf) : utf8;
-    setText(sjis);
+    try {
+      if (/\.xlsx$/i.test(file.name)) {
+        // Excel は 1 枚目のシートを読み、CSV と同じ「氏名, メール, 会社名」の行にして下の欄に入れる(読み込みの処理は CSV と共通)
+        const { readSheet } = await import("read-excel-file/browser");
+        const rows = await readSheet(file);
+        setText(rows.map((r) => r.slice(0, 3).map(cellToCsv).join(", ")).filter((l) => l.replace(/[,\s]/g, "")).join("\n"));
+        return;
+      }
+      const buf = await file.arrayBuffer();
+      // Excel の CSV は Shift_JIS が多いので、UTF-8 で読めなければ Shift_JIS として読み直す
+      const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+      const sjis = /�/.test(utf8) ? new TextDecoder("shift_jis").decode(buf) : utf8;
+      setText(sjis);
+    } catch {
+      toast.error("ファイルを読めませんでした。Excel(.xlsx)か CSV を選んでください");
+    }
   }
   function run() {
     start(async () => {
@@ -193,14 +211,18 @@ function CsvImportDialog({ listId }: { listId: string }) {
   }
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => { setResult(null); setOpen(true); }}><FileUp className="size-4" /> CSV を読み込む</Button>
+      <Button size="sm" variant="outline" onClick={() => { setResult(null); setOpen(true); }}><FileUp className="size-4" /> Excel / CSV を読み込む</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>CSV を読み込む</DialogTitle>
+            <DialogTitle>Excel / CSV を読み込む</DialogTitle>
             <DialogDescription>1 行に「氏名, メールアドレス, 会社名」の順(会社名は省略可)。1 行目が見出しなら読み飛ばします。メールアドレスで既存の担当者を探し、無ければ担当者として登録してからリストに入れます。</DialogDescription>
           </DialogHeader>
-          <Input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
+          <p className="text-xs text-muted-foreground">
+            Excel(.xlsx)は 1 枚目のシートを読みます。
+            <a href={MAILING_LIST_TEMPLATE_PATH} download className="ml-1 inline-flex items-center gap-1 text-brand-ink underline underline-offset-2"><Download className="size-3" /> ひな形(Excel)をダウンロード</a>
+          </p>
+          <Input type="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
           <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} placeholder={"山田 太郎, yamada@example.com, 株式会社サンプル\n佐藤 花子, sato@example.co.jp"} className="font-mono text-xs" />
           {result && (
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">

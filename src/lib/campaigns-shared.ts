@@ -8,6 +8,8 @@ import type { MailCampaignRecipientStatus, MailCampaignStatus } from "@/lib/type
 export const MAX_MAILING_LISTS = 50;
 /** 1 回の定期処理(5 分おき)で 1 つの配信から送る通数 */
 export const CAMPAIGN_BATCH_SIZE = 30;
+/** 配信リストに読み込む Excel のひな形(public/。scripts/build-mailing-list-template.mjs で作る) */
+export const MAILING_LIST_TEMPLATE_PATH = "/templates/mailing-list.xlsx";
 /** 配信停止リンクのパス(公開ページ。proxy の公開パスにも入れている) */
 export const UNSUBSCRIBE_PATH = "/u";
 
