@@ -8,8 +8,8 @@ import { notifyNewTodo, siteOriginForPreview } from "@/lib/mail/notify";
  * 行動を登録する Server Action(addActivity / addInquiryActivity、アポイント日時からの自動登録)から呼ぶ。
  * 画面の応答を待たせないよう after() で送り、失敗しても登録は止めない(記録だけ残す)。
  * 対象は未完了の行動だけ(「済んだ行動として記録する」は通知しない)。編集・担当者変更・完了は通知しない。
- * 通知先のアカウント指定(「○○ のみ」)は新着メールと同じく見る: 付け先の問い合わせ・案件に紐付くメールのアカウントを調べ、
- * そのアカウントの通知先と「すべてのアカウント」の通知先にだけ送る。メールが無くアカウントが決まらないときは全部に送る。
+ * 通知先のアカウント指定(「○○ のみ」)は新着メールと同じく見る: 付け先の問い合わせ・案件に紐付くメール、それも無ければ取引先のメールの
+ * アカウントを調べ、そのアカウントの通知先と「すべてのアカウント」の通知先にだけ送る。取引先にもメールが無くアカウントが決まらないときは全部に送る。
  */
 export function notifyTodoCreated(
   db: SupabaseClient,
@@ -62,24 +62,34 @@ async function actorNameOf(db: SupabaseClient, userId: string | null | undefined
 
 /**
  * 付け先に紐付くメールのアカウント(重複なし)。問い合わせの Todo はその問い合わせのメール、案件の Todo は案件に紐付くメール、
- * 無ければ案件の元の問い合わせのメールから引く。どこにもメールが無ければ空
+ * 無ければ案件の元の問い合わせのメールから引く。直接作った案件などでどこにもメールが無ければ、付け先の取引先に届いた・送ったメールのアカウントで代える
+ * (取引先にもメールが無ければ空 = 全部の通知先に送る)
  */
 async function accountIdsOf(db: SupabaseClient, a: { dealId: string | null; inquiryId: string | null }): Promise<string[]> {
-  const fromEmails = async (column: "inquiry_id" | "deal_id", id: string): Promise<string[]> => {
-    const { data } = await db.from("emails").select("account_id").eq(column, id).not("account_id", "is", null).limit(200);
+  const fromEmails = async (column: "inquiry_id" | "deal_id" | "company_id", id: string): Promise<string[]> => {
+    const { data } = await db.from("emails").select("account_id").eq(column, id).not("account_id", "is", null).order("received_at", { ascending: false }).limit(200);
     return Array.from(new Set((data ?? []).map((r) => r.account_id as string)));
   };
+  let companyId: string | null = null;
   if (a.inquiryId) {
     const ids = await fromEmails("inquiry_id", a.inquiryId);
     if (ids.length > 0) return ids;
+    const { data: inq } = await db.from("inquiries").select("company_id").eq("id", a.inquiryId).maybeSingle();
+    companyId = (inq?.company_id as string | null) ?? null;
   }
   if (a.dealId) {
     const ids = await fromEmails("deal_id", a.dealId);
     if (ids.length > 0) return ids;
-    const { data: deal } = await db.from("deals").select("inquiry_id").eq("id", a.dealId).maybeSingle();
+    const { data: deal } = await db.from("deals").select("inquiry_id, company_id").eq("id", a.dealId).maybeSingle();
     const inquiryId = (deal?.inquiry_id as string | null) ?? null;
-    if (inquiryId && inquiryId !== a.inquiryId) return fromEmails("inquiry_id", inquiryId);
+    if (inquiryId && inquiryId !== a.inquiryId) {
+      const fromInquiry = await fromEmails("inquiry_id", inquiryId);
+      if (fromInquiry.length > 0) return fromInquiry;
+    }
+    companyId = (deal?.company_id as string | null) ?? companyId;
   }
+  // 案件・問い合わせにメールが無ければ取引先のメールで決める
+  if (companyId) return fromEmails("company_id", companyId);
   return [];
 }
 
