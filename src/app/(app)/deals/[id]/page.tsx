@@ -31,7 +31,7 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   const [{ data }, { data: auth }] = await Promise.all([
     supabase
       .from("deals")
-      .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name)")
+      .select("*, company:companies(id,name), contact:contacts(id,name,email), owner:members(id,name), account:mail_accounts(id,label,email)")
       .eq("id", id)
       .maybeSingle(),
     supabase.auth.getUser(),
@@ -85,11 +85,12 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
             {deal.contact && <span className="flex items-center gap-1"><User className="size-4" /> {deal.contact.name}</span>}
             {deal.appointment_at && <span className="flex items-center gap-1"><CalendarClock className="size-4" /> アポ {fmtDateTime(deal.appointment_at)}</span>}
             <span className="flex items-center gap-1"><UserCog className="size-4" /> {deal.owner?.name ?? "担当未設定"}</span>
+            {accounts.length >= 2 && <span className="flex items-center gap-1" title={deal.account?.email}><Mail className="size-4" /> {deal.account?.label ?? "アカウント未設定"}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <StageSelect deal={{ id: deal.id, title: deal.title, amount: Number(deal.amount), stage: deal.stage }} />
-          <DealEditDialog deal={deal} contacts={contacts ?? []} members={memberOptions} />
+          <DealEditDialog deal={deal} contacts={contacts ?? []} members={memberOptions} accounts={accounts} />
         </div>
       </div>
 

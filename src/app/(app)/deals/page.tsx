@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/deals/kanban-board";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import type { Deal, Member, OpenTodo } from "@/lib/types";
 import { dueState } from "@/lib/activities";
 
@@ -28,7 +29,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
   if (owner === "none") dealsQuery = dealsQuery.is("owner_id", null);
   else if (owner !== "all") dealsQuery = dealsQuery.eq("owner_id", owner);
 
-  const [{ data: dealRows }, { data: companies }, { data: contacts }, { data: memberRows }, { data: unassigned }, { data: openActs }] = await Promise.all([
+  const [{ data: dealRows }, { data: companies }, { data: contacts }, { data: memberRows }, { data: unassigned }, { data: openActs }, accounts] = await Promise.all([
     dealsQuery,
     supabase.from("companies").select("id, name").order("name"),
     supabase.from("contacts").select("id, name, company_id").order("name"),
@@ -36,6 +37,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
     supabase.from("deals").select("id").is("owner_id", null).limit(1),
     // 未完了の行動(期限あり)。カードに期限超過・今日の件数を出す
     supabase.from("deal_activities").select("id, deal_id, body, due_at, done_at, kind:activity_kinds(name)").is("done_at", null).not("due_at", "is", null).not("deal_id", "is", null).order("due_at"),
+    getMailAccountOptions(supabase),
   ]);
   const overdueByDeal = new Map<string, number>();
   const todayByDeal = new Map<string, number>();
@@ -74,6 +76,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
             companies={companies ?? []}
             contacts={contacts ?? []}
             members={members}
+            accounts={accounts}
             defaults={{ owner_id: owner !== "all" && owner !== "none" ? owner : me?.id }}
             trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>}
           />

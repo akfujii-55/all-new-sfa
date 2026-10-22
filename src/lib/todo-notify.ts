@@ -61,9 +61,9 @@ async function actorNameOf(db: SupabaseClient, userId: string | null | undefined
 }
 
 /**
- * 付け先に紐付くメールのアカウント(重複なし)。問い合わせの Todo はその問い合わせのメール、案件の Todo は案件に紐付くメール、
- * 無ければ案件の元の問い合わせのメールから引く。直接作った案件などでどこにもメールが無ければ、付け先の取引先に届いた・送ったメールのアカウントで代える
- * (取引先にもメールが無ければ空 = 全部の通知先に送る)
+ * 付け先のアカウント(重複なし)。案件の Todo は案件に持たせたメールアカウント(deals.account_id、0044)で決める。
+ * 無ければ(古い案件など)問い合わせの Todo はその問い合わせのメール、案件の Todo は案件に紐付くメール → 案件の元の問い合わせのメールから引き、
+ * どこにもメールが無ければ付け先の取引先に届いた・送ったメールのアカウントで代える(取引先にもメールが無ければ空 = 全部の通知先に送る)
  */
 async function accountIdsOf(db: SupabaseClient, a: { dealId: string | null; inquiryId: string | null }): Promise<string[]> {
   const fromEmails = async (column: "inquiry_id" | "deal_id" | "company_id", id: string): Promise<string[]> => {
@@ -71,6 +71,10 @@ async function accountIdsOf(db: SupabaseClient, a: { dealId: string | null; inqu
     return Array.from(new Set((data ?? []).map((r) => r.account_id as string)));
   };
   let companyId: string | null = null;
+  if (a.dealId) {
+    const { data: deal } = await db.from("deals").select("account_id").eq("id", a.dealId).maybeSingle();
+    if (deal?.account_id) return [deal.account_id as string];
+  }
   if (a.inquiryId) {
     const ids = await fromEmails("inquiry_id", a.inquiryId);
     if (ids.length > 0) return ids;

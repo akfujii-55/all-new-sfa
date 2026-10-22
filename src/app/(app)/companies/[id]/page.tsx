@@ -14,6 +14,7 @@ import { MergeContactDialog } from "@/components/contacts/merge-contact-dialog";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
 import { StageBadge } from "@/components/deals/stage-badge";
 import { ComposeDialog } from "@/components/inbox/compose-dialog";
+import { getMailAccountOptions } from "@/lib/mail/options";
 import { fmtDate, fmtRelative, yen } from "@/lib/format";
 import { INQUIRY_STATUS_LABEL, type Company, type Contact, type Deal, type Email, type Inquiry } from "@/lib/types";
 
@@ -23,7 +24,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
   const { data: company } = await supabase.from("companies").select("*").eq("id", id).maybeSingle();
   if (!company) notFound();
 
-  const [{ data: contacts }, { data: deals }, { data: inquiries }, { data: emails }, { data: companies }, { data: allContacts }, { data: members }] = await Promise.all([
+  const [{ data: contacts }, { data: deals }, { data: inquiries }, { data: emails }, { data: companies }, { data: allContacts }, { data: members }, accounts] = await Promise.all([
     supabase.from("contacts").select("*").eq("company_id", id).order("name"),
     supabase.from("deals").select("*, contact:contacts(id,name,email)").eq("company_id", id).order("updated_at", { ascending: false }),
     supabase.from("inquiries").select("*, contact:contacts(id,name,email), deal:deals!inquiries_deal_id_fkey(id,title)").eq("company_id", id).order("received_at", { ascending: false }),
@@ -31,6 +32,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
     supabase.from("companies").select("id, name, domain").order("name"),
     supabase.from("contacts").select("id, name, company_id, email").order("name"),
     supabase.from("members").select("id, name").eq("is_active", true).order("sort_order").order("created_at"),
+    getMailAccountOptions(supabase),
   ]);
   const c = company as Company;
   // メール管理の利用タイプでは案件(作成ボタン・集計・タブ・リンク)を出さない
@@ -55,7 +57,7 @@ export default async function CompanyDetailPage({ params }: PageProps<"/companie
           </div>
         </div>
         <div className="flex gap-2">
-          {sales && <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />}
+          {sales && <NewDealDialog companies={companies ?? []} contacts={allContacts ?? []} members={members ?? []} accounts={accounts} defaults={{ company_id: id }} trigger={<Button size="sm"><Plus className="size-4" /> 案件を作成</Button>} />}
           <CompanyDialog company={c} redirectOnDelete trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /> 編集</Button>} />
           <MergeCompanyDialog company={c} companies={companies ?? []} trigger={<Button size="sm" variant="outline"><Merge className="size-4" /> 統合</Button>} />
         </div>

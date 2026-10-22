@@ -300,6 +300,8 @@ export interface Deal {
   appointment_at: string | null;
   expected_close_date: string | null;
   owner_id: string | null;
+  /** どのメールアカウント(事業)の案件か(0044)。問い合わせ・メールからの案件化はそのメールのアカウント、メール起点のない案件は作成時に選ぶ。Todo のチャット通知の振り分けに使う */
+  account_id: string | null;
   sort_order: number;
   won_at: string | null;
   lost_reason: string | null;
@@ -309,6 +311,7 @@ export interface Deal {
   company?: Pick<Company, "id" | "name"> | null;
   contact?: Pick<Contact, "id" | "name" | "email"> | null;
   owner?: Pick<Member, "id" | "name"> | null;
+  account?: Pick<MailAccount, "id" | "label" | "email"> | null;
   /** 一覧用: 期限超過の未完了行動の件数(ページ側で集計) */
   overdue_activities?: number;
   /** 一覧用: 今日が期限の未完了行動の件数 */

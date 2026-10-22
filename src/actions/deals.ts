@@ -34,7 +34,11 @@ export async function createDeal(formData: FormData) {
   const title = s(formData.get("title"));
   if (!companyId || !title) throw userError("取引先と案件名は必須です");
   const inquiryId = s(formData.get("inquiry_id"));
+  const emailId = s(formData.get("email_id"));
   const stage = (s(formData.get("stage")) ?? "appointment") as DealStage;
+  // どのメールアカウント(事業)の案件か(0044)。メール・問い合わせからの案件化はそのメールのアカウント、
+  // メール起点のない案件はダイアログで選んだもの(アカウントが 2 つ以上なら必須。1 つならそれ)
+  const accountId = await resolveDealAccount(supabase, { accountId: s(formData.get("account_id")), emailId, inquiryId });
 
   // 営業担当: 指定がなければログインユーザーに対応する営業担当
   let ownerId = s(formData.get("owner_id"));
@@ -50,6 +54,7 @@ export async function createDeal(formData: FormData) {
       company_id: companyId,
       contact_id: s(formData.get("contact_id")),
       inquiry_id: inquiryId,
+      account_id: accountId,
       title,
       stage,
       amount: n(formData.get("amount")),
@@ -81,7 +86,6 @@ export async function createDeal(formData: FormData) {
       }
     }
   }
-  const emailId = s(formData.get("email_id"));
   if (emailId) {
     const { data: em } = await supabase.from("emails").select("thread_key").eq("id", emailId).maybeSingle();
     if (em?.thread_key) {
@@ -105,6 +109,8 @@ export async function updateDeal(id: string, formData: FormData) {
     .from("deals")
     .update({
       title,
+      // 編集ダイアログがメールアカウントの欄を出したときだけ更新する(欄が無い = 値を送らない)
+      ...(formData.has("account_id") ? { account_id: s(formData.get("account_id")) } : {}),
       contact_id: s(formData.get("contact_id")),
       owner_id: s(formData.get("owner_id")),
       amount: n(formData.get("amount")),
@@ -135,6 +141,33 @@ export async function updateDeal(id: string, formData: FormData) {
   });
   revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
+}
+
+/**
+ * 案件のメールアカウントを決める(0044)。指定があればそれ(自テナントの有効なアカウントか確認)。
+ * 無ければ案件化の元のメール → 元の問い合わせのメールのアカウント。それも無ければ、有効なアカウントが 1 つならそれ、2 つ以上なら選んでもらう
+ */
+async function resolveDealAccount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  o: { accountId: string | null; emailId: string | null; inquiryId: string | null },
+): Promise<string | null> {
+  const { data: accounts } = await supabase.from("mail_accounts").select("id").eq("is_active", true);
+  const ids = new Set((accounts ?? []).map((a) => a.id as string));
+  if (o.accountId) {
+    if (!ids.has(o.accountId)) throw userError("メールアカウントを選び直してください");
+    return o.accountId;
+  }
+  if (o.emailId) {
+    const { data: em } = await supabase.from("emails").select("account_id").eq("id", o.emailId).maybeSingle();
+    if (em?.account_id) return em.account_id as string;
+  }
+  if (o.inquiryId) {
+    const { data: em } = await supabase.from("emails").select("account_id").eq("inquiry_id", o.inquiryId).not("account_id", "is", null).order("received_at", { ascending: false }).limit(1).maybeSingle();
+    if (em?.account_id) return em.account_id as string;
+  }
+  if (ids.size === 1) return [...ids][0];
+  if (ids.size >= 2) throw userError("どのメールアカウントの案件か選んでください");
+  return null;
 }
 
 /** お知らせの補足に出す「取引先: 〜」 */

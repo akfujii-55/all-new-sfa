@@ -20,15 +20,20 @@ export function DealEditDialog({
   deal,
   contacts,
   members = [],
+  accounts = [],
 }: {
   deal: Deal;
   contacts: { id: string; name: string }[];
   members?: { id: string; name: string }[];
+  /** 有効なメールアカウント(0044)。2 つ以上あるときに「どのアカウントの案件か」を変えられる */
+  accounts?: { id: string; label: string; email: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [contactId, setContactId] = useState(deal.contact_id ?? "");
   const [ownerId, setOwnerId] = useState(deal.owner_id ?? "");
+  const [accountId, setAccountId] = useState(deal.account_id ?? "");
+  const askAccount = accounts.length >= 2 || (accounts.length === 1 && !deal.account_id);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -43,6 +48,7 @@ export function DealEditDialog({
               try {
                 fd.set("contact_id", contactId);
                 fd.set("owner_id", ownerId);
+                if (askAccount) fd.set("account_id", accountId);
                 await updateDeal(deal.id, fd);
                 toast.success("保存しました");
                 setOpen(false);
@@ -56,6 +62,21 @@ export function DealEditDialog({
             <Label htmlFor="title">案件名</Label>
             <Input id="title" name="title" defaultValue={deal.title} required />
           </div>
+          {askAccount && (
+            <div className="grid gap-1.5">
+              <Label>メールアカウント</Label>
+              <Select value={accountId || "none"} onValueChange={(v) => setAccountId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="どのアカウントの案件か選択" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.label}<span className="ml-1.5 text-xs text-muted-foreground">{a.email}</span></SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">行動(Todo)のチャット通知は、このアカウントの通知先に届きます。</p>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label>担当者</Label>

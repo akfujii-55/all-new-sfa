@@ -38,17 +38,23 @@ export function NewDealDialog({
   companies,
   contacts,
   members = [],
+  accounts = [],
   defaults,
 }: {
   trigger: ReactNode;
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string; company_id: string | null }[];
   members?: { id: string; name: string }[];
+  /** 有効なメールアカウント(0044)。メール・問い合わせ起点でない案件化で 2 つ以上あるときに「どのアカウントの案件か」を選ばせる */
+  accounts?: { id: string; label: string; email: string }[];
   defaults?: NewDealDefaults;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [companyId, setCompanyId] = useState(defaults?.company_id ?? "");
+  const [accountId, setAccountId] = useState("");
+  // メール起点(問い合わせ・メールからの案件化)ならそのメールのアカウントが自動で入るので欄を出さない
+  const askAccount = !defaults?.inquiry_id && !defaults?.email_id && accounts.length >= 2;
   const [contactId, setContactId] = useState(defaults?.contact_id ?? "");
   const [stage, setStage] = useState<DealStage>(defaults?.stage ?? "appointment");
   const [ownerId, setOwnerId] = useState(defaults?.owner_id ?? "");
@@ -80,6 +86,7 @@ export function NewDealDialog({
                 fd.set("contact_id", contactId);
                 fd.set("stage", stage);
                 fd.set("owner_id", ownerId);
+                if (askAccount) fd.set("account_id", accountId);
                 if (defaults?.inquiry_id) fd.set("inquiry_id", defaults.inquiry_id);
                 if (defaults?.email_id) fd.set("email_id", defaults.email_id);
                 await createDeal(fd);
@@ -91,6 +98,20 @@ export function NewDealDialog({
             })
           }
         >
+          {askAccount && (
+            <div className="grid gap-1.5">
+              <Label>メールアカウント *</Label>
+              <Select value={accountId} onValueChange={setAccountId}>
+                <SelectTrigger><SelectValue placeholder="どのアカウントの案件か選択" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.label}<span className="ml-1.5 text-xs text-muted-foreground">{a.email}</span></SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">この案件の行動(Todo)のチャット通知は、ここで選んだアカウントの通知先に届きます。</p>
+            </div>
+          )}
           <div className="grid gap-1.5">
             <Label>取引先 *</Label>
             <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContactId(""); }}>
@@ -166,7 +187,7 @@ export function NewDealDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-            <Button type="submit" disabled={pending || !companyId}>{pending ? "作成中..." : "作成"}</Button>
+            <Button type="submit" disabled={pending || !companyId || (askAccount && !accountId)}>{pending ? "作成中..." : "作成"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
