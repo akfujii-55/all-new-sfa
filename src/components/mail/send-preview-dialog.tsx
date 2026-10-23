@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { unresolvedMerges } from "@/lib/mail/merge";
+import { splitAddresses } from "@/lib/mail/addresses";
 import { fmtBytes } from "@/lib/mail/attachment-shared";
 
 /** 送信前の確認。宛先・件名・本文・添付をまとめて見せ、残っている差し込み項目があれば赤く示して送信を止める */
@@ -11,6 +12,7 @@ export function SendPreviewDialog({
   open,
   onOpenChange,
   from,
+  fromEmail,
   to,
   cc,
   subject,
@@ -23,6 +25,8 @@ export function SendPreviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   from: string;
+  /** 送信元のアドレス。宛先に入っていたら送らせない(自分宛てになって相手に届かない) */
+  fromEmail?: string | null;
   to: string;
   cc: string;
   subject: string;
@@ -36,6 +40,7 @@ export function SendPreviewDialog({
   const unresolved = unresolvedMerges(`${subject}\n${body}`);
   const problems: string[] = [];
   if (!to.trim().includes("@")) problems.push("宛先が入っていません。");
+  if (fromEmail && splitAddresses(to).some((a) => a.toLowerCase() === fromEmail.toLowerCase())) problems.push(`宛先に送信元のアドレス(${fromEmail})が入っています。相手のアドレスに直してください。`);
   if (!subject.trim()) problems.push("件名が入っていません。");
   if (unresolved.length > 0) problems.push(`差し込み項目が反映されていません: ${unresolved.join(" ")}。本文に戻って直してください。`);
 

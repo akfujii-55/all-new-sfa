@@ -214,6 +214,7 @@ export function ComposeDialog({
           open={preview}
           onOpenChange={setPreview}
           from={fromAccount ? `${fromAccount.label}${fromAccount.label !== fromAccount.email ? ` <${fromAccount.email}>` : ""}` : "既定のメールアカウント"}
+          fromEmail={fromAccount?.email}
           to={form.to}
           cc={form.cc}
           subject={form.subject}

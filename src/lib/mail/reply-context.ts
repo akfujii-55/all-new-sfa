@@ -58,12 +58,17 @@ export function buildReplyContext<E extends ThreadEmail>(
     self: [...selves],
     text: latestInbound.text_body ?? "",
   });
-  const replyTo =
-    isForm && counterpart
-      ? counterpart.address
-      : latestInbound.direction === "inbound"
-        ? latestInbound.from_address
-        : latestInbound.to_addresses.join(", ");
+  const newestFirst = [...emails].reverse();
+  // 返信先に自社のアカウント・転送の受け口アドレスは入れない(送信元を宛先にしたメールは相手に届かない)
+  const isExternal = (a: string) => a.includes("@") && !selves.has(a.trim().toLowerCase()) && !isInboundAddress(a);
+  const replyToCandidates = isForm && counterpart ? [counterpart.address] : latestInbound.direction === "inbound" ? [latestInbound.from_address] : latestInbound.to_addresses;
+  let replyToList = uniqueAddresses(replyToCandidates.filter(isExternal));
+  if (replyToList.length === 0) {
+    // 相手のアドレスが取れないとき(自社から自社へのメールしか無い、読み取れないフォーム通知など)は、スレッドでいちばん新しい相手のアドレス。無ければ空にして入力してもらう
+    const fallback = newestFirst.flatMap((m) => (m.direction === "inbound" ? [m.from_address] : [...m.to_addresses, ...m.cc_addresses])).find(isExternal);
+    replyToList = fallback ? [fallback] : [];
+  }
+  const replyTo = replyToList.join(", ");
   const notOurs = (a: string) => !isInboundAddress(a);
   const since = emails.slice(emails.indexOf(latestInbound));
   const replyCc = isForm
@@ -80,7 +85,6 @@ export function buildReplyContext<E extends ThreadEmail>(
     if (!key.includes("@") || selves.has(key) || isInboundAddress(key) || addressOptions.some((o) => o.email.toLowerCase() === key)) return;
     addressOptions.push({ email: email.trim(), name: name?.trim() || contactNames.get(key) || null, hint });
   };
-  const newestFirst = [...emails].reverse();
   // いちばん新しい相手のメールの本文に書かれたアドレスを先頭に出す
   if (latestInbound.direction === "inbound") for (const a of extractAddresses(latestInbound.text_body)) addOption(a, null, "本文に記載");
   if (!isForm) {

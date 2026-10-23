@@ -34,7 +34,9 @@ export function resolveCounterpart(opts: {
     };
   }
   const form = parseFormNotification(opts.text, opts.form?.labels);
-  if (form && form.email !== opts.from.address) {
+  // 顧客の返信がこちらのメールを引用していると、署名の「メールアドレス: support@…」の行を問い合わせ者のアドレスと読んでしまう。
+  // 自社のアドレスが問い合わせ者になることは無いので、そのときはフォーム通知とみなさず差出人を相手にする
+  if (form && form.email !== opts.from.address && !selves.has(form.email)) {
     return { counterpart: { address: form.email, name: form.name ?? "" }, isForm: true };
   }
   // 設定で「通知システムの送信元」に登録されたアドレスからのメールは、本文を読み取れなくても

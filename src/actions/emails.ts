@@ -105,6 +105,11 @@ export async function sendEmail(input: SendEmailInput) {
   }
 
   const account = await resolveSendAccount(supabase, { accountId: input.accountId, replyToAccountId });
+  // 送信元のアドレスを宛先にしたメールは相手に届かない(自分の受信トレイに入るだけ)ので送らない
+  if (to.some((a) => a.toLowerCase() === account.email.toLowerCase())) {
+    await discardOutgoing(attachmentRefs);
+    throw userError(`宛先に送信元のアドレス(${account.email})が入っています。相手のアドレスに直してください`);
+  }
   let sent: Awaited<ReturnType<typeof sendMail>>;
   try {
     const attachments = await loadOutgoingAttachments(attachmentRefs);
