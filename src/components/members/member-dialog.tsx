@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
-import { createMember, updateMember, deleteMember } from "@/actions/members";
+import { createMember, updateMember, deleteMember, testLarkMention } from "@/actions/members";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,8 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
   // 営業担当者が受け持つもの。メール管理の利用タイプでは案件が無いので問い合わせ
   const work = useFeatures().sales ? "案件" : "問い合わせ";
   const [email, setEmail] = useState(member?.email ?? "");
+  const [larkId, setLarkId] = useState(member?.lark_user_id ?? "");
+  const [testing, startTest] = useTransition();
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmDelete(false); }}>
@@ -69,6 +71,35 @@ export function MemberDialog({ trigger, member }: { trigger: ReactNode; member?:
               招待メールを送る(このアプリにログインできるようにする)
             </label>
           )}
+          <div className="grid gap-1.5">
+            <Label htmlFor="lark_user_id">Lark のユーザー ID</Label>
+            <div className="flex gap-2">
+              <Input id="lark_user_id" name="lark_user_id" value={larkId} onChange={(e) => setLarkId(e.target.value)} placeholder="ou_… またはユーザー ID" className="font-mono text-sm" />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={testing || !larkId.trim()}
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set("name", (document.getElementById("name") as HTMLInputElement | null)?.value ?? member?.name ?? "");
+                  fd.set("lark_user_id", larkId);
+                  startTest(async () => {
+                    try {
+                      const r = await testLarkMention(fd);
+                      toast.success(r.message, { duration: 8000 });
+                    } catch (e) {
+                      toast.error(actionErrorMessage(e));
+                    }
+                  });
+                }}
+              >
+                メンションを試す
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              行動(Todo)のチャット通知(Lark)でこの人を @ で呼ぶのに使います。ou_ で始まる open_id か、Lark 管理コンソールのメンバー詳細にあるユーザー ID です。「メンションを試す」は Todo 通知がオンの Lark の通知先に確認の文を送ります。届いた文で名前が @ になっていなければ ID が違います。
+            </p>
+          </div>
           <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>
             <Textarea id="memo" name="memo" rows={2} defaultValue={member?.memo ?? ""} />

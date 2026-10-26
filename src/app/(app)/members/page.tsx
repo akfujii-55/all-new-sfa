@@ -80,6 +80,9 @@ export default async function MembersPage() {
                     ) : m.invited_at ? (
                       <Badge variant="secondary" className="ml-2 hidden sm:inline-flex">招待済み {fmtDate(m.invited_at)}</Badge>
                     ) : null}
+                    {m.lark_user_id && (
+                      <Badge variant="outline" className="ml-2 hidden sm:inline-flex" title="行動(Todo)のチャット通知(Lark)で @ になります">Lark @</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{m.email ?? "-"}</TableCell>
                   {sales && <TableCell className="text-right tabular-nums">{openByOwner.get(m.id) ?? 0}</TableCell>}

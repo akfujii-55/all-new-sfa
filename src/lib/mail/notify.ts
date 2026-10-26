@@ -3,6 +3,7 @@ import { decryptSecret } from "./crypto";
 import { errorMessage, logSystem, postWebhook } from "@/lib/log";
 import { DELETE_LIST_TAG_NAME } from "@/lib/tag-rules";
 import {
+  buildLarkMentionTestText,
   buildNewMailText,
   buildTodoText,
   type MailNotificationKind,
@@ -187,6 +188,40 @@ export async function notifyNewMail(db: Db, ingested: IngestedMail[]): Promise<{
     }
   }
   return out;
+}
+
+/**
+ * 営業担当者の「メンションを試す」(0045): Todo 通知がオンの有効な Lark の通知先へ、その人を @ にした確認の文を送る。
+ * 成功なら送った通知先の名前、失敗なら理由を返す。Lark の通知先が無ければ userError 相当の理由を返す(例外は投げない)
+ */
+export async function sendLarkMentionTest(db: Db, p: { name: string; larkUserId: string; actorName: string | null }): Promise<{ sentTo: string[]; error: string | null }> {
+  const { data: rows, error } = await db
+    .from("mail_notifications")
+    .select("id, kind, name, url, secret_enc, room_id, mail_account_id, mode")
+    .eq("is_active", true)
+    .eq("notify_todo", true)
+    .eq("kind", "lark")
+    .order("created_at");
+  if (error) return { sentTo: [], error: `通知先を読めませんでした: ${error.message}` };
+  const targets = (rows ?? []) as TargetRow[];
+  if (targets.length === 0) return { sentTo: [], error: "「行動(Todo)の登録も通知する」がオンの Lark の通知先がありません。設定 → 新着メールの通知で先に用意してください" };
+  const text = buildLarkMentionTestText(p.name, p.larkUserId, p.actorName);
+  const sentTo: string[] = [];
+  for (const t of targets) {
+    let err: string | null;
+    try {
+      err = await sendChatMessage(toTarget(t), text);
+    } catch (e) {
+      err = errorMessage(e);
+    }
+    if (err) {
+      await logSystem({ level: "warn", source: "todo.notify", message: `メンションの確認を送れませんでした(${t.name}): ${err}`, detail: { notificationId: t.id, member: p.name }, notify: false }, db);
+      return { sentTo, error: `${t.name}: ${err}` };
+    }
+    sentTo.push(t.name);
+  }
+  await logSystem({ level: "info", source: "todo.notify", message: `メンションの確認を送りました(${sentTo.join("、")}): ${p.name}`, detail: { member: p.name, actor: p.actorName } }, db);
+  return { sentTo, error: null };
 }
 
 async function recordResult(db: Db, id: string, error: string | null) {

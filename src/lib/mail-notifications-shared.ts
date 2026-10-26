@@ -185,6 +185,8 @@ export interface TodoNotice {
   due: string | null;
   /** 行動の担当者の名前 */
   ownerName: string | null;
+  /** 担当者の Lark ユーザー ID(members.lark_user_id)。あれば Lark の通知で担当者を @ にする(0045) */
+  ownerLarkId?: string | null;
   /** 登録した人の名前 */
   actorName: string | null;
   /** 付け先の表示(「案件: ○○」「問い合わせ: ○○」) */
@@ -198,14 +200,29 @@ export interface TodoNotice {
  * 行動(Todo)の登録通知の文面。新着メールと同じく、Slack は mrkdwn のリンク、Chatwork は [info] 記法、それ以外はプレーンテキスト。
  * Lark のカスタム Bot はテキストのみなので、担当者へのメンションは付けられない(名前を本文に書く)。
  */
+/**
+ * Lark のテキスト通知で人を @ にする書き方。ID は ou_ で始まる open_id か Lark のユーザー ID(社内グループ)。
+ * ID が違っても Lark はエラーを返さず名前だけを表示する(@ にならない)ので、設定画面の「メンションを試す」で確かめる
+ */
+export function larkMention(larkUserId: string, name: string): string {
+  return `<at user_id="${larkUserId.replace(/"/g, "")}">${name}</at>`;
+}
+
+/** 「メンションを試す」の文面(営業担当者の編集ダイアログから、Todo 通知がオンの Lark の通知先へ送る) */
+export function buildLarkMentionTestText(name: string, larkUserId: string, actorName: string | null): string {
+  return `${larkMention(larkUserId, name)} さん、SFA からのメンションの確認です${actorName ? `(操作: ${actorName})` : ""}。この文で名前が @ になっていれば設定は正しいです。`;
+}
+
 export function buildTodoText(kind: MailNotificationKind, t: TodoNotice): string {
   const title = `✅ 行動(Todo)が登録されました`;
   const body = t.body.length > 120 ? `${t.body.slice(0, 120)}…` : t.body;
   const head = `${t.kindName ? `[${t.kindName}] ` : ""}${body}`;
+  // Lark で担当者に Lark ユーザー ID があれば @ にする(0045)。他のサービスは名前のまま
+  const owner = t.ownerName ? (kind === "lark" && t.ownerLarkId ? larkMention(t.ownerLarkId, t.ownerName) : t.ownerName) : "未設定";
   const lines = [
     t.target ? `${t.target}${t.companyName && !t.target.includes(t.companyName) ? `(${t.companyName})` : ""}` : t.companyName,
     `期限: ${t.due ?? "なし"}`,
-    `担当者: ${t.ownerName ?? "未設定"}`,
+    `担当者: ${owner}`,
     t.actorName ? `登録: ${t.actorName}` : null,
   ].filter(Boolean) as string[];
 

@@ -11,6 +11,7 @@ import { getCurrentTenant } from "@/lib/supabase/tenant";
 import { tenantIdOf } from "@/lib/supabase/tenant";
 import { assertCanAddUser, assertTenantWritable } from "@/lib/tenant-quota";
 import { syncTenantBilling } from "@/lib/stripe";
+import { sendLarkMentionTest } from "@/lib/mail/notify";
 
 import { userError } from "@/lib/errors";
 function s(v: FormDataEntryValue | null) {
@@ -34,6 +35,7 @@ export async function createMember(formData: FormData) {
       name,
       email: s(formData.get("email"))?.toLowerCase() ?? null,
       memo: s(formData.get("memo")),
+      lark_user_id: s(formData.get("lark_user_id")),
       is_active: true,
       sort_order: count ?? 0,
     })
@@ -59,11 +61,31 @@ export async function updateMember(id: string, formData: FormData) {
       name,
       email: s(formData.get("email"))?.toLowerCase() ?? null,
       memo: s(formData.get("memo")),
+      lark_user_id: s(formData.get("lark_user_id")),
       is_active: formData.get("is_active") !== "false",
     })
     .eq("id", id);
   if (error) throw userError(error.message);
   revalidate();
+}
+
+/**
+ * 「メンションを試す」(0045): 編集ダイアログに入力中の名前と Lark ユーザー ID で、Todo 通知がオンの Lark の通知先へ @ 付きの確認文を送る。
+ * 保存前の値で試せるようフォームの値を受け取る。Lark は ID が違ってもエラーを返さないので、届いた文で @ になっているかを人が見る
+ */
+export async function testLarkMention(formData: FormData): Promise<{ message: string }> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw userError("ログインが必要です");
+  const name = s(formData.get("name"));
+  const larkUserId = s(formData.get("lark_user_id"));
+  if (!name) throw userError("氏名を入力してください");
+  if (!larkUserId) throw userError("Lark のユーザー ID を入力してください");
+  if (/\s/.test(larkUserId)) throw userError("Lark のユーザー ID に空白は入れられません");
+  const actorName = (await supabase.from("members").select("name").eq("profile_id", auth.user.id).maybeSingle()).data?.name ?? auth.user.email ?? null;
+  const r = await sendLarkMentionTest(supabase, { name, larkUserId, actorName });
+  if (r.error) throw userError(r.error);
+  return { message: `${r.sentTo.join("、")} に送りました。Lark で「${name}」が @ になっているか確認してください(名前のままなら ID が違います)` };
 }
 
 /**

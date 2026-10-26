@@ -136,6 +136,8 @@ export interface Member {
   invited_at: string | null;
   /** 運営サポート(運営管理から入れた運営者。自分のログインでこのテナントに入る。ユーザー数に数えない) */
   is_support: boolean;
+  /** Lark のユーザー ID(ou_ で始まる open_id か管理コンソールのユーザー ID)。Todo のチャット通知で @ にする。空なら名前だけ(0045) */
+  lark_user_id: string | null;
   created_at: string;
   updated_at: string;
 }

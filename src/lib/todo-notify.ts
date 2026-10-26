@@ -33,7 +33,9 @@ export function notifyTodoCreated(
 
       const [{ data: kind }, owner, actorName, target, accountIds] = await Promise.all([
         db.from("activity_kinds").select("name").eq("id", a.kindId).maybeSingle(),
-        a.ownerId ? db.from("members").select("name").eq("id", a.ownerId).maybeSingle().then((r) => (r.data?.name as string | null) ?? null) : Promise.resolve(null),
+        a.ownerId
+          ? db.from("members").select("name, lark_user_id").eq("id", a.ownerId).maybeSingle().then((r) => r.data as { name: string; lark_user_id: string | null } | null)
+          : Promise.resolve(null),
         actorNameOf(db, a.actorUserId),
         targetOf(db, a),
         accountIdsOf(db, a),
@@ -42,7 +44,8 @@ export function notifyTodoCreated(
         kindName: (kind?.name as string | null) ?? null,
         body: a.body,
         due: a.dueAt ? fmtDue(a.dueAt) : null,
-        ownerName: owner,
+        ownerName: owner?.name ?? null,
+        ownerLarkId: owner?.lark_user_id ?? null,
         actorName,
         target: target.label,
         companyName: target.companyName,
@@ -54,7 +57,7 @@ export function notifyTodoCreated(
           level: "warn",
           source: "todo.notify",
           message: `行動(Todo)の通知を送る先がありませんでした: 付け先のメールアカウントに合う通知先が無いため(${result.skipped.join("、") || "通知先なし"} は別のアカウント指定)。そのアカウントの通知先か「すべてのアカウント」の通知先を設定してください`,
-          detail: { accountIds, target: target.label, body: a.body.slice(0, 80) },
+          detail: { accountIds, target: target.label, body: a.body.slice(0, 80), owner: owner?.name ?? null },
           notify: false,
         }, db);
       }
