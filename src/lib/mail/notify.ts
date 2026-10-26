@@ -202,8 +202,8 @@ async function recordResult(db: Db, id: string, error: string | null) {
  * 通知先のアカウント指定(mail_account_id)は新着メールと同じように見る: accountIds に Todo の付け先(問い合わせ・案件)に紐付くメールのアカウントを渡すと、
  * 「すべてのアカウント」の通知先と、そのアカウント指定の通知先にだけ送る。空(メールの無い案件など、アカウントが決まらない)なら全部に送る。
  */
-export async function notifyNewTodo(db: Db, notice: TodoNotice, accountIds: readonly string[] = []): Promise<{ sent: number; failed: number }> {
-  const out = { sent: 0, failed: 0 };
+export async function notifyNewTodo(db: Db, notice: TodoNotice, accountIds: readonly string[] = []): Promise<{ sent: number; failed: number; skipped: string[] }> {
+  const out = { sent: 0, failed: 0, skipped: [] as string[] };
   const { data: targetRows, error } = await db
     .from("mail_notifications")
     .select("id, kind, name, url, secret_enc, room_id, mail_account_id, mode")
@@ -215,7 +215,10 @@ export async function notifyNewTodo(db: Db, notice: TodoNotice, accountIds: read
     return out;
   }
   for (const t of (targetRows ?? []) as TargetRow[]) {
-    if (t.mail_account_id && accountIds.length > 0 && !accountIds.includes(t.mail_account_id)) continue;
+    if (t.mail_account_id && accountIds.length > 0 && !accountIds.includes(t.mail_account_id)) {
+      out.skipped.push(t.name);
+      continue;
+    }
     let err: string | null;
     try {
       err = await sendChatMessage(toTarget(t), buildTodoText(t.kind, notice));
@@ -225,9 +228,11 @@ export async function notifyNewTodo(db: Db, notice: TodoNotice, accountIds: read
     await recordResult(db, t.id, err);
     if (err) {
       out.failed++;
-      await logSystem({ level: "warn", source: "todo.notify", message: `行動(Todo)の通知に失敗しました(${t.name}): ${err}`, detail: { notificationId: t.id, kind: t.kind }, notify: false }, db);
+      await logSystem({ level: "warn", source: "todo.notify", message: `行動(Todo)の通知に失敗しました(${t.name}): ${err}`, detail: { notificationId: t.id, kind: t.kind, body: notice.body.slice(0, 80), target: notice.target }, notify: false }, db);
     } else {
       out.sent++;
+      // 届いたかを後から確かめられるよう、成功も記録する(設定 → ログ で見える)
+      await logSystem({ level: "info", source: "todo.notify", message: `行動(Todo)の通知を送りました(${t.name}): ${notice.body.slice(0, 80)}`, detail: { notificationId: t.id, kind: t.kind, target: notice.target, owner: notice.ownerName, actor: notice.actorName } }, db);
     }
   }
   return out;

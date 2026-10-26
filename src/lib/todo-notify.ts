@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { fmtDue } from "@/lib/format";
+import { errorMessage, logSystem } from "@/lib/log";
 import { notifyNewTodo, siteOriginForPreview } from "@/lib/mail/notify";
 
 /**
@@ -10,6 +11,7 @@ import { notifyNewTodo, siteOriginForPreview } from "@/lib/mail/notify";
  * 対象は未完了の行動だけ(「済んだ行動として記録する」は通知しない)。編集・担当者変更・完了は通知しない。
  * 通知先のアカウント指定(「○○ のみ」)は新着メールと同じく見る: 付け先の問い合わせ・案件に紐付くメール、それも無ければ取引先のメールの
  * アカウントを調べ、そのアカウントの通知先と「すべてのアカウント」の通知先にだけ送る。取引先にもメールが無くアカウントが決まらないときは全部に送る。
+ * 結果は成功・失敗・送り先なしのどれも system_logs(source=todo.notify)に残し、設定 → ログ で「届いたはずか」を後から確かめられるようにする。
  */
 export function notifyTodoCreated(
   db: SupabaseClient,
@@ -36,7 +38,7 @@ export function notifyTodoCreated(
         targetOf(db, a),
         accountIdsOf(db, a),
       ]);
-      await notifyNewTodo(db, {
+      const result = await notifyNewTodo(db, {
         kindName: (kind?.name as string | null) ?? null,
         body: a.body,
         due: a.dueAt ? fmtDue(a.dueAt) : null,
@@ -46,8 +48,19 @@ export function notifyTodoCreated(
         companyName: target.companyName,
         url: `${siteOriginForPreview()}${target.path}`,
       }, accountIds);
+      if (result.sent === 0 && result.failed === 0) {
+        // 通知先はあるのに、付け先のメールアカウントに合う通知先が 1 つも無い(例: 通知先の無いアカウントの問い合わせ)。黙って終わらず残す
+        await logSystem({
+          level: "warn",
+          source: "todo.notify",
+          message: `行動(Todo)の通知を送る先がありませんでした: 付け先のメールアカウントに合う通知先が無いため(${result.skipped.join("、") || "通知先なし"} は別のアカウント指定)。そのアカウントの通知先か「すべてのアカウント」の通知先を設定してください`,
+          detail: { accountIds, target: target.label, body: a.body.slice(0, 80) },
+          notify: false,
+        }, db);
+      }
     } catch (e) {
-      console.warn("[todo-notify] 行動(Todo)の通知に失敗:", (e as Error).message);
+      // ここで落ちると画面には何も出ないので、設定 → ログ で気づけるように残す
+      await logSystem({ level: "warn", source: "todo.notify", message: `行動(Todo)の通知の処理に失敗しました: ${errorMessage(e)}`, detail: { dealId: a.dealId, inquiryId: a.inquiryId, body: a.body.slice(0, 80) }, notify: false }, db);
     }
   });
 }
