@@ -173,13 +173,25 @@ export function imapClient(account: Pick<MailAccountConfig, "imapHost" | "imapPo
   });
 }
 
+/**
+ * LOGIN に NO を返されても、ID・パスワードの間違いではなくサーバー側の一時的な事情で断られたか。
+ * Gmail は 1 アカウントの IMAP 同時接続が上限(15)を超えると「Too many simultaneous connections」、
+ * 内部の不調では「Temporary System Problem」「[UNAVAILABLE] …」を LOGIN の応答で返す。
+ * これらは待てば直るので、ログインの失敗(即通知)ではなく接続の失敗(やり直し → 3 回連続で通知)として扱う。
+ */
+function isTransientLoginFailure(err: { serverResponseCode?: string; responseText?: string; response?: string; message?: string }): boolean {
+  if (err.serverResponseCode === "UNAVAILABLE") return true;
+  const text = err.responseText ?? err.response ?? err.message ?? "";
+  return /too many simultaneous connections|temporary system problem|try again later|system error/i.test(text);
+}
+
 /** label を渡すのは利用者のアカウント以外(運営側の受信用メールボックス)。利用者向けのパスワードの案内を出さない */
 export async function connectOrThrow(client: ImapFlow, label?: string) {
   try {
     await client.connect();
   } catch (e) {
-    const err = e as Error & { authenticationFailed?: boolean; responseText?: string };
-    const auth = Boolean(err.authenticationFailed);
+    const err = e as Error & { authenticationFailed?: boolean; serverResponseCode?: string; responseText?: string; response?: string };
+    const auth = Boolean(err.authenticationFailed) && !isTransientLoginFailure(err);
     if (label) throw Object.assign(userError(`${label}に接続できません: ${err.responseText ?? err.message}`), { authenticationFailed: auth });
     if (auth) {
       throw Object.assign(
@@ -190,7 +202,11 @@ export async function connectOrThrow(client: ImapFlow, label?: string) {
         { authenticationFailed: true },
       );
     }
-    throw userError(`メールサーバー(IMAP)への接続に失敗しました: ${err.responseText ?? err.message}`);
+    const reason = err.responseText ?? err.message;
+    const hint = /too many simultaneous connections/i.test(reason)
+      ? "(同時接続数の上限。同じアカウントを開いているメールソフト・他の同期が多いときに起きます)"
+      : "";
+    throw userError(`メールサーバー(IMAP)への接続に失敗しました: ${reason}${hint}`);
   }
 }
 
