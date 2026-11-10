@@ -25,8 +25,8 @@ export interface DatePickerProps {
   mode: DatePickerMode;
   /** 初期値。日時モードは yyyy-MM-ddTHH:mm(toLocalInput の出力)、日付モードは yyyy-MM-dd */
   defaultValue?: string | null;
-  /** 近い日付のボタンの種類。near: 今日〜1 週間後、month-end: 今月末〜再来月末 */
-  quick?: "near" | "month-end";
+  /** 近い日付のボタンの種類。near: 今日〜1 週間後、month-end: 今月末〜再来月末、past: 今日〜一昨日(済んだ日付用。タイルは過去へさかのぼり、先の日は選べない) */
+  quick?: "near" | "month-end" | "past";
   /** 時刻ボタン(日時モード)。[値, 表示] */
   timePresets?: [string, string][];
   /** 「時刻なし(終日)」を出すか(日時モード)。true なら既定は終日 */
@@ -97,6 +97,12 @@ export function DatePicker({ name, mode, defaultValue, quick = "near", timePrese
           { label: `来週${DOW[nextMonday(today).getDay()]}曜`, d: nextMonday(today) },
           { label: "1 週間後", d: addDays(today, 7) },
         ]
+      : quick === "past"
+      ? [
+          { label: "今日", d: today },
+          { label: "昨日", d: addDays(today, -1) },
+          { label: "一昨日", d: addDays(today, -2) },
+        ]
       : [0, 1, 2].map((n) => {
           const d = endOfMonth(addMonths(today, n));
           return { label: `${n === 0 ? "今" : n === 1 ? "来" : "再来"}月末 ${d.getMonth() + 1}/${d.getDate()}`, d: startOfDay(d) };
@@ -136,7 +142,7 @@ export function DatePicker({ name, mode, defaultValue, quick = "near", timePrese
         </button>
       </div>
 
-      {open && <Tiles today={today} selected={date} onPick={(d) => pick(d)} />}
+      {open && <Tiles today={today} selected={date} onPick={(d) => pick(d)} past={quick === "past"} />}
 
       {mode === "datetime" && date && (
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="時刻">
@@ -196,30 +202,33 @@ function timeOptions() {
   return out;
 }
 
-/** 2 週間分のタイル。‹ › で 1 週間ずつ動く。過去の日は選べない */
-function Tiles({ today, selected, onPick }: { today: Date; selected: Date | null; onPick: (d: Date) => void }) {
+/** 2 週間分のタイル。‹ › で 1 週間ずつ動く。過去の日は選べない(past のときは逆で、今日までの 2 週間から過去へさかのぼり、先の日は選べない) */
+function Tiles({ today, selected, onPick, past: pastMode = false }: { today: Date; selected: Date | null; onPick: (d: Date) => void; past?: boolean }) {
+  const home = pastMode ? addDays(today, -13) : today;
   const [start, setStart] = useState<Date>(() => {
-    // 選択済みの日が 2 週間より先なら、その日が入る週から表示する
-    if (selected && differenceInCalendarDays(selected, today) >= 14) return addDays(today, Math.floor(differenceInCalendarDays(selected, today) / 7) * 7);
-    return today;
+    if (!selected) return home;
+    const diff = differenceInCalendarDays(selected, home);
+    // 選択済みの日が表示の 2 週間に入っていなければ、その日が入る週から表示する
+    if (pastMode ? diff < 0 : diff >= 14) return addDays(home, Math.floor(diff / 7) * 7);
+    return home;
   });
   const end = addDays(start, 13);
-  const atToday = differenceInCalendarDays(start, today) <= 0;
+  const atHome = pastMode ? differenceInCalendarDays(start, home) >= 0 : differenceInCalendarDays(start, home) <= 0;
   return (
     <div className="rounded-md border bg-background p-2.5">
       <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium">
         <span>{start.getMonth() + 1}月{start.getDate()}日 〜 {end.getMonth() + 1}月{end.getDate()}日</span>
         <div className="flex gap-1">
-          <button type="button" aria-label="前の週" disabled={atToday} onClick={() => setStart(addDays(start, -7))} className="inline-flex size-6 items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"><ChevronLeft className="size-3.5" /></button>
-          <button type="button" disabled={atToday} onClick={() => setStart(today)} className="rounded-md border px-2 text-[11px] hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent">今日に戻る</button>
-          <button type="button" aria-label="次の週" onClick={() => setStart(addDays(start, 7))} className="inline-flex size-6 items-center justify-center rounded-md border hover:bg-muted"><ChevronRight className="size-3.5" /></button>
+          <button type="button" aria-label="前の週" disabled={!pastMode && atHome} onClick={() => setStart(addDays(start, -7))} className="inline-flex size-6 items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"><ChevronLeft className="size-3.5" /></button>
+          <button type="button" disabled={atHome} onClick={() => setStart(home)} className="rounded-md border px-2 text-[11px] hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent">今日に戻る</button>
+          <button type="button" aria-label="次の週" disabled={pastMode && atHome} onClick={() => setStart(addDays(start, 7))} className="inline-flex size-6 items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"><ChevronRight className="size-3.5" /></button>
         </div>
       </div>
       <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: 14 }, (_, i) => addDays(start, i)).map((d, i) => {
           const key = ymd(d);
           const hol = holidayName(key);
-          const past = d < today;
+          const past = pastMode ? d > today : d < today;
           const isToday = key === ymd(today);
           const on = selected ? key === ymd(selected) : false;
           const sub = d.getDate() === 1 || i === 0 ? `${d.getMonth() + 1}月` : hol || "";

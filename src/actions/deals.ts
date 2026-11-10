@@ -14,6 +14,10 @@ function s(v: FormDataEntryValue | null) {
   const t = String(v ?? "").trim();
   return t === "" ? null : t;
 }
+/** yyyy-MM-dd の日付だけ通す(それ以外は null) */
+function ymd(v: string | null | undefined) {
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(v).getTime()) ? v : null;
+}
 function n(v: FormDataEntryValue | null) {
   const t = String(v ?? "").replace(/[,¥\s]/g, "");
   const num = Number(t);
@@ -117,6 +121,8 @@ export async function updateDeal(id: string, formData: FormData) {
       probability: Math.min(100, Math.max(0, n(formData.get("probability")))),
       appointment_at: appointmentAt,
       expected_close_date: s(formData.get("expected_close_date")),
+      // 提案書の提出日(0046)。ステージを動かさなくても編集で登録・訂正・クリアできる
+      ...(formData.has("proposal_submitted_on") ? { proposal_submitted_on: ymd(s(formData.get("proposal_submitted_on"))) } : {}),
       memo: s(formData.get("memo")),
     })
     .eq("id", id);
@@ -177,11 +183,11 @@ async function companyLine(supabase: Awaited<ReturnType<typeof createClient>>, c
   return data?.name ? `取引先: ${data.name}` : null;
 }
 
-/** カンバンでのステージ変更。won にする場合は revenues が必須 */
+/** カンバンでのステージ変更。won にする場合は revenues が必須。proposalSubmittedOn を渡すと提案書の提出日(0046)も入れる */
 export async function moveDealStage(
   id: string,
   stage: DealStage,
-  opts: { revenues?: RevenueLine[]; lostReason?: string; sortOrder?: number } = {},
+  opts: { revenues?: RevenueLine[]; lostReason?: string; sortOrder?: number; proposalSubmittedOn?: string } = {},
 ) {
   const supabase = await createClient();
   const { data: deal, error: e0 } = await supabase.from("deals").select("id, company_id, stage").eq("id", id).single();
@@ -204,6 +210,8 @@ export async function moveDealStage(
     if (error) throw userError(error.message);
   } else {
     const patch: Record<string, unknown> = { stage, sort_order: opts.sortOrder ?? 0 };
+    const submittedOn = ymd(opts.proposalSubmittedOn);
+    if (submittedOn) patch.proposal_submitted_on = submittedOn;
     if (stage === "lost") {
       patch.lost_reason = opts.lostReason ?? null;
       patch.probability = 0;

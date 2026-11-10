@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, User, UserCog, CalendarClock, Mail, PenSquare } from "lucide-react";
+import { ArrowLeft, Building2, User, UserCog, CalendarClock, FileText, Mail, PenSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireSalesPage } from "@/lib/features-server";
 import { Button } from "@/components/ui/button";
@@ -84,12 +84,13 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
             <Link href={`/companies/${deal.company_id}`} className="flex items-center gap-1 hover:underline"><Building2 className="size-4" /> {deal.company?.name}</Link>
             {deal.contact && <span className="flex items-center gap-1"><User className="size-4" /> {deal.contact.name}</span>}
             {deal.appointment_at && <span className="flex items-center gap-1"><CalendarClock className="size-4" /> アポ {fmtDateTime(deal.appointment_at)}</span>}
+            {deal.proposal_submitted_on && <span className="flex items-center gap-1"><FileText className="size-4" /> 提案書 {fmtDate(deal.proposal_submitted_on)} 提出</span>}
             <span className="flex items-center gap-1"><UserCog className="size-4" /> {deal.owner?.name ?? "担当未設定"}</span>
             {accounts.length >= 2 && <span className="flex items-center gap-1" title={deal.account?.email}><Mail className="size-4" /> {deal.account?.label ?? "アカウント未設定"}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <StageSelect deal={{ id: deal.id, title: deal.title, amount: Number(deal.amount), stage: deal.stage }} />
+          <StageSelect deal={{ id: deal.id, title: deal.title, amount: Number(deal.amount), stage: deal.stage, proposal_submitted_on: deal.proposal_submitted_on }} />
           <DealEditDialog deal={deal} contacts={contacts ?? []} members={memberOptions} accounts={accounts} />
         </div>
       </div>

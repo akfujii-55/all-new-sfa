@@ -4,16 +4,16 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { AlertTriangle, Building2, CalendarClock, GripVertical, UserCog } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, FileText, GripVertical, UserCog } from "lucide-react";
 import { moveDealStage } from "@/actions/deals";
-import { DEAL_STAGES, type Deal, type DealStage, type OpenTodo } from "@/lib/types";
+import { DEAL_STAGES, PROPOSAL_DATE_STAGES, type Deal, type DealStage, type OpenTodo } from "@/lib/types";
 import { fmtDate, fmtDue, yen } from "@/lib/format";
-import { appointmentState, dueState } from "@/lib/activities";
+import { appointmentState, dueState, proposalState } from "@/lib/activities";
 import { useLocalPref } from "@/lib/local-pref";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { WonDialog, LostDialog } from "./stage-dialogs";
+import { WonDialog, LostDialog, ProposalDialog } from "./stage-dialogs";
 
 import { actionErrorMessage } from "@/lib/errors";
 export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
@@ -26,6 +26,8 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
   const [active, setActive] = useState<Deal | null>(null);
   const [wonTarget, setWonTarget] = useState<Deal | null>(null);
   const [lostTarget, setLostTarget] = useState<Deal | null>(null);
+  // 提案書の提出日を聞いてから動かすカード(提出日が空で「提案済み」「検討中」「保留」に落としたとき)
+  const [proposalTarget, setProposalTarget] = useState<{ deal: Deal; stage: DealStage } | null>(null);
   const [, start] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   // カードに出す未完了 Todo の件数(ブラウザごとに記憶)
@@ -44,6 +46,7 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
 
     if (stage === "won") return setWonTarget(deal);
     if (stage === "lost") return setLostTarget(deal);
+    if (PROPOSAL_DATE_STAGES.includes(stage) && !deal.proposal_submitted_on) return setProposalTarget({ deal, stage });
 
     const before = deals;
     setDeals(deals.map((d) => (d.id === dealId ? { ...d, stage } : d)));
@@ -89,6 +92,13 @@ export function KanbanBoard({ deals: initial }: { deals: Deal[] }) {
         open={!!lostTarget}
         onOpenChange={(o) => !o && setLostTarget(null)}
         onDone={() => lostTarget && setDeals(deals.map((d) => (d.id === lostTarget.id ? { ...d, stage: "lost" } : d)))}
+      />
+      <ProposalDialog
+        deal={proposalTarget?.deal ?? null}
+        stage={proposalTarget?.stage ?? null}
+        open={!!proposalTarget}
+        onOpenChange={(o) => !o && setProposalTarget(null)}
+        onDone={(submittedOn) => proposalTarget && setDeals(deals.map((d) => (d.id === proposalTarget.deal.id ? { ...d, stage: proposalTarget.stage, proposal_submitted_on: submittedOn } : d)))}
       />
     </>
   );
@@ -149,6 +159,19 @@ function AppointmentLine({ appointmentAt }: { appointmentAt: string }) {
   );
 }
 
+/** 提案書の提出日の行(0046)。提出日からの経過日数を出し、PROPOSAL_STALE_DAYS を超えると赤。提出日がある案件はアポの行の代わりにこれを出す */
+function ProposalLine({ submittedOn }: { submittedOn: string }) {
+  const st = proposalState(submittedOn);
+  return (
+    <p className={cn("mt-1.5 flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground", st.stale && "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300")}>
+      <FileText className="size-3" /> 提案 {fmtDate(submittedOn, "M/d")}
+      {st.days > 0 ? (
+        <span className={cn("font-semibold", st.stale ? "text-rose-600 dark:text-rose-300" : "text-amber-600 dark:text-amber-300")}>· {st.days} 日経過</span>
+      ) : st.days === 0 ? " · 今日" : null}
+    </p>
+  );
+}
+
 /** 未完了 Todo の 1 行(種類・内容・期限)。期限超過は赤、今日は黄色 */
 function TodoLine({ todo }: { todo: OpenTodo }) {
   const st = dueState({ due_at: todo.due_at, done_at: null });
@@ -196,7 +219,9 @@ function DealCard({ deal, todoLimit, overlay }: { deal: Deal; todoLimit: number;
               )}
             </p>
           )}
-          {deal.appointment_at ? (
+          {deal.proposal_submitted_on ? (
+            <ProposalLine submittedOn={deal.proposal_submitted_on} />
+          ) : deal.appointment_at ? (
             <AppointmentLine appointmentAt={deal.appointment_at} />
           ) : deal.expected_close_date ? (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">

@@ -15,6 +15,9 @@ export const DEAL_STAGES: { key: DealStage; label: string; color: string; probab
   { key: "lost", label: "失注", color: "bg-rose-400", probability: 0 },
 ];
 
+/** 動かしたときに提案書の提出日を聞くステージ(提出日が空のときだけ) */
+export const PROPOSAL_DATE_STAGES: DealStage[] = ["proposal", "considering", "on_hold"];
+
 export const STAGE_PROBABILITY: Record<DealStage, number> = Object.fromEntries(
   DEAL_STAGES.map((s) => [s.key, s.probability]),
 ) as Record<DealStage, number>;
@@ -301,6 +304,8 @@ export interface Deal {
   probability: number;
   appointment_at: string | null;
   expected_close_date: string | null;
+  /** 提案書の提出日(0046、yyyy-MM-dd)。手で登録する。カンバンのカードに提出からの経過日数を出す */
+  proposal_submitted_on: string | null;
   owner_id: string | null;
   /** どのメールアカウント(事業)の案件か(0044)。問い合わせ・メールからの案件化はそのメールのアカウント、メール起点のない案件は作成時に選ぶ。Todo のチャット通知の振り分けに使う */
   account_id: string | null;

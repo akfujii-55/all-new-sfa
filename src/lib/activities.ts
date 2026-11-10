@@ -60,6 +60,18 @@ export function groupByDue(list: DealActivity[], now: Date = new Date()): { key:
   return DUE_GROUPS.map((g) => ({ ...g, items: sorted.filter((a) => dueState(a, now) === g.key) }));
 }
 
+/** 提案書を出してからカンバンで赤くするまでの日数 */
+export const PROPOSAL_STALE_DAYS = 14;
+
+/** 提案書の提出日(yyyy-MM-dd)からの経過日数(日本時間の日付で数える。カンバンのカード用)。PROPOSAL_STALE_DAYS を超えたら強調する */
+export function proposalState(submittedOn: string, now: Date = new Date()): { days: number; stale: boolean } {
+  const n = new TZDate(now.getTime(), APP_TZ);
+  const [y, m, d] = submittedOn.split("-").map(Number);
+  const todayStart = new TZDate(n.getFullYear(), n.getMonth(), n.getDate(), APP_TZ).getTime();
+  const days = Math.round((todayStart - new TZDate(y, m - 1, d, APP_TZ).getTime()) / (24 * 60 * 60 * 1000));
+  return { days, stale: days > PROPOSAL_STALE_DAYS };
+}
+
 /** 過ぎたアポイントをカンバンで赤くするまでの日数 */
 export const APPOINTMENT_STALE_DAYS = 14;
 

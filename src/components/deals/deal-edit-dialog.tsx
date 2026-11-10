@@ -118,6 +118,10 @@ export function DealEditDialog({
             <DatePicker name="expected_close_date" mode="date" quick="month-end" defaultValue={deal.expected_close_date} emptyLabel="未定" />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="proposal_submitted_on-open">提案書の提出日</Label>
+            <DatePicker name="proposal_submitted_on" mode="date" quick="past" defaultValue={deal.proposal_submitted_on} emptyLabel="未登録(カンバンのカードにはアポの日付が出ます)" />
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="memo">メモ</Label>
             <Textarea id="memo" name="memo" rows={3} defaultValue={deal.memo ?? ""} />
           </div>
